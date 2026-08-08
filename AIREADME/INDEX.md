@@ -16,13 +16,14 @@
 | ROADMAP | ✅ | 先验证单宠移动闭环，再扩姿态与素材 Skill |
 | CONVENTIONS | ✅ | 动作、方向、素材版本与验收记录约定 |
 | DECISIONS | ✅ | 已确认的产品与技术 ADR |
-| MEMORY | N/A | pre-code，尚无 petsgraph 本项目事故记录 |
-| CHANGELOG | ✅ | 立项、真相源初始化与首个待验收素材候选 |
+| MEMORY | ✅ | 画布边界失败、后脚滑步漏检与对应避免规则 |
+| CHANGELOG | ✅ | 立项、右向站走动作批准、过渡策略演进与批准素材生产履历 |
 
 ## 按任务读
 
 - 跨项目了解 → `CORE.md` + `RELATIONS.md`
 - 设计或生成宠物素材包 → `SPEC.md` + `CONVENTIONS.md` + `DECISIONS.md`
+- 记录或复用已批准素材的生成方法 → `SPEC.md` 第 9.1 节 + `CONVENTIONS.md` + `DECISIONS.md`
 - 修改动作图、播放器或桌面窗口 → `ARCHITECTURE.md` + `SPEC.md` + `DECISIONS.md`
 - 讨论产品范围和验收 → `PRD.md` + `ROADMAP.md`
 - 安装、运行或发布 → `DEPLOYMENT.md` + `CHANGELOG.md`

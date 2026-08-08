@@ -34,4 +34,4 @@ petsgraph 是面向真实宠物的 macOS 桌面陪伴项目。第一阶段只运
 
 ## 生命周期
 
-`planned / pre-code`。2026-08-09 完成产品方向、第一阶段边界、风险闸门和素材包契约初稿，尚未开始运行时代码与正式素材生产。
+`prototype / phase-0-materials`。2026-08-09 五百 `stand-right-loop` 与 `walk-right-loop` 已达到 `human-action-approved`，第 4 次 `stand-right-to-walk-right` 已达到 `human-edge-approved`。已为三个通过单元建立逐项生产履历和宠物级批准目录。右向跑步、减速停步、root motion 与真实窗口同步尚未完成，因此整体仍未达到 `runtime-chain-approved`，运行时代码尚未开始。

@@ -6,7 +6,7 @@
 
 闸口：右向整链达到 `runtime-chain-approved`。在此之前不批量生成完整动作包。
 
-当前进度：五百 `walk-right-loop` 首个 Seedance 2.0 完整版候选已生成并通过用户视觉验收，状态为 `approved-master`。原始 5 秒母片共 121 帧，直接选择中段连续 27 帧作为 24 fps 循环，未使用补帧、光流、骨骼或交叉淡化。透明序列与深浅背景预览已完成。该动作尚未进入正式素材包，需等待右向整链达到 `runtime-chain-approved`。
+当前进度：五百 `walk-right-loop` 与 `stand-right-loop` 均已通过用户视觉验收，状态为 `human-action-approved`。`stand-right-to-walk-right` 前 3 次分别暴露尾巴裁断和后脚滑步，第 4 次把生成单元缩小为“站立准备加一次起步”，并从走路循环第 22 帧进入。用户已通过包含站立、该过渡和三轮走路循环的正常速度整链，图边状态为 `human-edge-approved`。三个通过单元均已建立包含任务、提示词、输入、参数、原始母片、连续选帧、处理约束、事实源哈希、衔接相位和已知取舍的生产履历。整条右向移动链仍缺少 `walk-right-to-run-right`、`run-right-loop`、`run-right-to-walk-right`、`walk-right-to-stand-right` 和真实窗口同步验收，当前不可安装。
 
 ## Next
 
