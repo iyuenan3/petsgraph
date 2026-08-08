@@ -1,0 +1,7 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Private pet references, provider job records, and unapproved generations.
+workspaces/
