@@ -7,6 +7,7 @@
 - Added: 五百首个 `walk-right-loop` 受控生成任务，使用 Seedance 2.0 完整版、同首尾帧、5 秒、24 fps。
 - Added: 从生成母片直接选择连续 27 帧形成 1.125 秒循环候选，并生成 PNG 透明序列、透明 WebP、GIF、MP4 与深浅背景接触表。
 - Added: 任务 ID、模型、用量、seed、输入与输出哈希、轮询状态和失败前置校验均写入私有工作区账本，不记录密钥和远端临时 URL。
+- Added: 创建公开 GitHub 仓库 `iyuenan3/petsgraph`，使用 MIT License；首个提交只包含公开文档和忽略规则，不包含凭据、宠物照片、生成视频或私有任务账本。
 - Changed: AIREADME 同步状态从 `pre-code` 更新为 `phase-0-materials`，运行时代码仍未开始。
 - Fixed: 首版色键的青色边缘溢色，改用青幕通道差 alpha 与前景颜色反解；外圈 alpha 已归零。
 - Removed: 无。

@@ -1,6 +1,6 @@
 # petsgraph · AIREADME
-> 面向真实宠物的单宠 macOS 桌面陪伴运行时与本地素材包体系 ｜ 生命周期: planned
-> last-synced: pre-code · 2026-08-09
+> 面向真实宠物的单宠 macOS 桌面陪伴运行时与本地素材包体系 ｜ 生命周期: prototype
+> last-synced: c39dd1a · 2026-08-09
 > phase: phase-0-materials
 
 ## 状态
