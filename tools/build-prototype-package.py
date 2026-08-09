@@ -89,12 +89,13 @@ def validate_approved_recipe(
 
     recipe = read_json(recipe_path)
     expected_subject = clip_config.get("approvalSubjectId")
-    if expected_subject is not None and recipe.get("subjectId") != expected_subject:
+    actual_subject = recipe.get("subjectId") or recipe.get("edgeId")
+    if expected_subject is not None and actual_subject != expected_subject:
         raise ValueError(
-            f"{recipe_path} declares subject {recipe.get('subjectId')}, "
+            f"{recipe_path} declares subject {actual_subject}, "
             f"expected {expected_subject}"
         )
-    approval_status = recipe.get("approval", {}).get("status")
+    approval_status = recipe.get("approval", {}).get("status") or recipe.get("status")
     if approval_status != clip_config["approvalStatus"]:
         raise ValueError(
             f"{recipe_path} approval status {approval_status}, "
@@ -102,10 +103,20 @@ def validate_approved_recipe(
         )
 
     selection = recipe.get("selection", {})
-    if int(selection.get("selectedFrames", -1)) != int(clip_config["frameCount"]):
+    selected_frames = selection.get("selectedFrames")
+    if selected_frames is None:
+        selected_frames = selection.get("runtimeFrames")
+    if selected_frames is None:
+        selected_frames = recipe.get("factSource", {}).get("frames")
+    if int(selected_frames if selected_frames is not None else -1) != int(clip_config["frameCount"]):
         raise ValueError(f"{recipe_path} approved frame count does not match clip config")
+    approved_fps = selection.get("fps")
+    if approved_fps is None:
+        approved_fps = recipe.get("source", {}).get("fps")
+    if approved_fps is None:
+        approved_fps = recipe.get("generation", {}).get("sourceVideo", {}).get("fps")
     if not math.isclose(
-        float(selection.get("fps", -1)),
+        float(approved_fps if approved_fps is not None else -1),
         float(clip_config.get("fps", 24)),
     ):
         raise ValueError(f"{recipe_path} approved FPS does not match clip config")
@@ -176,6 +187,8 @@ def runtime_frame(
     source_canvas: tuple[int, int],
     runtime_canvas: tuple[int, int],
     transform: dict[str, Any],
+    compilation_canvas: tuple[int, int] | None = None,
+    source_placement: tuple[int, int] = (0, 0),
 ) -> Image.Image:
     image = Image.open(source).convert("RGBA")
     if image.size != source_canvas:
@@ -195,6 +208,31 @@ def runtime_frame(
             dest=(int(translation[0]), int(translation[1])),
         )
         image = translated
+    crop = transform.get("cropPx")
+    if crop is not None:
+        if len(crop) != 4 or any(not float(value).is_integer() for value in crop):
+            raise ValueError("cropPx must contain four integer source-pixel values")
+        left, top, width, height = (int(value) for value in crop)
+        if left < 0 or top < 0 or width <= 0 or height <= 0:
+            raise ValueError("cropPx must describe a positive in-bounds rectangle")
+        if left + width > image.width or top + height > image.height:
+            raise ValueError("cropPx escapes the transformed source canvas")
+        image = image.crop((left, top, left + width, top + height))
+    if compilation_canvas is not None and image.size != compilation_canvas:
+        placement = transform.get("compilePlacementPx", source_placement)
+        if len(placement) != 2 or any(not float(value).is_integer() for value in placement):
+            raise ValueError("compilePlacementPx must contain two integer values")
+        offset = tuple(int(value) for value in placement)
+        if (
+            offset[0] < 0
+            or offset[1] < 0
+            or offset[0] + image.width > compilation_canvas[0]
+            or offset[1] + image.height > compilation_canvas[1]
+        ):
+            raise ValueError("compiled source placement escapes compilationCanvasPx")
+        compiled = Image.new("RGBA", compilation_canvas, (0, 0, 0, 0))
+        compiled.alpha_composite(image, dest=offset)
+        image = compiled
     if image.size != runtime_canvas:
         image = image.resize(runtime_canvas, Image.Resampling.LANCZOS)
     return image
@@ -212,6 +250,37 @@ def motion_at(profile: dict[str, Any], time_seconds: float, duration: float) -> 
         u = min(1.0, max(0.0, time_seconds / duration))
         integrated_smoothstep = u**3 - 0.5 * u**4
         return start * duration * u + (end - start) * duration * integrated_smoothstep
+    if kind == "delayed-smooth-speed":
+        delay = float(profile["delaySeconds"])
+        if delay < 0 or delay >= duration:
+            raise ValueError("delayed smooth speed requires 0 <= delay < duration")
+        active_duration = duration - delay
+        active_time = min(active_duration, max(0.0, time_seconds - delay))
+        u = active_time / active_duration
+        start = float(profile["startSpeedPtPerSecond"])
+        end = float(profile["endSpeedPtPerSecond"])
+        integrated_smoothstep = u**3 - 0.5 * u**4
+        return (
+            start * active_duration * u
+            + (end - start) * active_duration * integrated_smoothstep
+        )
+    if kind == "piecewise-smooth-speed":
+        delay = float(profile.get("delaySeconds", 0))
+        ramp = float(profile["rampSeconds"])
+        start = float(profile["startSpeedPtPerSecond"])
+        end = float(profile["endSpeedPtPerSecond"])
+        if delay < 0 or ramp <= 0 or delay + ramp > duration + 1e-9:
+            raise ValueError(
+                "piecewise smooth speed requires delay >= 0, ramp > 0 and delay + ramp <= duration"
+            )
+        clamped = min(duration, max(0.0, time_seconds))
+        before_ramp = min(clamped, delay)
+        ramp_time = min(ramp, max(0.0, clamped - delay))
+        u = ramp_time / ramp
+        integrated_smoothstep = u**3 - 0.5 * u**4
+        ramp_motion = start * ramp * u + (end - start) * ramp * integrated_smoothstep
+        after_ramp = max(0.0, clamped - delay - ramp)
+        return start * before_ramp + ramp_motion + end * after_ramp
     raise ValueError(f"unsupported motion profile: {kind}")
 
 
@@ -254,6 +323,8 @@ def compile_clip(
     source_canvas: tuple[int, int],
     runtime_canvas: tuple[int, int],
     ground_y: float,
+    compilation_canvas: tuple[int, int] | None = None,
+    source_placement: tuple[int, int] = (0, 0),
 ) -> dict[str, Any]:
     clip_id = config["id"]
     source = safe_repo_path(repo_root, config["source"])
@@ -270,13 +341,20 @@ def compile_clip(
     duration_ms = 1000.0 / fps
     total_duration = len(sources) / fps
     profile = config["motion"]
+    clip_source_canvas = tuple(
+        int(value) for value in config.get("sourceCanvasPx", source_canvas)
+    )
+    if len(clip_source_canvas) != 2:
+        raise ValueError(f"{clip_id} sourceCanvasPx must contain two dimensions")
     frames: list[dict[str, Any]] = []
     for index, source_frame in enumerate(sources):
         image = runtime_frame(
             source_frame,
-            source_canvas,
+            clip_source_canvas,
             runtime_canvas,
             config.get("transform", {}),
+            compilation_canvas,
+            source_placement,
         )
         destination = output_frames / f"{index:04d}.png"
         image.save(destination, optimize=True)
@@ -403,6 +481,8 @@ def load_config(repo_root: Path, config_path: Path) -> dict[str, Any]:
         "package",
         "pet",
         "sourceCanvasPx",
+        "compilationCanvasPx",
+        "sourcePlacementPx",
         "runtimeCanvasPx",
         "sourceGroundYExclusivePx",
         "baseHeightPt",
@@ -419,6 +499,18 @@ def load_config(repo_root: Path, config_path: Path) -> dict[str, Any]:
     additions = overlay.get("graphAdditions", {})
     config["graph"]["nodes"].extend(copy.deepcopy(additions.get("nodes", [])))
     config["graph"]["edges"].extend(copy.deepcopy(additions.get("edges", [])))
+    for update in overlay.get("graphEdgeUpdates", []):
+        matches = [
+            edge for edge in config["graph"]["edges"] if edge["id"] == update["id"]
+        ]
+        if len(matches) != 1:
+            raise ValueError(f"graph edge update did not resolve exactly once: {update['id']}")
+        matches[0].update(copy.deepcopy(update))
+    for update in overlay.get("clipUpdates", []):
+        matches = [clip for clip in config["clips"] if clip["id"] == update["id"]]
+        if len(matches) != 1:
+            raise ValueError(f"clip update did not resolve exactly once: {update['id']}")
+        matches[0].update(copy.deepcopy(update))
     config["clips"].extend(copy.deepcopy(overlay.get("clips", [])))
     config["materialUnits"].extend(copy.deepcopy(overlay.get("materialUnits", [])))
     return config
@@ -482,6 +574,17 @@ def main() -> None:
         raise ValueError("canvas dimensions must contain width and height")
     scale_y = runtime_canvas[1] / source_canvas[1]
     ground_y = float(config["sourceGroundYExclusivePx"]) * scale_y
+    compilation_canvas_value = config.get("compilationCanvasPx")
+    compilation_canvas = (
+        tuple(int(value) for value in compilation_canvas_value)
+        if compilation_canvas_value is not None
+        else None
+    )
+    if compilation_canvas is not None and len(compilation_canvas) != 2:
+        raise ValueError("compilationCanvasPx must contain two dimensions")
+    source_placement = tuple(int(value) for value in config.get("sourcePlacementPx", [0, 0]))
+    if len(source_placement) != 2:
+        raise ValueError("sourcePlacementPx must contain two values")
 
     temporary = Path(
         tempfile.mkdtemp(prefix=f"{output.name}.build-", dir=output.parent)
@@ -495,6 +598,8 @@ def main() -> None:
                 source_canvas,
                 runtime_canvas,
                 ground_y,
+                compilation_canvas,
+                source_placement,
             )
             for clip in config["clips"]
         ]

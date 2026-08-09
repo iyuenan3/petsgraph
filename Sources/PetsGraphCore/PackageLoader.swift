@@ -223,7 +223,9 @@ public struct PetPackageLoader: Sendable {
       guard
         nodeIDs.contains(edge.from),
         nodeIDs.contains(edge.to),
-        let clip = clips[edge.clip]
+        let clip = clips[edge.clip],
+        let targetNode = graph.nodes.first(where: { $0.id == edge.to }),
+        let targetLoop = clips[targetNode.loopClip]
       else {
         throw PackageValidationError.invalid("edge \(edge.id) has an unresolved node or clip")
       }
@@ -232,6 +234,13 @@ public struct PetPackageLoader: Sendable {
       }
       guard ["direct-manipulation-only", "safe-exit-only"].contains(edge.interruptPolicy) else {
         throw PackageValidationError.invalid("edge \(edge.id) has an unsupported interrupt policy")
+      }
+      if let targetStartFrame = edge.targetStartFrame {
+        guard targetLoop.frames.indices.contains(targetStartFrame) else {
+          throw PackageValidationError.invalid(
+            "edge \(edge.id) has invalid target loop frame \(targetStartFrame)"
+          )
+        }
       }
     }
     for clip in clips.values {

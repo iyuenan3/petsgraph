@@ -79,6 +79,25 @@ public struct GraphEdge: Codable, Sendable {
   public let clip: String
   public let kind: String
   public let interruptPolicy: String
+  public let targetStartFrame: Int?
+
+  public init(
+    id: String,
+    from: String,
+    to: String,
+    clip: String,
+    kind: String,
+    interruptPolicy: String,
+    targetStartFrame: Int? = nil
+  ) {
+    self.id = id
+    self.from = from
+    self.to = to
+    self.clip = clip
+    self.kind = kind
+    self.interruptPolicy = interruptPolicy
+    self.targetStartFrame = targetStartFrame
+  }
 }
 
 public enum InterruptionCause: Sendable {

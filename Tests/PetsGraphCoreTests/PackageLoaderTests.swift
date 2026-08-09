@@ -147,6 +147,18 @@ final class PackageLoaderTests: XCTestCase {
     }
   }
 
+  func testRejectsTargetStartFrameOutsideTargetLoop() throws {
+    let fixture = try SleepPackageFixture()
+    addTeardownBlock { fixture.remove() }
+    try fixture.makeFirstEdgeTargetStartFrameInvalid()
+
+    XCTAssertThrowsError(
+      try PetPackageLoader().load(at: fixture.root, verifyIntegrity: false)
+    ) { error in
+      XCTAssertTrue(String(describing: error).contains("invalid target loop frame 53"))
+    }
+  }
+
   func testMissingClipFileIsRejected() throws {
     let fixture = try SleepPackageFixture()
     addTeardownBlock { fixture.remove() }
@@ -224,6 +236,16 @@ private final class SleepPackageFixture: @unchecked Sendable {
     segments[0]["frameCount"] = 49
     segments[0]["cycles"] = 1
     value["segments"] = segments
+    let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
+    try data.write(to: url)
+  }
+
+  func makeFirstEdgeTargetStartFrameInvalid() throws {
+    let url = root.appendingPathComponent("graph.json")
+    var value = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    var edges = value["edges"] as! [[String: Any]]
+    edges[0]["targetStartFrame"] = 53
+    value["edges"] = edges
     let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
     try data.write(to: url)
   }
