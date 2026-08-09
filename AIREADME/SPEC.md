@@ -84,6 +84,8 @@
 - 运行时窗口位置：`windowX(t) = actionStartX + scale × rootMotionPt.x(t)`。
 - 第一阶段 `rootMotionPt.y` 必须始终为 `0`，宠物只在水平活动带移动。
 - 累计位移是事实源。不得只存相邻帧 delta，避免掉帧、暂停和恢复后累积漂移。
+- 一个宠物包只有一套画布和地面坐标。不同母片的地面不一致时，编译器只能对每条已批准动作路径的副本应用一个固定变换，再把锚点写入全包坐标；不得修改批准源帧或逐帧重新定位。
+- 趴卧、侧躺及其互转等原地休息链的所有逐帧与终点 root motion 必须严格为 `[0,0]`。走路、跑步及相关过渡继续使用同时间轴累计位移驱动原生窗口。
 
 ## 5. `graph.json`
 
@@ -136,6 +138,8 @@
 - `finite-activity` 可以从一个稳定节点回到同一节点，用于玩耍、进食和舔毛等完整有限动作。
 - 普通边只能从来源片段的安全退出帧进入；强中断按 `interruptPolicy` 处理。
 - 运行时必须验证默认节点可以到达所有必需能力，并存在返回某个稳定节点的路径。
+- 运行时动作集合由节点的 `loopClip` 和边的 `clip` 引用推导，并按 `clips/<clip-id>.json` 显式寻址。不得依赖目录枚举结果决定动作图是否完整。
+- 必需片段、帧、图、演示序列和评审索引都必须出现在 `integrity.json`。必需文件缺失、哈希变化、符号链接或带 hidden 文件标记时，运行时拒绝加载。
 
 ## 6. `clips/<clip-id>.json`
 
@@ -150,6 +154,7 @@
   "exitPose": "gait.walk.right",
   "safeExitFrames": [0, 8, 16, 24],
   "preloadHints": ["run-right-accelerate-v1", "walk-right-stop-v1"],
+  "rootMotionEndPt": [48.0, 0.0],
   "frames": [
     {
       "src": "frames/walk-right-loop-v1/0000.png",
@@ -179,6 +184,7 @@
 - `bodyCoreEllipsePx` 是粗碰撞区域；第一阶段不做宠物间碰撞，但仍用于屏幕约束和交互扩展。
 - `screenBoundsPx` 表示该帧不能越过可用显示区域的可见区域。
 - `rootMotionPt` 必须从同一视频时间轴提取并记录累计值。向左片段 x 应非正推进，向右片段 x 应非负推进。
+- `rootMotionEndPt` 是片段终点的累计样本。最后一帧仍有正时长时，运行时在最后一帧的 `rootMotionPt` 与该终点样本之间插值，避免片段边界发生位置跳变。
 - `safeExitFrames` 由足部接触、稳定姿态和人工检查共同确定。有限过渡默认不可被普通自主行为中断。
 - 预加载提示只是优化建议，不能改变图语义。
 

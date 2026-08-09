@@ -1,7 +1,7 @@
 # petsgraph · AIREADME
 > 面向真实宠物的单宠 macOS 桌面陪伴运行时与本地素材包体系 ｜ 生命周期: prototype
 > last-synced: c39dd1a · 2026-08-09
-> phase: phase-0-materials
+> phase: phase-0-runtime
 
 ## 状态
 
@@ -9,15 +9,15 @@
 |---|:---:|---|
 | CORE | ✅ | 产品身份、阶段边界与不可违反的质量红线 |
 | RELATIONS | ✅ | 生成服务、只读参考项目与未来消费方关系 |
-| SPEC | ⚑ | 宠物素材包 v0 草案，待首条真实动作链验证后定稿 |
-| ARCHITECTURE | ⚑ | 目标组件、动作图运行时与 root motion 数据流，技术栈待原型选择 |
-| DEPLOYMENT | ⚑ | 第一阶段本地 macOS 运行，尚无可安装版本 |
+| SPEC | ⚑ | 宠物素材包 v0 草案，已进入首条真实动作链验证 |
+| ARCHITECTURE | ✅ | Swift/AppKit 原型、移动与睡眠动作图、统一地面和 root motion 数据流 |
+| DEPLOYMENT | ⚑ | 本地 macOS 原型可运行，尚无可安装版本 |
 | PRD | ✅ | 产品目标、第一阶段范围、成功指标和 PM 风险闸门 |
 | ROADMAP | ✅ | 先验证单宠移动闭环，再扩姿态与素材 Skill |
 | CONVENTIONS | ✅ | 动作、方向、素材版本与验收记录约定 |
-| DECISIONS | ✅ | 已确认的产品与技术 ADR |
-| MEMORY | ✅ | 画布边界失败、后脚滑步漏检与对应避免规则 |
-| CHANGELOG | ✅ | 立项、右向站走动作批准、过渡策略演进与批准素材生产履历 |
+| DECISIONS | ✅ | 已确认的产品与技术 ADR，包括同一素材单元的受控并行规则 |
+| MEMORY | ✅ | 素材生成事故、hidden 文件标记、工具链和归一化差异的避免规则 |
+| CHANGELOG | ✅ | 右向移动、睡眠子图运行时批准、原生窗口和素材包校验记录 |
 
 ## 按任务读
 

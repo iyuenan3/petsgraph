@@ -2,11 +2,47 @@
 
 ## 主机 + 环境
 
-⚑ 尚无可部署版本。第一阶段目标环境是用户本机 macOS，运行时离线，宠物素材生成在用户自行 clone 的项目工作区执行。
+⚑ 尚无可安装版本。当前有一个本机 macOS 预览原型，运行时离线，宠物素材生成和私有原型包编译均在用户自行 clone 的项目工作区执行。
+
+当前验证环境：macOS、Xcode 26.6 完整版、Swift 6.3.3、Python 3.12 和 Pillow 12.2.0。当前 `xcode-select` 指向的 CommandLineTools 不包含 `Testing` 或 `XCTest` 模块，不能建立测试基线。测试脚本显式使用 `/Applications/Xcode.app/Contents/Developer`，不修改全局 `xcode-select`。
 
 ## 怎么起
 
-⚑ 尚未选择运行时技术栈，因此没有正式启动命令。首个技术原型必须先验证透明原生窗口、逐帧渲染和 root motion 同步，再固定构建与启动方式。
+首个原型使用 Swift Package Manager。公开代码测试：
+
+```bash
+bash tools/test-swift.sh
+```
+
+私有原型包需要 Pillow，使用隔离环境，不修改 Homebrew 或系统 Python：
+
+```bash
+uv venv .venv --python /opt/homebrew/bin/python3.12
+uv pip install --python .venv/bin/python -r requirements-prototype.txt
+.venv/bin/python tools/build-prototype-package.py \
+  --config workspaces/wubai-private/runtime-records/wubai-right-sleep-v0.1.1-source.json \
+  --output workspaces/wubai-private/runtime-builds/wubai-right-sleep-v0.1.1-preview.petsgraph-pet
+```
+
+校验私有包但不启动窗口：
+
+```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcrun swift run petsgraph \
+  workspaces/wubai-private/runtime-builds/wubai-right-sleep-v0.1.1-preview.petsgraph-pet \
+  --validate-only
+```
+
+启动透明原生窗口：
+
+```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcrun swift run petsgraph \
+  workspaces/wubai-private/runtime-builds/wubai-right-sleep-v0.1.1-preview.petsgraph-pet \
+  --display-height 150
+```
+
+当前原型在菜单栏显示爪印，可重新播放当前预览链或退出。它不是正式安装入口。
 
 ## 域名 / 入口
 
@@ -21,7 +57,7 @@
 
 ## 本地安装入口
 
-⚑ 安装目录和菜单入口待运行时原型确定。正式方案必须满足：
+⚑ 正式安装目录和应用入口仍待确定。当前私有包只从显式命令行路径预览。正式方案必须满足：
 
 - 本地导入 `.petsgraph-pet`。
 - 先严格验证，再原子安装。
