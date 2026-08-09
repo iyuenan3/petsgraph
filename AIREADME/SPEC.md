@@ -1,6 +1,6 @@
-# SPEC：petsgraph 宠物素材包 v0（draft）
+# SPEC：petsgraph 宠物素材包 v0.2（draft）
 
-> 本契约是素材生成 Skill 与桌面运行时之间的边界。它将在首条真实动作链完成后根据证据定稿。
+> 本契约是素材生成 Skill 与桌面运行时之间的边界。目标 schema 为 `0.2.0`。现有 `0.1.0` 工程包继续作为只读预览证据，新增的睡眠场景、节点职责和行为字段尚未全部由 Swift 运行时强制执行。
 
 ## 1. 契约范围
 
@@ -16,6 +16,7 @@
 <package-id>.petsgraph-pet/
   package.json
   graph.json
+  behavior.json
   clips/
     <clip-id>.json
   frames/
@@ -39,7 +40,7 @@
 
 ```json
 {
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "package": {
     "id": "example-pet-v1",
     "version": "1.0.0",
@@ -55,13 +56,14 @@
     "canvasPx": [480, 480],
     "baseHeightPt": 120,
     "coordinateOrigin": "top-left",
-    "defaultNode": "stand.front"
+    "defaultNode": "rest.prone.left"
   },
   "renderAssets": {
     "mode": "frames",
     "pixelFormat": "rgba8-premultiplied"
   },
   "graph": "graph.json",
+  "behavior": "behavior.json",
   "reviewIndex": "reviews/index.json",
   "integrity": "integrity.json"
 }
@@ -71,7 +73,7 @@
 
 - `package.id`、`pet.id` 和版本号不可通过覆盖旧文件改变既有已批准包；新素材使用新版本。
 - `baseHeightPt` 是 root motion 和桌面显示的参考高度，不锁死用户最终显示大小。
-- 第一阶段只接受一个宠物、一个默认节点和一个动作图。
+- 第一阶段只接受一个宠物、一个默认睡眠节点、一个动作图和一个行为配置。
 - `renderAssets.mode` 首版必须是 `frames`；`atlas` 在真实原型证明收益后再启用。
 
 ## 4. 坐标与缩放
@@ -82,44 +84,53 @@
 - `rootMotionPt` 使用 `baseHeightPt` 下的桌面逻辑点，记录从片段起点开始的累计位移。
 - 运行时缩放因子：`scale = displayHeightPt / baseHeightPt`。
 - 运行时窗口位置：`windowX(t) = actionStartX + scale × rootMotionPt.x(t)`。
-- 第一阶段 `rootMotionPt.y` 必须始终为 `0`，宠物只在水平活动带移动。
+- 自动动作的 `rootMotionPt.y` 必须始终为 `0`。用户拖动产生的窗口 y 偏移不写入 clip root motion。
 - 累计位移是事实源。不得只存相邻帧 delta，避免掉帧、暂停和恢复后累积漂移。
 - 一个宠物包只有一套画布和地面坐标。不同母片的地面不一致时，编译器只能对每条已批准动作路径的副本应用一个固定变换，再把锚点写入全包坐标；不得修改批准源帧或逐帧重新定位。
-- 趴卧、侧躺及其互转等原地休息链的所有逐帧与终点 root motion 必须严格为 `[0,0]`。走路、跑步及相关过渡继续使用同时间轴累计位移驱动原生窗口。
+- 普通睡姿、枕头睡姿、坐姿及其内部过渡的所有逐帧与终点 root motion 必须严格为 `[0,0]`。只有批准的枕头场景进出边可以在 MVP 中产生水平累计位移。已保留的走路、跑步及相关过渡继续使用同时间轴累计位移，但不进入默认睡眠行为。
 
 ## 5. `graph.json`
 
-节点描述动作端点的兼容姿态。稳定姿态使用 `stability=stable`，走路和跑步循环使用 `stability=cyclic`。
+节点描述动作端点的兼容姿态、视觉场景和产品职责。稳定姿态使用 `stability=stable`，走路和跑步循环使用 `stability=cyclic`。
 
 ```json
 {
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "nodes": [
     {
-      "id": "stand.right",
-      "posture": "stand",
+      "id": "rest.prone.left",
+      "posture": "prone",
+      "orientation": "left",
+      "grounded": true,
+      "stability": "stable",
+      "scene": "floor",
+      "role": "dwell",
+      "autonomousEligible": true,
+      "props": [],
+      "loopClip": "prone-left-loop-v1"
+    },
+    {
+      "id": "pillow.gateway.leaning.right",
+      "posture": "leaning-rest",
       "orientation": "right",
       "grounded": true,
       "stability": "stable",
-      "loopClip": "stand-right-idle-v1"
-    },
-    {
-      "id": "gait.walk.right",
-      "posture": "walk",
-      "orientation": "right",
-      "grounded": true,
-      "stability": "cyclic",
-      "loopClip": "walk-right-loop-v1"
+      "scene": "pillow",
+      "role": "gateway",
+      "autonomousEligible": false,
+      "props": ["pillow"],
+      "loopClip": "pillow-gateway-leaning-right-loop-v1"
     }
   ],
   "edges": [
     {
-      "id": "stand-right-to-walk-right",
-      "from": "stand.right",
-      "to": "gait.walk.right",
-      "clip": "walk-right-start-v1",
+      "id": "prone-left-to-pillow-gateway-right",
+      "from": "rest.prone.left",
+      "to": "pillow.gateway.leaning.right",
+      "clip": "prone-left-to-pillow-rest-right-v2",
       "kind": "transition",
-      "interruptPolicy": "direct-manipulation-only"
+      "interruptPolicy": "finish-before-retarget",
+      "sceneChange": "floor-to-pillow"
     }
   ]
 }
@@ -129,7 +140,10 @@
 
 - 节点不能只写模糊的 `stand` 或 `sit`，必须包含 `posture + orientation`；需要时再增加支撑关系或视角标签。
 - `orientation` 第一阶段支持 `front`、`left`、`right`。
-- `sit.front` 表示面向用户的方向中立坐姿，不拆成左右两个坐姿节点。它可以分别连接左向和右向移动边，转身、起身和迈步由对应有向边表达。
+- `scene` 首个 MVP 支持 `floor` 与 `pillow`。场景改变必须由显式边完成。
+- `role` 支持 `dwell`、`gateway`、`interaction` 和 `cyclic`。`gateway` 与 `interaction` 必须设置 `autonomousEligible=false`。
+- 普通正面坐姿使用 `sit.front.floor`。枕头场景使用独立 `sit.front.pillow`，不能把没有枕头的坐姿当成同一节点。现有历史包中的 `sit.front` 作为 `sit.front.floor` 的兼容 ID，迁移必须通过带版本号新包完成。
+- `props` 声明节点画面必须持续包含的道具。目标节点与入口 clip 的道具集合不兼容时拒绝切换。
 - 循环节点必须有 `loopClip`，稳定节点的循环必须能够无限停留。
 
 边约束：
@@ -139,14 +153,54 @@
 - `finite-activity` 可以从一个稳定节点回到同一节点，用于玩耍、进食和舔毛等完整有限动作。
 - 普通边只能从来源片段的安全退出帧进入；强中断按 `interruptPolicy` 处理。
 - 运行时必须验证默认节点可以到达所有必需能力，并存在返回某个稳定节点的路径。
+- 睡眠 MVP 必须验证每个自主 `dwell` 节点都能到达当前场景的 `interaction` 坐姿并返回睡眠。网关不计入自主睡姿覆盖率。
 - 运行时动作集合由节点的 `loopClip` 和边的 `clip` 引用推导，并按 `clips/<clip-id>.json` 显式寻址。不得依赖目录枚举结果决定动作图是否完整。
-- 必需片段、帧、图、演示序列和评审索引都必须出现在 `integrity.json`。必需文件缺失、哈希变化、符号链接或带 hidden 文件标记时，运行时拒绝加载。
+- 必需片段、帧、图、行为配置、演示序列和评审索引都必须出现在 `integrity.json`。必需文件缺失、哈希变化、符号链接或带 hidden 文件标记时，运行时拒绝加载。
+
+### 5.1 `behavior.json`
+
+行为配置描述宠物如何使用动作图，不复制 clip 或边定义。睡眠 MVP 至少包含：
+
+```json
+{
+  "schemaVersion": "0.2.0",
+  "profile": "quiet-sleep-companion",
+  "defaultIntent": "sleep",
+  "timing": {
+    "strategy": "random-long-tail",
+    "parametersStatus": "runtime-review-pending",
+    "avoidImmediateRepeat": true
+  },
+  "scenePolicy": {
+    "pillow": {
+      "sticky": true,
+      "gateway": "pillow.gateway.leaning.right"
+    }
+  },
+  "interactions": {
+    "petClick": {
+      "sleeping": "wake-to-scene-sit",
+      "sitting": "return-to-scene-sleep"
+    },
+    "desktopClick": "ignore",
+    "drag": "direct-manipulation"
+  }
+}
+```
+
+约束：
+
+- `random-long-tail` 的具体时间参数必须经过真实时间行为验收后才能从 `runtime-review-pending` 升级。
+- 行为层只能选择 `autonomousEligible=true` 的节点。
+- `desktopClick=ignore` 表示运行时不得为了行为功能安装全桌面点击监听。
+- 点击目标按当前 `scene` 解析，不能从 `pillow` 硬切到 `floor` 坐姿。
+- 拖动清除尚未开始的普通目标，保留用户放置的 x 与 y；松手后从兼容稳定姿态恢复。
 
 ## 6. `clips/<clip-id>.json`
 
 ```json
 {
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "id": "walk-right-loop-v1",
   "type": "loop",
   "facing": "right",
@@ -168,6 +222,8 @@
       "src": "frames/walk-right-loop-v1/0000.png",
       "durationMs": 42,
       "contentBoundsPx": [82, 96, 318, 286],
+      "petBoundsPx": [96, 110, 224, 250],
+      "propBoundsPx": {},
       "anchorsPx": {
         "root": [240, 350],
         "ground": [240, 382],
@@ -175,7 +231,8 @@
       },
       "collision": {
         "bodyCoreEllipsePx": [145, 185, 198, 132],
-        "screenBoundsPx": [82, 96, 318, 286]
+        "screenBoundsPx": [82, 96, 318, 286],
+        "petHitEllipsePx": [145, 185, 198, 132]
       },
       "rootMotionPt": [0.0, 0.0]
     }
@@ -188,9 +245,10 @@
 - `type` 支持 `loop`、`transition`、`finite`。
 - 每帧有独立 `durationMs`，不假设整个包只有一个 FPS。
 - `contentBoundsPx` 是该帧实际可见 alpha 包围盒，用于屏幕边缘预测和固定窗口内布局。
+- `petBoundsPx` 只覆盖宠物可见主体。`propBoundsPx` 按道具 ID 记录道具区域。没有道具时写空对象。
 - `anchorsPx.root` 是视觉与 root motion 统一参考点；`ground` 是主要地面接触基线；`head` 用于交互和未来视线目标。
-- `bodyCoreEllipsePx` 是粗碰撞区域；第一阶段不做宠物间碰撞，但仍用于屏幕约束和交互扩展。
-- `screenBoundsPx` 表示该帧不能越过可用显示区域的可见区域。
+- `bodyCoreEllipsePx` 是宠物核心区域；`petHitEllipsePx` 或未来逐帧宠物命中掩码用于点击宠物本体。
+- `screenBoundsPx` 表示该帧不能越过可用显示区域的猫与道具联合可见区域。枕头不能扩大 `petHitEllipsePx`。
 - `rootMotionPt` 必须从同一视频时间轴提取并记录累计值。向左片段 x 应非正推进，向右片段 x 应非负推进。
 - `rootMotionEndPt` 是片段终点的累计样本。最后一帧仍有正时长时，运行时在最后一帧的 `rootMotionPt` 与该终点样本之间插值，避免片段边界发生位置跳变。
 - 从稳定姿态进入步态的过渡可以先保持零位移，但必须在第一步明确朝目标方向迈出时开始累计 root motion，并在进入目标循环前连续收敛到已批准的循环速度。右向累计 x 不得回退，左向累计 x 不得前进；素材画面通过不等于该位移曲线通过。
@@ -200,48 +258,50 @@
 - `demo-sequence.json` 只是显式评审链，不是绕过动作图的播放清单。`transition` 片段必须从第 0 帧完整播放一次；相邻片段的 `exitPose` 与 `entryPose` 必须一致；循环之后还有下一片段时，循环最后播放的运行时帧必须在 `safeExitFrames` 中。
 - 运行时必须在当前循环安全退出前解析并预加载下一条边或目标循环。预加载失败不得以硬切、截断过渡或跳到目标第 0 帧降级。
 
-## 7. 第一阶段必备能力
+## 7. 李五百睡觉陪伴 MVP 必备能力
 
-合规包必须提供：
+合规 MVP 包必须提供：
 
-- 站立、坐下、趴卧和至少一种侧躺，共至少两种躺姿。
-- 每个稳定姿态至少一个可停留循环。
-- 左右独立的走路和跑步链，包含起步、循环、走跑切换、减速和停步。
-- 玩耍、进食和舔毛，允许先作为从稳定姿态返回同一姿态的有限活动。
-- 所有跨姿态变化的有向过渡，至少覆盖默认节点到上述能力再返回默认稳定节点的路径。
-- 正式左右动作 `mirrorSafe=false`，不得用运行时镜像补齐缺失方向。
+- 默认睡眠节点及至少三种可长期停留的普通睡姿。
+- 每个自主节点都有批准循环、安全退出帧和返回路径。
+- 普通场景正面坐姿 `sit.front.floor`，以及从所有首发普通睡姿到该坐姿再返回睡眠的有界路径。
+- 枕头场景网关、至少两种枕头睡姿、`sit.front.pillow` 和完整双向路径。
+- 枕头只通过显式场景边出现和离开，同一枕头场景中的节点保持道具集合一致。
+- 点击、全桌面拖动、隐藏、退出和恢复行为。
+- 睡眠内部严格零 root motion。枕头进出边如含短步，必须使用批准的水平累计 root motion。
 
-### 第一阶段最小图基线
+### MVP 最小图基线
 
-必需节点：
+节点 ID 以新包最终清单为准。当前目标语义：
 
-| 节点 | 类型 | 作用 |
-|---|---|---|
-| `stand.front` | stable | 默认姿态、玩耍与进食的回归枢纽 |
-| `stand.left` / `stand.right` | stable | 左右位移动作的起点和终点 |
-| `sit.front` | stable | 坐姿、舔毛和躺卧入口 |
-| `lie.belly.front` | stable | 趴卧循环与侧躺入口 |
-| `lie.side.left` / `lie.side.right` | stable | 两侧侧躺，保留真实左右特征 |
-| `gait.walk.left` / `gait.walk.right` | cyclic | 左右慢走循环 |
-| `gait.run.left` / `gait.run.right` | cyclic | 左右快跑循环 |
+| 节点 | scene | role | 作用 |
+|---|---|---|---|
+| `rest.prone.left` | floor | dwell | 默认趴卧睡姿和普通场景汇合点 |
+| `rest.side-curled.left` | floor | dwell | 左侧蜷卧 |
+| `rest.side-stretched.left` | floor | dwell | 左侧伸展 |
+| `rest.supine.left` | floor | dwell | 仰卧 |
+| `rest.loaf.left` | floor | dwell | 香箱，可否首发由整体节奏验收决定 |
+| `sit.front.floor` | floor | interaction | 普通睡眠点击后的正面坐姿 |
+| `pillow.gateway.leaning.right` | pillow | gateway | 枕头场景进入、离开、预加载和唤醒汇合 |
+| `pillow.compact-semi-supine.right` | pillow | dwell | 枕头支撑的紧凑半仰卧 |
+| `pillow.top-curled.right` | pillow | dwell | 整个身体蜷睡在枕头上 |
+| `sit.front.pillow` | pillow | interaction | 保留枕头的正面坐姿 |
 
-必需有向边：
+最低路径要求：
 
-- `stand.front ↔ stand.left`、`stand.front ↔ stand.right`：转向与侧身。
-- `stand.left ↔ gait.walk.left`、`stand.right ↔ gait.walk.right`：起步与停步。
-- `gait.walk.left ↔ gait.run.left`、`gait.walk.right ↔ gait.run.right`：独立加速与减速。
-- `stand.front ↔ sit.front`：站立与坐下。
-- `sit.front ↔ lie.belly.front`：坐下、趴卧与起身。
-- `lie.belly.front ↔ lie.side.left`、`lie.belly.front ↔ lie.side.right`：趴卧与左右侧躺。
-- `stand.front → stand.front`：玩耍和进食有限活动，各自独立片段。
-- `sit.front → sit.front`：舔毛有限活动。
+- 普通 `dwell` 节点构成至少一个不硬切的闭合睡眠子图。
+- 每个首发普通 `dwell` 节点能在点击响应目标内到达 `sit.front.floor`，并能返回普通睡眠。
+- `rest.prone.left → pillow.gateway.leaning.right` 和独立回程连接两个场景。反向不能倒放正向素材。
+- 网关与每个首发枕头睡姿有批准路径；枕头内部至少存在一条不经过网关的随机换姿路径。
+- 每个首发枕头睡姿能经批准醒来路径到达 `sit.front.pillow`，并能返回枕头睡眠。
+- 网关与两个坐姿均设置 `autonomousEligible=false`。
 
-`↔` 表示必须存在两个分别生成、分别验收的有向边，不表示倒放或自动复用。
+已经批准的站立、走路、跑步和左右过渡可以继续存在于同一素材事实库或工程包，但睡眠 MVP 的 `behavior.json` 不得请求它们。`↔` 仍表示两个分别生成、分别验收的有向边，不表示倒放。
 
 ## 8. 生成母片与运行时片段
 
 - 一个生成任务可以产出一条较长的连续母片，再确定性切出多个运行时片段。
-- 例如一条 `站立→起步→多个走路周期→停步→站立` 母片可以产出 `walk_start`、`walk_loop` 和 `walk_stop`。
+- 例如一条 `趴卧→侧躺→稳定呼吸→返回趴卧` 母片可以切出出站边、稳定循环和独立回程边。
 - 切分只允许选择连续直接帧、统一画布、重定位、抠图和编码，不允许交叉淡化、光流、RIFE 或自动补间。
 - 每个切出的运行时片段仍需独立机械检查；涉及图边时还要验收首尾接缝和完整链。
 
@@ -268,6 +328,14 @@
 - 是否允许进入安装包
 
 必需路径没有达到 `runtime-chain-approved` 时，包验证器必须拒绝正式安装。预览模式可以加载 draft，但必须显著标记为未批准。
+
+睡眠 MVP 的整包评审还必须记录：
+
+- 真实时间行为观察的时长、睡眠占比、姿势切换次数、场景切换次数和是否出现近期重复。
+- 点击到首个可见醒来反应、到完整坐姿、再次点击到恢复睡眠的时间。
+- 普通场景和枕头场景的道具连续性、点击命中与拖动结果。
+- 默认启动没有安装全桌面点击 monitor，也不要求辅助功能权限。
+- 用户放置的 y 在随机睡姿、点击和枕头场景内部切换中保持不变。
 
 ### 9.1 已批准素材的生产履历
 
@@ -298,10 +366,13 @@ PNG 序列摘要固定按文件名字典序处理。每帧依次写入 UTF-8 文
 - 宠物包不得包含可执行文件、动态库、脚本入口、provider token 或任意运行时网络地址。
 - 坏包不得导致运行时崩溃；验证失败时不替换当前可用宠物包。
 - 逐帧抠图失败不得静默复用上一帧蒙版。失败帧必须标记、修复并重新验收，或拒绝该片段。
+- `behavior.json` 只能引用图中存在的场景、网关和交互目标。无法满足点击往返或把非自主节点加入候选集时拒绝安装。
+- 枕头节点缺少宠物命中区域、道具区域或联合屏幕边界时，只能进入显式工程预览，不能成为正式 MVP 包。
 
 ## 11. 版本与兼容
 
 - `schemaVersion` 使用语义化版本。
+- 现有 `0.1.0` 包是走跑与睡眠工程预览契约。新增必需的 `behavior.json`、节点职责、场景和猫道具命中字段进入 `0.2.0`，在加载器和编译器实现并通过回归测试前不得标记 installable。
 - 同一主版本新增未知字段时，旧运行时应忽略未知字段并读取已知部分。
 - 未知主版本必须拒绝，并给出可读错误。
 - 任何改变坐标、root motion、图语义或验收要求的变更都视为潜在破坏性变更，必须追加 ADR 并升级 schema。
