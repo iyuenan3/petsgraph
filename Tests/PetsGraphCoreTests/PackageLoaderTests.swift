@@ -57,6 +57,96 @@ final class PackageLoaderTests: XCTestCase {
     ])
   }
 
+  func testLoadsSideStretchedSupineGraphContract() throws {
+    let fixture = try SleepPackageFixture(kind: .sideStretchedSupine)
+    addTeardownBlock { fixture.remove() }
+
+    let package = try PetPackageLoader().load(at: fixture.root)
+    XCTAssertEqual(Set(package.clips.keys), Set([
+      "side-stretched-left-loop-v1",
+      "side-stretched-left-to-supine-left-v1",
+      "supine-left-loop-v1",
+      "supine-left-to-side-stretched-left-v1",
+    ]))
+    XCTAssertEqual(Set(package.graph.nodes.map(\.id)), Set([
+      "rest.side-stretched.left",
+      "rest.supine.left",
+    ]))
+    XCTAssertEqual(Set(package.graph.edges.map(\.id)), Set([
+      "side-stretched-left-to-supine-left",
+      "supine-left-to-side-stretched-left",
+    ]))
+    XCTAssertEqual(package.clips["side-stretched-left-loop-v1"]?.frames.count, 50)
+    XCTAssertEqual(package.clips["side-stretched-left-loop-v1"]?.safeExitFrames, [49])
+    XCTAssertEqual(
+      package.clips["side-stretched-left-to-supine-left-v1"]?.frames.count,
+      135
+    )
+    XCTAssertEqual(package.clips["supine-left-loop-v1"]?.frames.count, 50)
+    XCTAssertEqual(package.clips["supine-left-loop-v1"]?.safeExitFrames, [49])
+    XCTAssertEqual(
+      package.clips["supine-left-to-side-stretched-left-v1"]?.frames.count,
+      106
+    )
+
+    for edge in package.graph.edges {
+      XCTAssertFalse(edge.allowsInterruption(for: .autonomousBehavior))
+      XCTAssertTrue(edge.allowsInterruption(for: .directManipulation))
+    }
+    for clip in package.clips.values {
+      XCTAssertEqual(clip.rootMotionEndPt, [0, 0])
+      XCTAssertTrue(clip.frames.allSatisfy { $0.rootMotionPt == [0, 0] })
+    }
+  }
+
+  func testSideStretchedSupineTimelinePreloadsAndPlaysFramesInOrder() throws {
+    let fixture = try SleepPackageFixture(kind: .sideStretchedSupine)
+    addTeardownBlock { fixture.remove() }
+    let package = try PetPackageLoader().load(at: fixture.root)
+    let timeline = try PlaybackTimeline(
+      clips: package.clips,
+      sequence: package.demoSequence
+    )
+
+    XCTAssertEqual(timeline.clipIDsNear(segmentIndex: 0), [
+      "side-stretched-left-loop-v1",
+      "side-stretched-left-to-supine-left-v1",
+      "supine-left-loop-v1",
+    ])
+    XCTAssertEqual(timeline.clipIDsNear(segmentIndex: 2), [
+      "supine-left-loop-v1",
+      "supine-left-to-side-stretched-left-v1",
+      "side-stretched-left-loop-v1",
+    ])
+
+    let frameDuration = 41.666667 / 1_000.0
+    let outboundStart = 3.0 * 50.0 * frameDuration
+    XCTAssertEqual(
+      timeline.sample(at: outboundStart + 0.000_001).clipID,
+      "side-stretched-left-to-supine-left-v1"
+    )
+    XCTAssertEqual(timeline.sample(at: outboundStart + 0.000_001).sourceFrameIndex, 0)
+    XCTAssertEqual(
+      timeline.sample(at: outboundStart + frameDuration + 0.000_001).sourceFrameIndex,
+      1
+    )
+    let supineStart = outboundStart + 135.0 * frameDuration
+    XCTAssertEqual(timeline.sample(at: supineStart + 0.000_001).clipID, "supine-left-loop-v1")
+    XCTAssertEqual(timeline.sample(at: supineStart + 0.000_001).sourceFrameIndex, 0)
+  }
+
+  func testRejectsDemoThatLeavesLoopBeforeSafeExit() throws {
+    let fixture = try SleepPackageFixture(kind: .sideStretchedSupine)
+    addTeardownBlock { fixture.remove() }
+    try fixture.makeFirstLoopExitUnsafe()
+
+    XCTAssertThrowsError(
+      try PetPackageLoader().load(at: fixture.root, verifyIntegrity: false)
+    ) { error in
+      XCTAssertTrue(String(describing: error).contains("unsafe frame 48"))
+    }
+  }
+
   func testMissingClipFileIsRejected() throws {
     let fixture = try SleepPackageFixture()
     addTeardownBlock { fixture.remove() }
@@ -104,11 +194,18 @@ final class PackageLoaderTests: XCTestCase {
   }
 }
 
+private enum SleepFixtureKind: Equatable {
+  case proneSideCurled
+  case sideStretchedSupine
+}
+
 private final class SleepPackageFixture: @unchecked Sendable {
   let root: URL
+  private let kind: SleepFixtureKind
   private var writtenPaths = Set<String>()
 
-  init() throws {
+  init(kind: SleepFixtureKind = .proneSideCurled) throws {
+    self.kind = kind
     let directory = FileManager.default.temporaryDirectory
       .appendingPathComponent("petsgraph-sleep-tests-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -120,47 +217,167 @@ private final class SleepPackageFixture: @unchecked Sendable {
     try? FileManager.default.removeItem(at: root)
   }
 
+  func makeFirstLoopExitUnsafe() throws {
+    let url = root.appendingPathComponent("demo-sequence.json")
+    var value = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    var segments = value["segments"] as! [[String: Any]]
+    segments[0]["frameCount"] = 49
+    segments[0]["cycles"] = 1
+    value["segments"] = segments
+    let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
+    try data.write(to: url)
+  }
+
   private func build() throws {
-    let clips: [[String: Any]] = [
-      clip(
-        id: "prone-left-loop-v1",
-        type: "loop",
-        entry: "rest.prone.left",
-        exit: "rest.prone.left",
-        frameCount: 16,
-        safeExits: [15],
-        preloadHints: ["prone-left-to-side-curled-left-v1"]
-      ),
-      clip(
-        id: "prone-left-to-side-curled-left-v1",
-        type: "transition",
-        entry: "rest.prone.left",
-        exit: "rest.side-curled.left",
-        frameCount: 2,
-        safeExits: [],
-        preloadHints: ["side-curled-left-loop-v1"]
-      ),
-      clip(
-        id: "side-curled-left-loop-v1",
-        type: "loop",
-        entry: "rest.side-curled.left",
-        exit: "rest.side-curled.left",
-        frameCount: 53,
-        safeExits: [52],
-        preloadHints: ["side-curled-left-to-prone-left-v1"]
-      ),
-      clip(
-        id: "side-curled-left-to-prone-left-v1",
-        type: "transition",
-        entry: "rest.side-curled.left",
-        exit: "rest.prone.left",
-        frameCount: 2,
-        safeExits: [],
-        preloadHints: ["prone-left-loop-v1"]
-      ),
-    ]
+    let clips: [[String: Any]]
+    switch kind {
+    case .proneSideCurled:
+      clips = [
+        clip(
+          id: "prone-left-loop-v1",
+          type: "loop",
+          entry: "rest.prone.left",
+          exit: "rest.prone.left",
+          frameCount: 16,
+          safeExits: [15],
+          preloadHints: ["prone-left-to-side-curled-left-v1"]
+        ),
+        clip(
+          id: "prone-left-to-side-curled-left-v1",
+          type: "transition",
+          entry: "rest.prone.left",
+          exit: "rest.side-curled.left",
+          frameCount: 2,
+          safeExits: [],
+          preloadHints: ["side-curled-left-loop-v1"]
+        ),
+        clip(
+          id: "side-curled-left-loop-v1",
+          type: "loop",
+          entry: "rest.side-curled.left",
+          exit: "rest.side-curled.left",
+          frameCount: 53,
+          safeExits: [52],
+          preloadHints: ["side-curled-left-to-prone-left-v1"]
+        ),
+        clip(
+          id: "side-curled-left-to-prone-left-v1",
+          type: "transition",
+          entry: "rest.side-curled.left",
+          exit: "rest.prone.left",
+          frameCount: 2,
+          safeExits: [],
+          preloadHints: ["prone-left-loop-v1"]
+        ),
+      ]
+    case .sideStretchedSupine:
+      clips = [
+        clip(
+          id: "side-stretched-left-loop-v1",
+          type: "loop",
+          entry: "rest.side-stretched.left",
+          exit: "rest.side-stretched.left",
+          frameCount: 50,
+          safeExits: [49],
+          preloadHints: ["side-stretched-left-to-supine-left-v1"]
+        ),
+        clip(
+          id: "side-stretched-left-to-supine-left-v1",
+          type: "transition",
+          entry: "rest.side-stretched.left",
+          exit: "rest.supine.left",
+          frameCount: 135,
+          safeExits: [],
+          preloadHints: ["supine-left-loop-v1"]
+        ),
+        clip(
+          id: "supine-left-loop-v1",
+          type: "loop",
+          entry: "rest.supine.left",
+          exit: "rest.supine.left",
+          frameCount: 50,
+          safeExits: [49],
+          preloadHints: ["supine-left-to-side-stretched-left-v1"]
+        ),
+        clip(
+          id: "supine-left-to-side-stretched-left-v1",
+          type: "transition",
+          entry: "rest.supine.left",
+          exit: "rest.side-stretched.left",
+          frameCount: 106,
+          safeExits: [],
+          preloadHints: ["side-stretched-left-loop-v1"]
+        ),
+      ]
+    }
     for clip in clips {
       try writeJSON(clip, to: "clips/\(clip["id"] as! String).json")
+    }
+
+    let graphNodes: [[String: Any]]
+    let graphEdges: [[String: Any]]
+    let demoSegments: [[String: Any]]
+    switch kind {
+    case .proneSideCurled:
+      graphNodes = [
+        node(id: "rest.prone.left", posture: "prone", loop: "prone-left-loop-v1"),
+        node(
+          id: "rest.side-curled.left",
+          posture: "side-curled",
+          loop: "side-curled-left-loop-v1"
+        ),
+      ]
+      graphEdges = [
+        edge(
+          id: "prone-left-to-side-curled-left",
+          from: "rest.prone.left",
+          to: "rest.side-curled.left",
+          clip: "prone-left-to-side-curled-left-v1"
+        ),
+        edge(
+          id: "side-curled-left-to-prone-left",
+          from: "rest.side-curled.left",
+          to: "rest.prone.left",
+          clip: "side-curled-left-to-prone-left-v1"
+        ),
+      ]
+      demoSegments = [
+        segment("prone-left-loop-v1", cycles: 3),
+        segment("prone-left-to-side-curled-left-v1"),
+        segment("side-curled-left-loop-v1", cycles: 3),
+        segment("side-curled-left-to-prone-left-v1"),
+        segment("prone-left-loop-v1", repeatForever: true),
+      ]
+    case .sideStretchedSupine:
+      graphNodes = [
+        node(
+          id: "rest.side-stretched.left",
+          posture: "side-stretched",
+          loop: "side-stretched-left-loop-v1"
+        ),
+        node(id: "rest.supine.left", posture: "supine", loop: "supine-left-loop-v1"),
+      ]
+      graphEdges = [
+        edge(
+          id: "side-stretched-left-to-supine-left",
+          from: "rest.side-stretched.left",
+          to: "rest.supine.left",
+          clip: "side-stretched-left-to-supine-left-v1"
+        ),
+        edge(
+          id: "supine-left-to-side-stretched-left",
+          from: "rest.supine.left",
+          to: "rest.side-stretched.left",
+          clip: "supine-left-to-side-stretched-left-v1"
+        ),
+      ]
+      demoSegments = [
+        segment("side-stretched-left-loop-v1", cycles: 3),
+        segment("side-stretched-left-to-supine-left-v1"),
+        segment("supine-left-loop-v1", cycles: 3),
+        segment("supine-left-to-side-stretched-left-v1"),
+        segment("side-stretched-left-loop-v1", repeatForever: true),
+      ]
     }
 
     try writeJSON(
@@ -181,7 +398,9 @@ private final class SleepPackageFixture: @unchecked Sendable {
           "canvasPx": [320, 320],
           "baseHeightPt": 150,
           "coordinateOrigin": "top-left",
-          "defaultNode": "rest.prone.left",
+          "defaultNode": kind == .proneSideCurled
+            ? "rest.prone.left"
+            : "rest.side-stretched.left",
           "groundYPx": 266,
         ],
         "renderAssets": ["mode": "frames", "pixelFormat": "rgba8-straight"],
@@ -194,42 +413,8 @@ private final class SleepPackageFixture: @unchecked Sendable {
     try writeJSON(
       [
         "schemaVersion": "0.1.0",
-        "nodes": [
-          [
-            "id": "rest.prone.left",
-            "posture": "prone",
-            "orientation": "left",
-            "grounded": true,
-            "stability": "stable",
-            "loopClip": "prone-left-loop-v1",
-          ],
-          [
-            "id": "rest.side-curled.left",
-            "posture": "side-curled",
-            "orientation": "left",
-            "grounded": true,
-            "stability": "stable",
-            "loopClip": "side-curled-left-loop-v1",
-          ],
-        ],
-        "edges": [
-          [
-            "id": "prone-left-to-side-curled-left",
-            "from": "rest.prone.left",
-            "to": "rest.side-curled.left",
-            "clip": "prone-left-to-side-curled-left-v1",
-            "kind": "transition",
-            "interruptPolicy": "direct-manipulation-only",
-          ],
-          [
-            "id": "side-curled-left-to-prone-left",
-            "from": "rest.side-curled.left",
-            "to": "rest.prone.left",
-            "clip": "side-curled-left-to-prone-left-v1",
-            "kind": "transition",
-            "interruptPolicy": "direct-manipulation-only",
-          ],
-        ],
+        "nodes": graphNodes,
+        "edges": graphEdges,
       ],
       to: "graph.json"
     )
@@ -237,13 +422,7 @@ private final class SleepPackageFixture: @unchecked Sendable {
       [
         "schemaVersion": "0.1.0",
         "id": "sleep-test-chain",
-        "segments": [
-          segment("prone-left-loop-v1", cycles: 3),
-          segment("prone-left-to-side-curled-left-v1"),
-          segment("side-curled-left-loop-v1", cycles: 3),
-          segment("side-curled-left-to-prone-left-v1"),
-          segment("prone-left-loop-v1", repeatForever: true),
-        ],
+        "segments": demoSegments,
       ],
       to: "demo-sequence.json"
     )
@@ -261,6 +440,33 @@ private final class SleepPackageFixture: @unchecked Sendable {
       ["schemaVersion": "0.1.0", "algorithm": "sha256", "files": entries],
       to: "integrity.json"
     )
+  }
+
+  private func node(id: String, posture: String, loop: String) -> [String: Any] {
+    [
+      "id": id,
+      "posture": posture,
+      "orientation": "left",
+      "grounded": true,
+      "stability": "stable",
+      "loopClip": loop,
+    ]
+  }
+
+  private func edge(
+    id: String,
+    from: String,
+    to: String,
+    clip: String
+  ) -> [String: Any] {
+    [
+      "id": id,
+      "from": from,
+      "to": to,
+      "clip": clip,
+      "kind": "transition",
+      "interruptPolicy": "direct-manipulation-only",
+    ]
   }
 
   private func clip(

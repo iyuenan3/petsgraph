@@ -266,7 +266,56 @@ public struct PetPackageLoader: Sendable {
       if segment.repeatForever && segment.frameCount != nil {
         throw PackageValidationError.invalid("a forever segment must retain the complete rotated cycle")
       }
+      if clip.type == "transition" {
+        guard
+          segment.startFrame == 0,
+          segment.cycles == 1,
+          segment.frameCount == nil,
+          !segment.repeatForever
+        else {
+          throw PackageValidationError.invalid(
+            "transition clip \(clip.id) must play once from frame zero without truncation"
+          )
+        }
+      }
     }
+
+    for index in demo.segments.indices.dropLast() {
+      let currentSegment = demo.segments[index]
+      let nextSegment = demo.segments[index + 1]
+      guard
+        let currentClip = clips[currentSegment.clip],
+        let nextClip = clips[nextSegment.clip]
+      else {
+        continue
+      }
+      guard currentClip.exitPose == nextClip.entryPose else {
+        throw PackageValidationError.invalid(
+          "demo segment \(index) exits \(currentClip.exitPose) but next enters \(nextClip.entryPose)"
+        )
+      }
+      if currentClip.type == "loop", currentClip.id != nextClip.id {
+        let exitFrame = Self.finalSourceFrameIndex(
+          segment: currentSegment,
+          frameCount: currentClip.frames.count
+        )
+        guard currentClip.safeExitFrames.contains(exitFrame) else {
+          throw PackageValidationError.invalid(
+            "demo leaves loop \(currentClip.id) at unsafe frame \(exitFrame)"
+          )
+        }
+      }
+    }
+  }
+
+  private static func finalSourceFrameIndex(
+    segment: DemoSegment,
+    frameCount: Int
+  ) -> Int {
+    if let requestedFrameCount = segment.frameCount {
+      return (segment.startFrame + requestedFrameCount - 1) % frameCount
+    }
+    return (segment.startFrame + frameCount - 1) % frameCount
   }
 
   private func verify(

@@ -71,6 +71,60 @@ def ordered_sequence_digest(frames: list[Path]) -> str:
     return digest.hexdigest()
 
 
+def validate_approved_recipe(
+    repo_root: Path,
+    clip_config: dict[str, Any],
+    source: Path,
+) -> None:
+    expected_recipe_digest = clip_config.get("approvedRecipeSha256")
+    if expected_recipe_digest is None:
+        return
+
+    recipe_path = safe_repo_path(repo_root, clip_config["approvedRecipe"])
+    actual_recipe_digest = sha256(recipe_path)
+    if actual_recipe_digest != expected_recipe_digest.lower():
+        raise ValueError(
+            f"{recipe_path} approved recipe digest mismatch: {actual_recipe_digest}"
+        )
+
+    recipe = read_json(recipe_path)
+    expected_subject = clip_config.get("approvalSubjectId")
+    if expected_subject is not None and recipe.get("subjectId") != expected_subject:
+        raise ValueError(
+            f"{recipe_path} declares subject {recipe.get('subjectId')}, "
+            f"expected {expected_subject}"
+        )
+    approval_status = recipe.get("approval", {}).get("status")
+    if approval_status != clip_config["approvalStatus"]:
+        raise ValueError(
+            f"{recipe_path} approval status {approval_status}, "
+            f"expected {clip_config['approvalStatus']}"
+        )
+
+    selection = recipe.get("selection", {})
+    if int(selection.get("selectedFrames", -1)) != int(clip_config["frameCount"]):
+        raise ValueError(f"{recipe_path} approved frame count does not match clip config")
+    if not math.isclose(
+        float(selection.get("fps", -1)),
+        float(clip_config.get("fps", 24)),
+    ):
+        raise ValueError(f"{recipe_path} approved FPS does not match clip config")
+
+    fact_source = recipe.get("factSource") or selection.get("factSource")
+    if not isinstance(fact_source, dict):
+        raise ValueError(f"{recipe_path} does not declare an approved fact source")
+    approved_source = (recipe_path.parent / fact_source["path"]).resolve(strict=True)
+    if approved_source != source:
+        raise ValueError(
+            f"{recipe_path} fact source {approved_source} does not match {source}"
+        )
+    expected_sequence_digest = clip_config.get("sourceSequenceDigest")
+    if fact_source.get("orderedSequenceDigest") != expected_sequence_digest:
+        raise ValueError(
+            f"{recipe_path} approved sequence digest does not match clip config"
+        )
+
+
 def frame_paths(
     source: Path,
     expected: int,
@@ -203,6 +257,7 @@ def compile_clip(
 ) -> dict[str, Any]:
     clip_id = config["id"]
     source = safe_repo_path(repo_root, config["source"])
+    validate_approved_recipe(repo_root, config, source)
     sources = frame_paths(
         source,
         int(config["frameCount"]),
@@ -258,6 +313,7 @@ def compile_clip(
         "provenance": {
             "approvalStatus": config["approvalStatus"],
             "approvedRecipe": config["approvedRecipe"],
+            "approvedRecipeSha256": config.get("approvedRecipeSha256"),
             "rootMotionStatus": config.get(
                 "rootMotionStatus",
                 "provisional-calibrated-awaiting-runtime-review",

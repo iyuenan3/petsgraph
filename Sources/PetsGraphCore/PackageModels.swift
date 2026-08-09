@@ -137,6 +137,7 @@ public struct FrameCollision: Codable, Sendable {
 public struct ClipProvenance: Codable, Sendable {
   public let approvalStatus: String
   public let approvedRecipe: String
+  public let approvedRecipeSha256: String?
   public let rootMotionStatus: String
   public let normalization: String
 }
