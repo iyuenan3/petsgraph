@@ -64,3 +64,9 @@
 - 现象: 当前 `xcode-select` 指向 `/Library/Developer/CommandLineTools`。同一 Swift 6.3.3 版本下，使用 `Testing` 报 `no such module 'Testing'`，迁移到 XCTest 后裸 `swift test` 又报 `no such module 'XCTest'`。完整 Xcode 26.6 下 XCTest 构建并运行 10 项测试全部通过。
 - 根因: 当前 CommandLineTools 安装不包含项目测试目标需要的 `Testing` 或 `XCTest` 平台模块，版本字符串相同不能证明测试框架可用。
 - 结论/避免: 项目测试使用 XCTest，并通过 `tools/test-swift.sh` 显式设置完整 Xcode 的 `DEVELOPER_DIR` 与仓库内模块缓存。不修改用户全局 `xcode-select`，也不把只有 `swift build` 成功写成测试基线通过。
+
+## 把 provider 终端帧一律删除会破坏步态衔接 · 2026-08-09
+
+- 现象: 早期过渡可以排除 provider 重复的终端端点后直接进入目标循环，但坐姿到右向行走的通过版本必须保留终端帧作为已批准走路第 22 相位，再从循环第 23 相位继续。若沿用统一删除规则，边结束时还没有到达足够接近的走路接触相位。
+- 根因: 把某些母片中的重复终端帧误当成生成接口的固定行为，没有逐条边比较倒数帧、严格端点和目标循环相位。
+- 结论/避免: 终端帧的保留或排除是每条边的确定性切分决策。必须比较端点相似度、承重姿态和后续相位，记录边的最终源帧与目标循环下一相位，并在完整链中验收，不能套用全局删除规则。

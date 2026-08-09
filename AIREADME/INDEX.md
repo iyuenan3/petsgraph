@@ -10,14 +10,14 @@
 | CORE | ✅ | 产品身份、阶段边界与不可违反的质量红线 |
 | RELATIONS | ✅ | 生成服务、只读参考项目与未来消费方关系 |
 | SPEC | ⚑ | 宠物素材包 v0 草案，已进入首条真实动作链验证 |
-| ARCHITECTURE | ✅ | Swift/AppKit 原型、移动与睡眠动作图、统一地面和 root motion 数据流 |
+| ARCHITECTURE | ✅ | Swift/AppKit 原型、已批准动作图分量、统一地面和 root motion 数据流 |
 | DEPLOYMENT | ⚑ | 本地 macOS 原型可运行，尚无可安装版本 |
 | PRD | ✅ | 产品目标、第一阶段范围、成功指标和 PM 风险闸门 |
-| ROADMAP | ✅ | 先验证单宠移动闭环，再扩姿态与素材 Skill |
+| ROADMAP | ✅ | 先连通坐姿、移动与休息分量，再补左向和有限活动 |
 | CONVENTIONS | ✅ | 动作、方向、素材版本与验收记录约定 |
 | DECISIONS | ✅ | 已确认的产品与技术 ADR，包括同一素材单元的受控并行规则 |
 | MEMORY | ✅ | 素材生成事故、hidden 文件标记、工具链和归一化差异的避免规则 |
-| CHANGELOG | ✅ | 右向移动、睡眠子图运行时批准、原生窗口和素材包校验记录 |
+| CHANGELOG | ✅ | 右向移动、坐姿与躺姿素材、睡眠运行时、原生窗口和素材包校验记录 |
 
 ## 按任务读
 
