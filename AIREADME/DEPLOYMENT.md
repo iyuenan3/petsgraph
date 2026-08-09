@@ -4,7 +4,7 @@
 
 ⚑ 尚无可安装版本。当前有一个本机 macOS 预览原型，运行时离线，宠物素材生成和私有原型包编译均在用户自行 clone 的项目工作区执行。
 
-当前验证环境：macOS、Xcode 26.6 完整版、Swift 6.3.3、Python 3.12 和 Pillow 12.2.0。当前 `xcode-select` 指向的 CommandLineTools 不包含 `Testing` 或 `XCTest` 模块，不能建立测试基线。测试脚本显式使用 `/Applications/Xcode.app/Contents/Developer`，不修改全局 `xcode-select`。
+当前验证环境：macOS、Xcode 26.6 完整版、Swift 6.3.3、Python 3.12 和 Pillow 12.2.0。当前 `xcode-select` 指向的 CommandLineTools 不包含 `Testing` 或 `XCTest` 模块，裸跑 `swift test` 不是可信基线。测试脚本显式使用 `/Applications/Xcode.app/Contents/Developer`，不修改全局 `xcode-select`；当前 13 项 XCTest 全部通过。
 
 ## 怎么起
 
@@ -20,8 +20,8 @@ bash tools/test-swift.sh
 uv venv .venv --python /opt/homebrew/bin/python3.12
 uv pip install --python .venv/bin/python -r requirements-prototype.txt
 .venv/bin/python tools/build-prototype-package.py \
-  --config workspaces/wubai-private/runtime-records/wubai-right-sleep-v0.1.1-source.json \
-  --output workspaces/wubai-private/runtime-builds/wubai-right-sleep-v0.1.1-preview.petsgraph-pet
+  --config workspaces/wubai-private/runtime-records/wubai-side-stretched-supine-v0.2-source.json \
+  --output workspaces/wubai-private/runtime-builds/wubai-side-stretched-supine-v0.2.0-preview.petsgraph-pet
 ```
 
 校验私有包但不启动窗口：
@@ -29,7 +29,7 @@ uv pip install --python .venv/bin/python -r requirements-prototype.txt
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   xcrun swift run petsgraph \
-  workspaces/wubai-private/runtime-builds/wubai-right-sleep-v0.1.1-preview.petsgraph-pet \
+  workspaces/wubai-private/runtime-builds/wubai-side-stretched-supine-v0.2.0-preview.petsgraph-pet \
   --validate-only
 ```
 
@@ -38,11 +38,11 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   xcrun swift run petsgraph \
-  workspaces/wubai-private/runtime-builds/wubai-right-sleep-v0.1.1-preview.petsgraph-pet \
+  workspaces/wubai-private/runtime-builds/wubai-side-stretched-supine-v0.2.0-preview.petsgraph-pet \
   --display-height 150
 ```
 
-当前原型在菜单栏显示爪印，可重新播放当前预览链或退出。它不是正式安装入口。
+当前 0.2.0 聚焦预览包包含 15 个片段、7 个节点、8 条边和 1,145 个完整性条目。原型在菜单栏显示爪印，可重新播放当前预览链或退出。该链已录制但仍等待人工运行时结论，它不是正式安装入口。
 
 ## 域名 / 入口
 

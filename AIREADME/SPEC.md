@@ -156,6 +156,13 @@
   "safeExitFrames": [0, 8, 16, 24],
   "preloadHints": ["run-right-accelerate-v1", "walk-right-stop-v1"],
   "rootMotionEndPt": [48.0, 0.0],
+  "provenance": {
+    "approvalStatus": "human-action-approved",
+    "approvedRecipe": "workspaces/example-private/actions/walk-right-loop/v1/approved-recipe.json",
+    "approvedRecipeSha256": "<lowercase-sha256>",
+    "rootMotionStatus": "runtime-chain-approved",
+    "normalization": "pet-global-fixed-transform-v1"
+  },
   "frames": [
     {
       "src": "frames/walk-right-loop-v1/0000.png",
@@ -189,6 +196,9 @@
 - 从稳定姿态进入步态的过渡可以先保持零位移，但必须在第一步明确朝目标方向迈出时开始累计 root motion，并在进入目标循环前连续收敛到已批准的循环速度。右向累计 x 不得回退，左向累计 x 不得前进；素材画面通过不等于该位移曲线通过。
 - `safeExitFrames` 由足部接触、稳定姿态和人工检查共同确定。有限过渡默认不可被普通自主行为中断。
 - 预加载提示只是优化建议，不能改变图语义。
+- 新编译的批准片段必须在 `provenance.approvedRecipeSha256` 固定私有批准配方的精确内容。编译器复制帧前必须验证配方哈希、主体 ID、批准状态、事实源路径、批准帧数、FPS 和有序序列摘要。该字段只允许历史兼容包缺省，缺省包不得因此自动升级批准状态。
+- `demo-sequence.json` 只是显式评审链，不是绕过动作图的播放清单。`transition` 片段必须从第 0 帧完整播放一次；相邻片段的 `exitPose` 与 `entryPose` 必须一致；循环之后还有下一片段时，循环最后播放的运行时帧必须在 `safeExitFrames` 中。
+- 运行时必须在当前循环安全退出前解析并预加载下一条边或目标循环。预加载失败不得以硬切、截断过渡或跳到目标第 0 帧降级。
 
 ## 7. 第一阶段必备能力
 

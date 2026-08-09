@@ -22,12 +22,13 @@
 
 ## 当前 as-built 原型
 
-- `PetsGraphCore` 负责宠物包路径安全、图引用、逐帧 root motion、相位旋转、中断策略和完整性校验。片段集合从图引用推导并显式寻址，hidden 必需文件、缺失条目和哈希变化都会拒绝加载。掉帧后直接按单调时间重新采样，不累加历史 delta。
+- `PetsGraphCore` 负责宠物包路径安全、图引用、逐帧 root motion、相位旋转、中断策略和完整性校验。片段集合从图引用推导并显式寻址，hidden 必需文件、缺失条目和哈希变化都会拒绝加载。预览序列中的过渡必须从第 0 帧完整播放一次，相邻片段姿态必须兼容，循环只能在批准安全退出帧离开。掉帧后直接按单调时间重新采样，不累加历史 delta。
 - `PetsGraphApp` 使用透明无边框 AppKit `NSPanel`，主运行循环从 `ProcessInfo.systemUptime` 取同一单调时钟，同时选择 PNG 帧和设置原生窗口 x。
-- `build-prototype-package.py` 从已批准私有 PNG 事实源生成 320px 原型帧、锚点、碰撞区、逐帧累计 root motion、图、评审状态和 SHA-256 清单。它在编译前验证批准序列摘要，使用非点号临时目录，并在安装前后拒绝任何 `UF_HIDDEN` 文件标记。
+- `build-prototype-package.py` 从已批准私有 PNG 事实源生成 320px 原型帧、锚点、碰撞区、逐帧累计 root motion、图、评审状态和 SHA-256 清单。配置固定批准配方 SHA-256 时，编译器会先验证配方哈希、主体 ID、批准状态、事实源路径、批准帧数、FPS 和有序序列摘要。它使用非点号临时目录，并在安装前后拒绝任何 `UF_HIDDEN` 文件标记。
 - 当前可以播放包内声明的移动或睡眠演示序列，但还不是完整自主行为调度器。窗口不可拖动，不处理屏幕边缘返向、睡眠恢复或正式安装。
 - 走路 30 pt/s 已通过用户窗口速度验收，跑步保持 115 pt/s。睡眠四段 root motion 严格为零，趴卧到侧躺再返回的睡眠子图已通过真实桌面链路验收。
-- 合并预览包包含右向移动和趴卧、侧卧睡眠两个已批准子图。素材事实源另有已批准的 `sit.front` 循环、`stand.right → sit.front`、`sit.front → gait.walk.right`，以及香箱和仰卧闭环，但这些新增单元尚未编入运行时包。移动与休息分量仍缺少坐姿到趴卧等批准桥接动作，包明确保持 `installable=false`。
+- 当前 0.2.0 聚焦预览包包含 15 个片段、7 个节点、8 条边和 1,145 个完整性条目。它在既有右向移动与趴卧、左侧蜷卧子图之外，复用 `side-stretched-left-loop-v1` 与 `supine-left-loop-v1`，加入两条不可由普通自主行为中断的双向过渡。两个循环均只在 runtime frame 49 安全退出，四段新增睡眠路径的 root motion 严格为零。真实 AppKit 链路已经录制，仍等待 Maxwell 的运行时验收。
+- 素材事实源另有已批准的 `sit.front` 循环、`stand.right → sit.front`、`sit.front → gait.walk.right`、`sit.front ↔ rest.prone.left`，以及香箱、左侧蜷卧和仰卧的更多闭环。双向坐趴桥接已经素材级通过，但尚未编入完整连通运行时包，因此包明确保持 `installable=false`。
 - 全包沿用 640px 源画布、320px 运行时画布与共享源地面 `y=532`。睡眠事实源地面 `y=440`，四段编译副本统一应用固定平移 `(0,+92)`，源帧不变，也不逐帧重新居中。
 
 ### 1. 素材生成 Skill
