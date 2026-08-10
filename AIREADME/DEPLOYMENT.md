@@ -2,18 +2,18 @@
 
 ## 主机 + 环境
 
-李五百睡觉陪伴 `0.3.0` 构建为 Apple 芯片专用 `.petsgraph-pet`、`.app`、DMG 和 ZIP，素材状态为 `runtime-chain-approved` 与 `installable=true`。公开版最低支持 macOS 14，不构建 Intel 或通用二进制。
+PetsGraph `0.3.1` 构建为 Apple 芯片专用 App、DMG 和 ZIP，当前内嵌宠物为李五百。内嵌素材包状态为 `runtime-chain-approved` 与 `installable=true`。公开版最低支持 macOS 14，不构建 Intel 或通用二进制。
 
 当前生产验证环境：Apple 芯片 macOS、Xcode 26.6 完整版、Swift 6.3.3、Python 3.12 和 Pillow 12.2.0。当前 `xcode-select` 指向的 CommandLineTools 不包含 `Testing` 或 `XCTest` 模块，裸跑 `swift test` 不是可信基线。测试脚本显式使用 `/Applications/Xcode.app/Contents/Developer`，不修改全局 `xcode-select`。2026-08-10 真实执行 45 项 XCTest，0 失败。
 
 ## 朋友安装
 
-公开入口：<https://github.com/iyuenan3/petsgraph/releases/tag/v0.3.0>
+公开入口：<https://github.com/iyuenan3/petsgraph/releases/tag/v0.3.1>
 
-推荐下载 `PetsGraph-Wubai-Quiet-Companion-v0.3.0-macOS.dmg`：
+推荐下载 `PetsGraph-v0.3.1-macOS-arm64.dmg`：
 
 1. 打开 DMG。
-2. 把「李五百睡觉陪伴」拖入「应用程序」。
+2. 把 `PetsGraph.app` 拖入「应用程序」。
 3. 第一次启动时，如果 macOS 阻止打开，在 Finder 中右键 App 并选择「打开」。也可以前往「系统设置 > 隐私与安全性」确认打开。
 
 当前 App 使用 ad-hoc 签名，没有 Developer ID 签名和 Apple 公证。必须在下载页和安装说明中保留这个边界，不能把手动确认包装成无提示安装。
@@ -22,13 +22,12 @@
 
 | 附件 | 用途 |
 |---|---|
-| `PetsGraph-Wubai-Quiet-Companion-v0.3.0-macOS.dmg` | 普通用户推荐安装入口 |
-| `PetsGraph-Wubai-Quiet-Companion-v0.3.0-macOS.zip` | 备用 App 下载 |
-| `wubai-quiet-companion-v0.3.0.petsgraph-pet.zip` | 开发者检查素材包契约 |
-| `Wubai-Sleep-Postures-v0.3.0.png` | 十种睡姿总览 |
+| `PetsGraph-v0.3.1-macOS-arm64.dmg` | 普通用户推荐安装入口 |
+| `PetsGraph-v0.3.1-macOS-arm64.zip` | 备用 App 下载 |
+| `Wubai-Sleep-Postures-v0.3.1.png` | 十种睡姿总览 |
 | `SHA256SUMS.txt` | 附件完整性校验 |
 
-附件的固定字节数和 SHA-256 记录在 `release/manifests/v0.3.0.json`。正式媒体属于 Release 附件，不提交到 Git 历史。源照片、生成母片、Seedance 任务记录、被拒绝候选和私有生产配置不公开。
+附件的固定字节数和 SHA-256 记录在 `release/manifests/v0.3.1.json`。Release 不重复上传已经内嵌在 App 中的 `.petsgraph-pet`。正式媒体属于 Release 附件，不提交到 Git 历史。源照片、生成母片、Seedance 任务记录、被拒绝候选和私有生产配置不公开。
 
 ## 开发和生产构建
 
@@ -44,8 +43,8 @@ bash tools/test-swift.sh
 uv venv .venv --python /opt/homebrew/bin/python3.12
 uv pip install --python .venv/bin/python -r requirements-prototype.txt
 .venv/bin/python tools/build-prototype-package.py \
-  --config workspaces/wubai-private/runtime-records/wubai-quiet-companion-0.3.0-source.json \
-  --output workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.0.petsgraph-pet
+  --config workspaces/wubai-private/runtime-records/wubai-quiet-companion-0.3.1-source.json \
+  --output workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.1.petsgraph-pet
 ```
 
 校验正式包但不启动窗口：
@@ -53,7 +52,7 @@ uv pip install --python .venv/bin/python -r requirements-prototype.txt
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   xcrun swift run petsgraph \
-  workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.0.petsgraph-pet \
+  workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.1.petsgraph-pet \
   --validate-only
 ```
 
@@ -61,21 +60,19 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 
 ```bash
 .venv/bin/python tools/build-macos-app.py \
-  --package workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.0.petsgraph-pet \
-  --output workspaces/wubai-private/runtime/PetsGraph-Wubai-Quiet-Companion-0.3.0.app \
-  --version 0.3.0 \
-  --build-number 1 \
-  --bundle-identifier com.maxwell.petsgraph.quiet-companion
+  --package workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.1.petsgraph-pet \
+  --output workspaces/wubai-private/runtime/PetsGraph-0.3.1.app \
+  --version 0.3.1 \
+  --build-number 2
 ```
 
 构建公开附件：
 
 ```bash
 .venv/bin/python tools/build-release-artifacts.py \
-  --app workspaces/wubai-private/runtime/PetsGraph-Wubai-Quiet-Companion-0.3.0.app \
-  --package workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.0.petsgraph-pet \
-  --version 0.3.0 \
-  --output workspaces/wubai-private/release-dist/v0.3.0 \
+  --app workspaces/wubai-private/runtime/PetsGraph-0.3.1.app \
+  --version 0.3.1 \
+  --output workspaces/wubai-private/release-dist/v0.3.1 \
   --preview workspaces/wubai-private/runtime-records/wubai-sleep-postures-v0.3.0.png
 ```
 
@@ -84,8 +81,8 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 ## GitHub 发布流程
 
 1. 先提交并推送实现、发布清单和文档。
-2. 在最终文档提交上创建带注释的语义版本标签，例如 `v0.3.0`。
-3. 使用 `docs/releases/v0.3.0.md` 和清单声明的五个附件创建草稿 Release。
+2. 在最终文档提交上创建带注释的语义版本标签，例如 `v0.3.1`。
+3. 使用 `docs/releases/v0.3.1.md` 和清单声明的四个附件创建草稿 Release。
 4. 手动触发 `.github/workflows/release.yml`，传入同一个标签。
 5. Actions 检出精确标签，运行 45 项测试，下载所有草稿附件并验证文件名、字节数、SHA-256 和 arm64 架构。
 6. 只有全部校验通过，工作流才把草稿改成正式最新版。

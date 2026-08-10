@@ -2,7 +2,7 @@
 
 ## 出向依赖（我用了谁）
 
-当前没有运行时项目依赖。李五百睡觉陪伴 MVP 离线运行，不依赖账号、服务端、数据库、分析平台或网络 API。
+当前没有运行时项目依赖。PetsGraph 安静陪伴 MVP 离线运行，不依赖账号、服务端、数据库、分析平台或网络 API。当前内嵌宠物是李五百，宠物身份由宠物包提供。
 
 | 依赖 | 用途 | 边界 |
 |---|---|---|
@@ -16,7 +16,7 @@
 
 ## 入向（谁用我）
 
-- 当前 petsgraph Swift/AppKit 桌面运行时消费通过完整性校验的 `.petsgraph-pet`，五百 `0.3.0` 已达到 `runtime-chain-approved`。
+- 当前 PetsGraph Swift/AppKit 桌面运行时消费通过完整性校验的 `.petsgraph-pet`，五百 `0.3.1` 已达到 `runtime-chain-approved` 并作为默认包内嵌。
 - 喜欢五百的朋友通过 GitHub Release 下载 Apple 芯片 DMG，把 App 安装到自己的 Mac。GitHub 是发布载体，不是运行时依赖。
 - 未来 petsgraph 素材生成 Skill 产出符合 `SPEC.md` 的素材包。
 - 当前没有其他项目把 petsgraph 作为依赖。

@@ -2,6 +2,16 @@
 
 > Append-only。记录版本与里程碑，决策理由见 `DECISIONS.md`。
 
+## v0.6.0-generic-runtime · 2026-08-10
+
+- Added: 发布通用 `PetsGraph` App `0.3.1`，Bundle ID 为 `com.maxwell.petsgraph`。菜单从内嵌宠物包读取名称并显示「当前宠物：李五百」，通用运行时反馈不再写死具体宠物名。
+- Added: 发布构建器原子生成 DMG、备用 App ZIP、睡姿总览和校验和。GitHub Actions 验证精确四附件集合、字节数、SHA-256、App 名称、Bundle ID、版本、最低系统、`arm64` 架构、签名和内嵌宠物包完整性后才发布草稿。
+- Changed: App、DMG 和 ZIP 统一使用 PetsGraph 名称。`0.3.1` 的全部批准帧与 `0.3.0` 逐项哈希一致，没有重新生成、抠图或修改源帧。
+- Changed: README、安装说明、发布说明和 AIREADME 更新为通用运行时与当前宠物分层，并记录约 465 MB 透明 PNG 是当前包体积的主要来源。
+- Removed: Release 不再重复上传独立 `.petsgraph-pet`，普通用户只需下载 DMG。
+- Deprecated: 把某只宠物名称固化为 App 品牌、Bundle 身份或通用反馈，以及用宽松附件集合发布草稿。
+- Review: 完整 Xcode 真实执行 45 项 XCTest，0 失败。正式包加载 53 个 clip、10 个可自主停留节点、90 条换姿路径、10 条醒来路径、10 条返回路径和 6,925 条完整性记录。Apple 芯片 App、ZIP 解包、DMG 挂载、ad-hoc 签名和内嵌包校验通过。
+
 ## v0.5.0-public-alpha · 2026-08-10
 
 - Added: 李五百睡觉陪伴 App `0.3.0` 新增「选择睡姿」中文菜单，列出 7 种普通睡姿和 3 种枕头睡姿。节点契约增加 `displayName`，正式菜单、状态和操作反馈不再显示内部动作 ID。
