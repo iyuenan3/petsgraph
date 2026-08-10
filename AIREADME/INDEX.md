@@ -1,6 +1,6 @@
 # petsgraph · AIREADME
 > 面向真实宠物的单宠 macOS 安静桌面陪伴运行时与本地素材包体系 ｜ 生命周期: local-mvp
-> last-synced: 70de179 · 2026-08-10
+> last-synced: 686900d · 2026-08-10
 > phase: wubai-sleep-companion-mvp
 
 ## 状态
