@@ -201,3 +201,11 @@
 - Decision: 从 `v0.3.1` 起，App、菜单栏可访问名称和 DMG 统一使用 `PetsGraph`，Bundle ID 使用 `com.maxwell.petsgraph`。当前宠物名称从内嵌包的 `pet.displayName` 读取，菜单显示「当前宠物：李五百」，运行时反馈不得写死具体宠物名。Release 只发布 DMG、备用 App ZIP、当前宠物睡姿总览和校验和，不重复发布独立 `.petsgraph-pet`。
 - Alternatives（否决）: App 继续叫「李五百睡觉陪伴」；每只宠物发布一个独立命名的运行时；把宠物名硬编码在通用 UI；同时发布 App 和内容完全重复的宠物包附件。
 - Tradeoff: `v0.3.1` 的安装身份与 `v0.3.0` 不同，用户可能在应用程序中短期看到两个 App。换来长期稳定的通用运行时品牌、可替换宠物身份和更清楚的发布附件边界。
+
+## ADR-026 · 低功耗候选采用固定 clip 裁剪的预乘 RGBA · 2026-08-10
+
+- Problem: 正式 v0.3.1 的逐帧 PNG 路线保持视觉质量和精确寻址，但真实桌面稳定态约占 4.4% 到 5.9% CPU 与约 215 MiB 内存，不适合长期陪伴。HEVC Alpha 能减小磁盘与进程内存，但每帧经 `CIImage → CGImage → NSImage` 重建会提高 CPU；直接视频图层仍要统计 VideoToolbox 系统解码成本。
+- Constraint: 获批 PNG 与帧序不得修改；同一动作只能使用固定空间变换；安全退出、碰撞、点击、root motion 和预加载必须继续逐帧寻址；用户明确接受用磁盘换 CPU 与内存。
+- Decision: PNG 继续作为不可变制作事实源。schema `0.4.0` 为每个 clip 计算一次全帧 alpha 并集并增加固定 4 px 透明边距，将所有帧按同一 crop 编译为 sRGB `rgba8-premultiplied` 连续流。运行时只读内存映射媒体，Core Graphics provider 直接引用映射字节，CALayer 在包级完整画布坐标中放置 crop。小循环整段预建，长过渡按固定 crop 有界分块。GUI 增加每用户单实例锁。
+- Alternatives（否决）: 继续全画布 PNG 全量解码；把 HEVC 每帧转成 AppKit 图像；逐帧重算 crop 或重新居中；只用动态 WebP；为了省磁盘删除批准 PNG；在未人工视觉通过时直接替换 v0.3.1。
+- Tradeoff: 完整候选从约 465 MB PNG 增长到约 1.827 GB raw 媒体，但普通睡眠降到约 1.3% 到 1.6% CPU 与 53 MiB，连续过渡约 2.1% 到 2.7% CPU 与 19 到 46 MiB。启动完整性哈希仍需读取大文件，Release 体积可能增加。候选保持 `installable=false`，完整视觉、点击拖动、锁屏恢复和长时间运行验收通过后才决定下一版本默认格式。

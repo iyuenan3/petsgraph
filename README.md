@@ -18,6 +18,8 @@ PetsGraph 是一个面向真实宠物的开源 macOS 桌面陪伴运行时。当
 
 ## 当前内置宠物：李五百
 
+### 怎么陪它
+
 - 李五百启动后默认出现在屏幕左下角，大部分时间安静睡觉。
 - 点击睡眠中的李五百，它会沿动作图醒来并正面坐好。
 - 再次点击，它会自然回去睡觉。
@@ -57,15 +59,17 @@ PetsGraph 最初验证过走路、跑步和真实桌面位移。真正长时间�
 
 v0.3.1 内置 53 个逐帧动作片段、6,866 个运行时帧和约 286 秒动画。App 中约 465 MB 的内容是已经批准的透明 PNG 素材，主程序本身约 1 MB。
 
-PNG 已经压缩，再套 ZIP 或 DMG 只能小幅缩减，所以 DMG 仍有约 454 MiB。Release 不再重复上传独立 `.petsgraph-pet`，普通用户只需要下载 DMG。后续会在保留 PNG 制作事实源的前提下验证更小的运行时编译格式，未经视觉验收不会为了减包降低毛发、透明边缘或动作质量。
+PNG 已经压缩，再套 ZIP 或 DMG 只能小幅缩减，所以 DMG 仍有约 454 MiB。Release 不再重复上传独立 `.petsgraph-pet`，普通用户只需要下载 DMG。
 
-## v0.3.1 验证
+main 分支已经完成一套低功耗候选格式：保留获批 PNG 作为制作事实源，把运行时副本编译成每条动作统一固定裁剪的预乘 RGBA 媒体。它用约 1.827 GB 存储换取更低的长期运行成本，真实桌面普通睡眠约占 1.3% 到 1.6% CPU 和 53 MiB 内存，连续换姿约占 2.1% 到 2.7% CPU 和 19 到 46 MiB 内存。该候选仍等待完整人工视觉验收，因此尚未替换 v0.3.1 Release，也不会为了性能修改获批源帧。
+
+## 验证状态
 
 - 53 个逐帧动作片段。
 - 14 个姿态节点和 39 条有向边。
 - 7 种普通睡姿、3 种枕头睡姿和两个场景坐姿。
 - 6,925 条文件完整性记录。
-- 45 项 XCTest，覆盖素材包校验、动作图、预加载、不可中断过渡、指定睡姿、动态宠物名称、点击去抖和左下角启动。
+- v0.3.1 Release 通过 45 项 XCTest。当前 main 分支通过 57 项 XCTest，新增低功耗媒体完整性、媒体哈希、异常隐藏、单实例保护和运行时媒体回归。
 - 正式 v0.3.1 的获批素材帧与 v0.3.0 逐项哈希一致，没有重新生成、抠图或修改源帧。
 
 正式 App 和素材随 [GitHub Release](https://github.com/iyuenan3/petsgraph/releases) 分发，不把数百 MB 的运行时资源写入 Git 历史。原始宠物照片、Seedance 任务记录、被拒绝的候选和私有生产上下文不会公开。
@@ -75,6 +79,7 @@ PNG 已经压缩，再套 ZIP 或 DMG 只能小幅缩减，所以 DMG 仍有约 
 - `Sources/PetsGraphCore/`：宠物包校验、动作图、时间轴与 root motion。
 - `Sources/PetsGraphApp/`：AppKit 透明窗口、逐帧渲染、菜单和桌面交互。
 - `tools/build-prototype-package.py`：把固定 PNG 事实源编译为版本化宠物包。
+- `tools/build-cropped-rgba-package.py`：从获批 PNG 包生成固定 clip 裁剪的低功耗运行时副本。
 - `tools/build-macos-app.py`：把已校验宠物包嵌入通用 PetsGraph App。
 - `tools/build-release-artifacts.py`：原子生成 DMG、App ZIP、校验和与发布元数据。
 - `.github/workflows/release.yml`：校验标签、测试、精确附件集合、哈希、Bundle 身份和 arm64 架构，再发布草稿 Release。

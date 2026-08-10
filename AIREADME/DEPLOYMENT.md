@@ -4,7 +4,7 @@
 
 PetsGraph `0.3.1` 构建为 Apple 芯片专用 App、DMG 和 ZIP，当前内嵌宠物为李五百。内嵌素材包状态为 `runtime-chain-approved` 与 `installable=true`。公开版最低支持 macOS 14，不构建 Intel 或通用二进制。
 
-当前生产验证环境：Apple 芯片 macOS、Xcode 26.6 完整版、Swift 6.3.3、Python 3.12 和 Pillow 12.2.0。当前 `xcode-select` 指向的 CommandLineTools 不包含 `Testing` 或 `XCTest` 模块，裸跑 `swift test` 不是可信基线。测试脚本显式使用 `/Applications/Xcode.app/Contents/Developer`，不修改全局 `xcode-select`。2026-08-10 真实执行 45 项 XCTest，0 失败。
+当前生产验证环境：Apple 芯片 macOS、Xcode 26.6 完整版、Swift 6.3.3、Python 3.12 和 Pillow 12.2.0。当前 `xcode-select` 指向的 CommandLineTools 不包含 `Testing` 或 `XCTest` 模块，裸跑 `swift test` 不是可信基线。测试脚本显式使用 `/Applications/Xcode.app/Contents/Developer`，不修改全局 `xcode-select`。v0.3.1 标签真实执行 45 项 XCTest，0 失败；main 分支提交 `e80fa09` 及其文档前修正真实执行 57 项，0 失败。
 
 ## 朋友安装
 
@@ -56,6 +56,31 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   --validate-only
 ```
 
+从冻结 PNG 包构建低功耗候选，不覆盖源包：
+
+```bash
+.venv/bin/python tools/build-cropped-rgba-package.py \
+  --source-package workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.1.petsgraph-pet \
+  --output workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.1-low-power-exp.1.petsgraph-pet \
+  --version 0.3.1-low-power-exp.1
+```
+
+候选输出使用 schema `0.4.0`，当前完整包约 1.827 GB。源 PNG 包继续保留。构建器拒绝覆盖目标，逐 clip 使用一个固定 alpha 并集裁剪，重建 `source-assets.json` 与 `integrity.json`，并把候选状态写成 `installable=false`。
+
+校验候选结构、行为图和全部运行时帧：
+
+```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcrun swift run petsgraph \
+  workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.1-low-power-exp.1.petsgraph-pet \
+  --validate-only
+
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcrun swift run petsgraph \
+  workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.1-low-power-exp.1.petsgraph-pet \
+  --validate-media
+```
+
 构建 Apple 芯片 App：
 
 ```bash
@@ -99,6 +124,8 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 - 睡眠 MVP 不需要账号、登录、辅助功能权限、屏幕录制权限或全局鼠标监听。
 - 运行时不读取 provider 凭据，不联网生成，不上传宠物照片，不发送遥测。
 - 锁屏和系统睡眠时暂停窗口与动画时钟，恢复后回到稳定姿态。
+- main 分支 GUI 运行使用每用户单实例锁，第二次启动在加载宠物包前退出。校验命令可以与 GUI 同时运行。
+- 性能采样前用 PID 和完整命令路径确认只存在一个当前版本。旧 AppTranslocation 进程可能在 Gatekeeper 延迟放行后出现，必须单独终止并记录，不能把旧版本资源归因给当前包。
 
 ## 备份、升级与回滚
 
@@ -113,6 +140,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 - 运行时不得联网生成或上传宠物素材。
 - 不因 provider 超时、失败或本地网络错误自动重复付费调用。
 - 未通过 `runtime-chain-approved` 的包只能进入显式预览模式，不能替换正式宠物。
+- `cropped-rgba-awaiting-human-runtime-review` 候选不得进入公开 Release。机械校验、57 项测试和资源目标通过仍不足以升级 `installable`。
 - 图规划、解码或预加载错误时回到兼容稳定睡姿并记录错误，不能直接让应用消失。
 - 默认运行不得注册全局桌面点击 monitor。
 - Developer ID 签名和 Apple 公证完成前，所有公开页面都必须说明首次打开的系统确认步骤。

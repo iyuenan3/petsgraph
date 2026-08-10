@@ -47,6 +47,7 @@ PetsGraph 是面向真实宠物的 macOS 单宠桌面陪伴运行时与素材包
 - 独立动作通过不等于可安装。动作、图边、完整场景链和真实桌面长时间运行必须分别验收。
 - 宠物包只包含数据与媒体，不执行包内脚本，不携带生成凭据、原始私密照片、签名 URL 或 provider 配置。
 - PNG/RGBA 序列是制作事实源；图集是可重建运行时产物；WebP、GIF 和 MP4 只用于预览或导出。
+- 低功耗运行时副本只能从已批准 PNG 包确定性编译。每条 clip 只允许一个固定裁剪矩形，不能逐帧重新定位、缩放或修改批准源帧。
 
 ## 生命周期
 
@@ -55,3 +56,5 @@ PetsGraph 是面向真实宠物的 macOS 单宠桌面陪伴运行时与素材包
 正式包状态为 `runtime-chain-approved` 和 `installable=true`。获批链包含 53 个 clip、14 个节点与 39 条边，已通过 45 项 XCTest、6,925 条完整性记录、30 分钟真实桌面稳定性观察、正常速度与慢放评审，以及拖动、Space 和锁屏恢复人工验收。`0.3.0` 的全部获批帧与 `0.2.0` 哈希一致。
 
 公开版只构建 Apple 芯片 `arm64`，最低 macOS 14。App 使用 ad-hoc 签名，没有 Developer ID 签名和 Apple 公证，朋友首次打开时需要通过 Finder 右键「打开」或「隐私与安全性」确认。正式媒体内嵌在 App 中，Release 不再重复上传独立 `.petsgraph-pet`。
+
+main 分支提交 `e80fa09` 新增 schema `0.4.0` 的固定 clip 裁剪预乘 RGBA 候选、内存映射播放、有界预加载和单实例锁。它保留 `0.3.1` PNG 包作为不可变事实源，完整候选为 53 个 clip、6,866 帧和 1.827 GB。57 项 XCTest、完整性校验、全部媒体帧可读和真实桌面随机换姿链已通过；普通睡眠约 1.3% 到 1.6% CPU、53 MiB，连续过渡约 2.1% 到 2.7% CPU、19 到 46 MiB。该候选仍为 `cropped-rgba-awaiting-human-runtime-review` 与 `installable=false`，未替换已发布的 v0.3.1。

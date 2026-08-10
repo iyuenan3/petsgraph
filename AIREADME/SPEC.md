@@ -1,12 +1,12 @@
-# SPEC：petsgraph 宠物素材包 v0.2
+# SPEC：petsgraph 宠物素材包 v0.4
 
-> 本契约是素材生成 Skill 与桌面运行时之间的边界。schema `0.2.0` 已由 Swift 加载器、行为规划器、包编译器和正式五百本地包实现。`0.1.0` 工程包继续作为只读历史证据。
+> 本契约是素材生成 Skill 与桌面运行时之间的边界。schema `0.2.0` 是 v0.3.1 PNG 正式包；schema `0.3.0` 是 HEVC Alpha 对照实验；schema `0.4.0` 是固定 clip 裁剪预乘 RGBA 低功耗候选。三者都由当前 Swift 加载器显式验证，旧工程包继续作为只读历史证据。
 
 ## 1. 契约范围
 
 - 安装单元：一个只包含一只宠物的本地 `.petsgraph-pet` 目录或压缩包。
 - 制作事实源：RGBA PNG 序列、动作清单、图结构、验收记录和完整性清单。
-- 运行时产物：第一版直接使用 PNG 序列；后续可以从同一事实源编译分页图集。
+- 运行时产物：正式 v0.3.1 直接使用 PNG 序列；main 分支可以从同一事实源编译固定 clip 裁剪的连续预乘 RGBA 媒体。分页图集仍是未来可重建选项。
 - 预览产物：动态 WebP、GIF 或 MP4，不是运行时事实源。
 - 隐私边界：安装包不携带原始宠物照片、生成凭据、提示词私密上下文或可执行脚本。
 
@@ -23,6 +23,8 @@
     <clip-id>/
       0000.png
       0001.png
+  media/                   # 可选，schema 0.3 或 0.4 的可重建运行时媒体
+    <clip-id>.rgba
   atlases/                 # 可选，可重建的运行时编译物
     atlas-000.png
     atlas-000.json
@@ -74,7 +76,7 @@
 - `package.id`、`pet.id` 和版本号不可通过覆盖旧文件改变既有已批准包；新素材使用新版本。
 - `baseHeightPt` 是 root motion 和桌面显示的参考高度，不锁死用户最终显示大小。
 - 第一阶段只接受一个宠物、一个默认睡眠节点、一个动作图和一个行为配置。
-- `renderAssets.mode` 首版必须是 `frames`；`atlas` 在真实原型证明收益后再启用。
+- `renderAssets.mode=frames` 使用 `rgba8-straight` PNG。`hevc-alpha-clips` 只保留为 schema `0.3.0` 对照实验。`cropped-rgba-clips` 使用 schema `0.4.0` 与 `rgba8-premultiplied`，必须从批准 PNG 包确定性编译。
 
 ## 4. 坐标与缩放
 
@@ -263,6 +265,40 @@
 - 新编译的批准片段必须在 `provenance.approvedRecipeSha256` 固定私有批准配方的精确内容。编译器复制帧前必须验证配方哈希、主体 ID、批准状态、事实源路径、批准帧数、FPS 和有序序列摘要。该字段只允许历史兼容包缺省，缺省包不得因此自动升级批准状态。
 - `demo-sequence.json` 只是显式评审链，不是绕过动作图的播放清单。`transition` 片段必须从第 0 帧完整播放一次；相邻片段的 `exitPose` 与 `entryPose` 必须一致；循环之后还有下一片段时，循环最后播放的运行时帧必须在 `safeExitFrames` 中。
 - 运行时必须在当前循环安全退出前解析并预加载下一条边或目标循环。预加载失败不得以硬切、截断过渡或跳到目标第 0 帧降级。
+
+### 6.1 schema `0.4.0` 固定裁剪 RGBA 媒体
+
+`cropped-rgba-clips` 的每个 clip 额外声明：
+
+```json
+{
+  "media": {
+    "type": "raw-frames",
+    "src": "media/example-loop-v1.rgba",
+    "codec": "raw-rgba8",
+    "container": "contiguous-frame-stream",
+    "frameCount": 236,
+    "frameRate": 24,
+    "alphaMode": "premultiplied-last",
+    "colorSpace": "sRGB",
+    "sourceSequenceDigest": "<approved-source-digest>",
+    "compiledFrameSequenceDigest": "<raw-file-sha256>",
+    "cropRectPx": [106, 192, 265, 121],
+    "bytesPerRow": 1060,
+    "frameByteCount": 128260
+  }
+}
+```
+
+约束：
+
+- `cropRectPx` 是该 clip 全部批准帧 alpha 包围盒的并集再增加固定透明边距。所有帧共享同一矩形，不得逐帧重新定位或缩放。
+- 裁剪只改变媒体存储窗口。帧锚点、碰撞区、道具区、root motion 和窗口布局继续使用包级完整画布坐标。
+- 每帧按 RGBA 字节顺序存储，RGB 已按 alpha 预乘，帧序与批准 PNG 完全一致。不得插帧、倒放、交叉淡化或修改时间顺序。
+- `bytesPerRow = cropWidth × 4`，`frameByteCount = bytesPerRow × cropHeight`，文件字节数严格等于 `frameCount × frameByteCount`。
+- `compiledFrameSequenceDigest` 是 `.rgba` 文件 SHA-256，并必须与 `integrity.json` 对应条目一致。`sourceSequenceDigest` 必须继续匹配批准配方履历。
+- 运行时用只读内存映射与 Core Graphics 直接寻址。小循环可以在预算内预建全部图像，长过渡按固定 crop 分块预建并有界释放。
+- schema `0.4.0` 通过机械与性能验证不等于视觉或安装批准。`reviews/index.json` 必须保持 `cropped-rgba-awaiting-human-runtime-review` 与 `installable=false`，直到完整桌面链人工通过。
 
 ## 7. 李五百睡觉陪伴 MVP 必备能力
 

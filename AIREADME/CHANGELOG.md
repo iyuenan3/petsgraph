@@ -2,6 +2,16 @@
 
 > Append-only。记录版本与里程碑，决策理由见 `DECISIONS.md`。
 
+## v0.7.0-low-power-candidate · 2026-08-10
+
+- Added: 新增 schema `0.4.0` 的 `cropped-rgba-clips` 媒体契约与编译器。它从完整性已验证的 PNG 包确定性生成每 clip 固定 alpha 并集裁剪、预乘 RGBA 连续帧流、来源清单和新完整性清单，不覆盖或修改批准 PNG。
+- Added: AppKit 运行时新增只读内存映射、Core Graphics provider 直接寻址、完整画布 crop 布局、raw alpha 命中、小循环整段预建、长过渡有界分块，以及 HEVC Alpha 对照实验加载能力。
+- Added: GUI 使用每用户单实例锁，重复启动在加载媒体前立即退出。新增 raw 媒体缺失、篡改、异常隐藏、字节契约、元数据哈希和单实例锁测试。
+- Changed: 主播放时钟保持 24 Hz，只在 clip、帧、镜像或位置实际变化时提交新画面。透明窗口改为直接 CALayer 内容提交，发布构建清理签名干扰 xattr，`dist/` 不进入 Git 历史。
+- Changed: 原始 PNG 包继续作为制作事实源和 v0.3.1 正式回滚基线。完整 raw 候选包含 53 个 clip、6,866 帧与 1.827 GB 媒体，评审状态保持 `cropped-rgba-awaiting-human-runtime-review`、`installable=false`。
+- Deprecated: 把 HEVC 文件体积缩小直接等同于低 CPU；逐帧 `CIImage → CGImage → NSImage` 重建；同时使用 LaunchServices 与直接执行启动 QA；把旧 AppTranslocation 资源占用归因给当前候选。
+- Review: 完整 Xcode 真实执行 57 项 XCTest，0 失败。完整候选通过包完整性和全部 6,866 帧可读校验；真实桌面多段普通睡姿随机链、安全预加载和单实例回归通过。普通睡眠约 1.3% 到 1.6% CPU、53 MiB，连续换姿约 2.1% 到 2.7% CPU、19 到 46 MiB。完整睡姿、点击拖动、锁屏恢复和长时间视觉验收尚未重跑，因此不替换 v0.3.1 Release。
+
 ## v0.6.0-generic-runtime · 2026-08-10
 
 - Added: 发布通用 `PetsGraph` App `0.3.1`，Bundle ID 为 `com.maxwell.petsgraph`。菜单从内嵌宠物包读取名称并显示「当前宠物：李五百」，通用运行时反馈不再写死具体宠物名。
