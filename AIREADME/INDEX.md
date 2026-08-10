@@ -1,6 +1,6 @@
 # petsgraph · AIREADME
 > 面向真实宠物的单宠 macOS 安静桌面陪伴运行时与公开素材包体系 ｜ 生命周期: public-alpha
-> last-synced: 27a4416 · 2026-08-10
+> last-synced: a77c977 · 2026-08-10
 > phase: wubai-public-release-v0.3.0
 
 ## 状态
