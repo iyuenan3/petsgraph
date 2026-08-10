@@ -355,13 +355,16 @@ struct PetsGraphMain {
 final class AppDelegate: NSObject, NSApplicationDelegate {
   private let package: LoadedPetPackage
   private let configuration: AppConfiguration
+  private let menuCatalog: QuietCompanionMenuCatalog
   private var petController: PetWindowController?
   private var statusItem: NSStatusItem?
   private var clipMenuItem: NSMenuItem?
+  private var sleepPoseMenuItems: [String: NSMenuItem] = [:]
 
   init(package: LoadedPetPackage, configuration: AppConfiguration) {
     self.package = package
     self.configuration = configuration
+    menuCatalog = QuietCompanionMenuCatalog(graph: package.graph)
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -377,7 +380,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         quietSceneRoundTripDemo: configuration.quietSceneRoundTripDemo
       )
       controller.onClipChanged = { [weak self] clipID in
-        self?.clipMenuItem?.title = "当前：\(clipID)"
+        self?.updateMenuPresentation(clipID: clipID)
       }
       petController = controller
       makeStatusItem()
@@ -408,6 +411,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     petController?.forceSleepChange()
   }
 
+  @objc private func selectSleepPose(_ sender: NSMenuItem) {
+    guard
+      let nodeID = sender.representedObject as? String,
+      let option = menuCatalog.sleepPoses.first(where: { $0.nodeID == nodeID })
+    else {
+      return
+    }
+    _ = petController?.selectSleepPose(
+      nodeID: option.nodeID,
+      displayName: option.displayName
+    )
+  }
+
   @objc private func quit() {
     NSApplication.shared.terminate(nil)
   }
@@ -424,6 +440,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     clipMenuItem = current
     menu.addItem(current)
     menu.addItem(.separator())
+    if package.behavior?.profile == "quiet-sleep-companion" {
+      let choosePose = NSMenuItem(title: "选择睡姿", action: nil, keyEquivalent: "")
+      let poseMenu = NSMenu(title: "选择睡姿")
+      addSleepPoseSection(scene: "floor", title: "地面睡姿", to: poseMenu)
+      poseMenu.addItem(.separator())
+      addSleepPoseSection(scene: "pillow", title: "枕头睡姿", to: poseMenu)
+      choosePose.submenu = poseMenu
+      menu.addItem(choosePose)
+      menu.addItem(.separator())
+    }
     if configuration.engineeringBehaviorPreview {
       menu.addItem(
         NSMenuItem(
@@ -469,5 +495,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     item.menu = menu
     statusItem = item
+  }
+
+  private func addSleepPoseSection(scene: String, title: String, to menu: NSMenu) {
+    let heading = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    heading.isEnabled = false
+    menu.addItem(heading)
+    for option in menuCatalog.sleepPoses where option.scene == scene {
+      let menuItem = NSMenuItem(
+        title: option.displayName,
+        action: #selector(selectSleepPose(_:)),
+        keyEquivalent: ""
+      )
+      menuItem.target = self
+      menuItem.representedObject = option.nodeID
+      menu.addItem(menuItem)
+      sleepPoseMenuItems[option.nodeID] = menuItem
+    }
+  }
+
+  private func updateMenuPresentation(clipID: String) {
+    clipMenuItem?.title = menuCatalog.statusTitle(forClipID: clipID)
+    let activeNodeID = menuCatalog.activeSleepNodeID(forClipID: clipID)
+    for (nodeID, item) in sleepPoseMenuItems {
+      item.state = nodeID == activeNodeID ? .on : .off
+    }
   }
 }

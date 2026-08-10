@@ -62,20 +62,29 @@ def main() -> None:
         "CFFIXED_USER_HOME",
     ):
         Path(environment[key]).mkdir(parents=True, exist_ok=True)
+    swift_build = [
+        "/usr/bin/xcrun",
+        "swift",
+        "build",
+        "--disable-sandbox",
+        "-c",
+        "release",
+    ]
     subprocess.run(
-        [
-            "/usr/bin/xcrun",
-            "swift",
-            "build",
-            "--disable-sandbox",
-            "-c",
-            "release",
-        ],
+        swift_build,
         cwd=ROOT,
         env=environment,
         check=True,
     )
-    binary = ROOT / ".build" / "release" / "petsgraph"
+    bin_path = subprocess.run(
+        [*swift_build, "--show-bin-path"],
+        cwd=ROOT,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    binary = Path(bin_path) / "petsgraph"
     if not binary.is_file():
         raise FileNotFoundError(f"release executable not found: {binary}")
     subprocess.run(
@@ -102,7 +111,7 @@ def main() -> None:
             "CFBundleExecutable": "petsgraph",
             "CFBundleIdentifier": args.bundle_identifier,
             "CFBundleInfoDictionaryVersion": "6.0",
-            "CFBundleName": "petsgraph",
+            "CFBundleName": "李五百睡觉陪伴",
             "CFBundlePackageType": "APPL",
             "CFBundleShortVersionString": args.version,
             "CFBundleVersion": args.build_number,

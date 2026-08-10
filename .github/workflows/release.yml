@@ -1,0 +1,114 @@
+name: Publish verified release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Semantic version tag whose draft release should be verified and published
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: petsgraph-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  verify-and-publish:
+    runs-on: macos-15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Validate tag input
+        shell: bash
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Expected a semantic version tag such as v0.3.0"
+            exit 1
+          fi
+
+      - name: Check out the tagged source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Verify tag and release manifest
+        shell: bash
+        run: |
+          tag_commit="$(git rev-list -n 1 "$RELEASE_TAG")"
+          head_commit="$(git rev-parse HEAD)"
+          test "$tag_commit" = "$head_commit"
+          test -f "release/manifests/$RELEASE_TAG.json"
+          jq -e --arg tag "$RELEASE_TAG" '.tag == $tag and (.artifacts | length) >= 4' \
+            "release/manifests/$RELEASE_TAG.json" >/dev/null
+
+      - name: Run the full Swift test baseline
+        run: bash tools/test-swift.sh
+
+      - name: Confirm the release is still a draft
+        shell: bash
+        run: |
+          is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+          test "$is_draft" = "true"
+
+      - name: Download every declared release artifact
+        shell: bash
+        run: |
+          mkdir -p release-download
+          while IFS= read -r filename; do
+            gh release download "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern "$filename" \
+              --dir release-download
+          done < <(jq -r '.artifacts[].file' "release/manifests/$RELEASE_TAG.json")
+
+      - name: Verify sizes and SHA-256 digests
+        shell: bash
+        run: |
+          while IFS=$'\t' read -r filename expected_bytes expected_sha; do
+            artifact="release-download/$filename"
+            test -f "$artifact"
+            actual_bytes="$(stat -f %z "$artifact")"
+            actual_sha="$(shasum -a 256 "$artifact" | awk '{print $1}')"
+            test "$actual_bytes" = "$expected_bytes"
+            test "$actual_sha" = "$expected_sha"
+          done < <(
+            jq -r '.artifacts[] | [.file, (.bytes | tostring), .sha256] | @tsv' \
+              "release/manifests/$RELEASE_TAG.json"
+          )
+          cd release-download
+          shasum -a 256 -c SHA256SUMS.txt
+
+      - name: Verify the public app is Apple Silicon only
+        shell: bash
+        run: |
+          app_zip="$(jq -r '.artifacts[].file | select(endswith("-macOS.zip"))' \
+            "release/manifests/$RELEASE_TAG.json")"
+          binary_path="$(unzip -Z1 "release-download/$app_zip" | \
+            grep '/Contents/MacOS/petsgraph$')"
+          test -n "$binary_path"
+          unzip -p "release-download/$app_zip" "$binary_path" > release-download/petsgraph-bin
+          test "$(lipo -archs release-download/petsgraph-bin)" = "arm64"
+
+      - name: Publish the verified release
+        shell: bash
+        run: |
+          gh release edit "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false \
+            --latest
+
+      - name: Write job summary
+        shell: bash
+        run: |
+          {
+            echo "## Published $RELEASE_TAG"
+            echo
+            echo "All declared artifacts matched their pinned byte counts and SHA-256 digests."
+            echo
+            gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url --jq '.url'
+          } >> "$GITHUB_STEP_SUMMARY"

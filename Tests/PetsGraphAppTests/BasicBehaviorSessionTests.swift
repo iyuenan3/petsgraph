@@ -82,11 +82,76 @@ final class BasicBehaviorSessionTests: XCTestCase {
     XCTAssertEqual(sleeping.interactionState, .sleeping)
     XCTAssertEqual(sleeping.totalRootMotionXPt, 0, accuracy: 0.000_001)
   }
+
+  @MainActor
+  func testSelectingNamedSleepPoseStartsAndQueuesWithoutInterruptingTransitions() throws {
+    let session = try BasicBehaviorSession(
+      package: makeQuietAppPackage(),
+      accelerated: false
+    )
+    session.start(at: 0)
+
+    XCTAssertEqual(
+      try session.selectSleepPose(nodeID: "rest.side-curled.left", at: 0.1),
+      .started
+    )
+    XCTAssertEqual(
+      try session.selectSleepPose(nodeID: "rest.prone.left", at: 0.2),
+      .queued
+    )
+
+    let returning = try session.update(at: 10, motionScale: 1, currentPetCenterX: 400)
+    XCTAssertEqual(returning.interactionState, .sleeping)
+    XCTAssertEqual(returning.sample.clipID, "side-loop")
+
+    let returned = try session.update(at: 20, motionScale: 1, currentPetCenterX: 400)
+    XCTAssertEqual(returned.interactionState, .sleeping)
+    XCTAssertEqual(returned.sample.clipID, "prone-loop")
+  }
+
+  @MainActor
+  func testSelectingNamedSleepPoseWhileSittingReturnsThenChangesPose() throws {
+    let session = try BasicBehaviorSession(
+      package: makeQuietAppPackage(),
+      accelerated: false
+    )
+    session.start(at: 0)
+    XCTAssertEqual(try session.handlePetClick(at: 0.1), .wakeStarted)
+    _ = try session.update(at: 10, motionScale: 1, currentPetCenterX: 400)
+
+    XCTAssertEqual(
+      try session.selectSleepPose(nodeID: "rest.side-curled.left", at: 10.1),
+      .started
+    )
+    let changing = try session.update(at: 20, motionScale: 1, currentPetCenterX: 400)
+    XCTAssertEqual(changing.interactionState, .sleeping)
+    XCTAssertEqual(changing.sample.clipID, "prone-loop")
+
+    let transition = try session.update(at: 20.1, motionScale: 1, currentPetCenterX: 400)
+    XCTAssertEqual(transition.interactionState, .sleeping)
+    XCTAssertEqual(transition.sample.clipID, "prone-to-side")
+
+    let selected = try session.update(at: 30, motionScale: 1, currentPetCenterX: 400)
+    XCTAssertEqual(selected.interactionState, .sleeping)
+    XCTAssertEqual(selected.sample.clipID, "side-loop")
+  }
+
+  func testMenuCatalogUsesChinesePoseNamesAndNeverExposesClipIDs() {
+    let package = makeQuietAppPackage()
+    let catalog = QuietCompanionMenuCatalog(graph: package.graph)
+
+    XCTAssertEqual(catalog.sleepPoses.map(\.displayName), ["趴卧", "左侧蜷卧"])
+    XCTAssertEqual(catalog.statusTitle(forClipID: "prone-loop"), "当前睡姿：趴卧")
+    XCTAssertEqual(catalog.statusTitle(forClipID: "prone-to-side"), "正在切换到：左侧蜷卧")
+    XCTAssertEqual(catalog.statusTitle(forClipID: "prone-to-sit"), "正在起身")
+    XCTAssertFalse(catalog.statusTitle(forClipID: "prone-loop").contains("prone-loop"))
+  }
 }
 
 private func makeQuietAppPackage() -> LoadedPetPackage {
   let proneNode = GraphNode(
     id: "rest.prone.left",
+    displayName: "趴卧",
     posture: "prone",
     orientation: "left",
     grounded: true,
@@ -97,8 +162,22 @@ private func makeQuietAppPackage() -> LoadedPetPackage {
     props: [],
     loopClip: "prone-loop"
   )
+  let sideCurledNode = GraphNode(
+    id: "rest.side-curled.left",
+    displayName: "左侧蜷卧",
+    posture: "side-curled",
+    orientation: "left",
+    grounded: true,
+    stability: "stable",
+    scene: "floor",
+    role: "dwell",
+    autonomousEligible: true,
+    props: [],
+    loopClip: "side-loop"
+  )
   let sitNode = GraphNode(
     id: "sit.front.floor",
+    displayName: "正面坐好",
     posture: "sit",
     orientation: "front",
     grounded: true,
@@ -110,6 +189,24 @@ private func makeQuietAppPackage() -> LoadedPetPackage {
     loopClip: "sit-loop"
   )
   let edges = [
+    GraphEdge(
+      id: "prone-to-side",
+      from: proneNode.id,
+      to: sideCurledNode.id,
+      clip: "prone-to-side",
+      kind: "transition",
+      interruptPolicy: "finish-before-retarget",
+      targetStartFrame: 0
+    ),
+    GraphEdge(
+      id: "side-to-prone",
+      from: sideCurledNode.id,
+      to: proneNode.id,
+      clip: "side-to-prone",
+      kind: "transition",
+      interruptPolicy: "finish-before-retarget",
+      targetStartFrame: 0
+    ),
     GraphEdge(
       id: "prone-to-sit",
       from: proneNode.id,
@@ -141,6 +238,24 @@ private func makeQuietAppPackage() -> LoadedPetPackage {
       type: "loop",
       from: sitNode.id,
       to: sitNode.id
+    ),
+    "side-loop": quietAppClip(
+      "side-loop",
+      type: "loop",
+      from: sideCurledNode.id,
+      to: sideCurledNode.id
+    ),
+    "prone-to-side": quietAppClip(
+      "prone-to-side",
+      type: "transition",
+      from: proneNode.id,
+      to: sideCurledNode.id
+    ),
+    "side-to-prone": quietAppClip(
+      "side-to-prone",
+      type: "transition",
+      from: sideCurledNode.id,
+      to: proneNode.id
     ),
     "prone-to-sit": quietAppClip(
       "prone-to-sit",
@@ -217,7 +332,7 @@ private func makeQuietAppPackage() -> LoadedPetPackage {
     ),
     graph: GraphDefinition(
       schemaVersion: "0.2.0",
-      nodes: [proneNode, sitNode],
+      nodes: [proneNode, sideCurledNode, sitNode],
       edges: edges
     ),
     behavior: behavior,

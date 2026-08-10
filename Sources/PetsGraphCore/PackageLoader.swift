@@ -463,6 +463,18 @@ public struct PetPackageLoader: Sendable {
       throw PackageValidationError.invalid("pet click debounce must be between 0.1 and 2 seconds")
     }
     let nodes = Dictionary(uniqueKeysWithValues: graph.nodes.map { ($0.id, $0) })
+    for node in graph.nodes
+      where node.role == "dwell" && node.autonomousEligible == true
+    {
+      guard
+        let displayName = node.displayName?.trimmingCharacters(in: .whitespacesAndNewlines),
+        !displayName.isEmpty
+      else {
+        throw PackageValidationError.invalid(
+          "quiet sleep node \(node.id) needs a localized display name"
+        )
+      }
+    }
     for (scene, policy) in behavior.scenePolicy {
       guard ["floor", "pillow"].contains(scene) else {
         throw PackageValidationError.invalid("unknown behavior scene \(scene)")

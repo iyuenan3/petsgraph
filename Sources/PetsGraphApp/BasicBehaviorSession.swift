@@ -93,6 +93,7 @@ final class BasicBehaviorSession {
   private var wakeRequested = false
   private var sleepRequested = false
   private var queuedMovement: MovementRequest?
+  private var requestedSleepNodeID: String?
   private var engineeringSleepTargets: [String] = []
   private var engineeringDwellSeconds: Double?
   private var generation = 0
@@ -264,6 +265,45 @@ final class BasicBehaviorSession {
     try beginSleepChange(at: uptime)
   }
 
+  func selectSleepPose(
+    nodeID: String,
+    at uptime: TimeInterval
+  ) throws -> BehaviorCommandResult {
+    guard
+      let quietPlanner,
+      quietPlanner.autonomousNodeIDs().contains(nodeID)
+    else {
+      return .unavailable
+    }
+    cancelEngineeringSleepSequence()
+    switch mode {
+    case .sleeping:
+      requestedSleepNodeID = nil
+      guard currentNodeID != nodeID else {
+        scheduleNextSleepChange(after: uptime)
+        return .ignored
+      }
+      try beginSleepChange(to: nodeID, at: uptime)
+      return .started
+    case .changingSleep:
+      guard activePlan.finalNodeID != nodeID else {
+        requestedSleepNodeID = nil
+        return .ignored
+      }
+      requestedSleepNodeID = nodeID
+      return .queued
+    case .sitting:
+      requestedSleepNodeID = nodeID
+      try beginReturnToSleep(at: uptime)
+      return .started
+    case .waking, .returningToSleep:
+      requestedSleepNodeID = nodeID
+      return .queued
+    case .moving:
+      return .unavailable
+    }
+  }
+
   func startQuietSceneRoundTripDemo(
     at uptime: TimeInterval,
     dwellSeconds: Double = 3
@@ -314,6 +354,7 @@ final class BasicBehaviorSession {
     wakeRequested = false
     sleepRequested = false
     queuedMovement = nil
+    requestedSleepNodeID = nil
     recentSleepNodeIDs = [target]
     currentSceneEnteredUptime = uptime
     lastSceneExitUptime = [:]
@@ -597,6 +638,13 @@ final class BasicBehaviorSession {
         engineeringDwellSeconds = nil
         scheduleNextSleepChange(after: uptime)
       }
+      if let target = requestedSleepNodeID {
+        requestedSleepNodeID = nil
+        if target != currentNodeID {
+          try beginSleepChange(to: target, at: uptime)
+          return
+        }
+      }
       if wakeRequested {
         try beginWakeToSit(at: uptime)
       }
@@ -604,7 +652,9 @@ final class BasicBehaviorSession {
       currentNodeID = activePlan.finalNodeID
       mode = .sitting
       scheduleSittingSleep(after: uptime)
-      if sleepRequested {
+      if requestedSleepNodeID != nil {
+        try beginReturnToSleep(at: uptime)
+      } else if sleepRequested {
         try beginReturnToSleep(at: uptime)
       } else if let request = queuedMovement {
         _ = try startMovement(request, at: uptime, motionScale: motionScale)
@@ -629,6 +679,13 @@ final class BasicBehaviorSession {
       appendRecentSleepNode(currentNodeID)
       mode = .sleeping
       scheduleNextSleepChange(after: uptime)
+      if let target = requestedSleepNodeID {
+        requestedSleepNodeID = nil
+        if target != currentNodeID {
+          try beginSleepChange(to: target, at: uptime)
+          return
+        }
+      }
       if wakeRequested || queuedMovement != nil {
         try beginWakeToSit(at: uptime)
       }

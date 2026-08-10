@@ -22,6 +22,23 @@ COMPILE_CANVAS = (960, 736)
 LEGACY_CANVAS_HEIGHT = 640
 LEGACY_CANVAS_TOP = COMPILE_CANVAS[1] - LEGACY_CANVAS_HEIGHT
 
+NODE_DISPLAY_NAMES = {
+    "rest.prone.left": "趴卧",
+    "rest.side-curled.left": "左侧蜷卧",
+    "rest.side-stretched.left": "左侧伸展",
+    "rest.supine.left": "仰卧",
+    "rest.curled-supine.left": "蜷缩仰卧",
+    "rest.semi-supine.left": "松散半仰卧",
+    "rest.sleeping-loaf.left": "睡眠香箱",
+    "gateway.loaf.legacy.left": "普通香箱过渡",
+    "sit.front.floor": "正面坐好",
+    "gateway.pillow.b": "靠枕过渡",
+    "rest.pillow.head-on": "头趴枕头",
+    "rest.pillow.compact-semi-supine": "紧凑半仰卧",
+    "rest.pillow.top-curled": "整身蜷睡",
+    "sit.front.pillow": "枕边正面坐好",
+}
+
 
 def load_builder():
     path = ROOT / "tools/build-prototype-package.py"
@@ -217,6 +234,7 @@ def node(
 ) -> dict[str, Any]:
     return {
         "id": node_id,
+        "displayName": NODE_DISPLAY_NAMES[node_id],
         "posture": posture,
         "orientation": orientation,
         "grounded": True,

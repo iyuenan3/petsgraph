@@ -448,6 +448,31 @@ final class PetWindowController {
     }
   }
 
+  @discardableResult
+  func selectSleepPose(nodeID: String, displayName: String) -> BehaviorCommandResult {
+    guard let behaviorSession else { return .unavailable }
+    do {
+      let result = try behaviorSession.selectSleepPose(
+        nodeID: nodeID,
+        at: ProcessInfo.processInfo.systemUptime
+      )
+      switch result {
+      case .started:
+        showCommandFeedback("准备切换到\(displayName)")
+      case .queued:
+        showCommandFeedback("将在当前动作结束后切换到\(displayName)")
+      case .ignored:
+        showCommandFeedback("五百已经是\(displayName)")
+      case .unavailable:
+        showCommandFeedback("当前无法切换睡姿")
+      }
+      return result
+    } catch {
+      reportBehaviorCommandError(error)
+      return .unavailable
+    }
+  }
+
   func stop() {
     timer?.invalidate()
     timer = nil

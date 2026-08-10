@@ -240,6 +240,18 @@ final class PackageLoaderTests: XCTestCase {
     )
   }
 
+  func testRejectsQuietSleepNodeWithoutDisplayName() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.removeDwellDisplayName()
+
+    XCTAssertThrowsError(
+      try PetPackageLoader().load(at: fixture.root, verifyIntegrity: false)
+    ) { error in
+      XCTAssertTrue(String(describing: error).contains("localized display name"))
+    }
+  }
+
   func testMissingEnvironmentPropIsRejected() throws {
     let fixture = try SleepPackageFixture(kind: .quietCompanion)
     addTeardownBlock { fixture.remove() }
@@ -359,6 +371,19 @@ private final class SleepPackageFixture: @unchecked Sendable {
     let url = root.appendingPathComponent("clips/\(clipID).json")
     var value = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
     value["rootMotionEndPt"] = [x, 0]
+    let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
+    try data.write(to: url)
+  }
+
+  func removeDwellDisplayName() throws {
+    let url = root.appendingPathComponent("graph.json")
+    var value = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    var nodes = value["nodes"] as! [[String: Any]]
+    guard let index = nodes.firstIndex(where: { $0["role"] as? String == "dwell" }) else {
+      throw PackageValidationError.missing("fixture dwell node")
+    }
+    nodes[index].removeValue(forKey: "displayName")
+    value["nodes"] = nodes
     let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
     try data.write(to: url)
   }
@@ -725,6 +750,7 @@ private final class SleepPackageFixture: @unchecked Sendable {
   private func node(id: String, posture: String, loop: String) -> [String: Any] {
     [
       "id": id,
+      "displayName": "测试姿态",
       "posture": posture,
       "orientation": "left",
       "grounded": true,
@@ -758,6 +784,7 @@ private final class SleepPackageFixture: @unchecked Sendable {
   ) -> [String: Any] {
     [
       "id": id,
+      "displayName": role == "dwell" ? "测试睡姿" : "测试坐姿",
       "posture": posture,
       "orientation": "front",
       "grounded": true,

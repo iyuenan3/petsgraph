@@ -107,6 +107,7 @@ public struct GraphDefinition: Codable, Sendable {
 
 public struct GraphNode: Codable, Sendable {
   public let id: String
+  public let displayName: String?
   public let posture: String
   public let orientation: String
   public let grounded: Bool
@@ -119,6 +120,7 @@ public struct GraphNode: Codable, Sendable {
 
   public init(
     id: String,
+    displayName: String? = nil,
     posture: String,
     orientation: String,
     grounded: Bool,
@@ -130,6 +132,7 @@ public struct GraphNode: Codable, Sendable {
     loopClip: String
   ) {
     self.id = id
+    self.displayName = displayName
     self.posture = posture
     self.orientation = orientation
     self.grounded = grounded

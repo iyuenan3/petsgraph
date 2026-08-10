@@ -699,6 +699,13 @@ def load_config(repo_root: Path, config_path: Path) -> dict[str, Any]:
         if len(matches) != 1:
             raise ValueError(f"graph edge update did not resolve exactly once: {update['id']}")
         matches[0].update(copy.deepcopy(update))
+    for update in overlay.get("graphNodeUpdates", []):
+        matches = [
+            node for node in config["graph"]["nodes"] if node["id"] == update["id"]
+        ]
+        if len(matches) != 1:
+            raise ValueError(f"graph node update did not resolve exactly once: {update['id']}")
+        matches[0].update(copy.deepcopy(update))
     for update in overlay.get("clipUpdates", []):
         matches = [clip for clip in config["clips"] if clip["id"] == update["id"]]
         if len(matches) != 1:

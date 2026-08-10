@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "tag": "v0.3.0",
+  "version": "0.3.0",
+  "platform": "macos-arm64",
+  "minimumSystemVersion": "14.0",
+  "packageSchemaVersion": "0.2.0",
+  "artifacts": [
+    {
+      "file": "PetsGraph-Wubai-Quiet-Companion-v0.3.0-macOS.dmg",
+      "bytes": 473417264,
+      "sha256": "7a976e4d7caace04fc2406d33d04853012770a74b109d344a295a4c6bab64b4a"
+    },
+    {
+      "file": "PetsGraph-Wubai-Quiet-Companion-v0.3.0-macOS.zip",
+      "bytes": 465940383,
+      "sha256": "48ea78506664ba0f4e6c04f37dc7eda068caf35fd8f98315f27e13e9b5a1f59b"
+    },
+    {
+      "file": "wubai-quiet-companion-v0.3.0.petsgraph-pet.zip",
+      "bytes": 463949874,
+      "sha256": "00f4a0e87650a21d60d6f42d09062931194a1b2bee78af72bc165a20b75b3f33"
+    },
+    {
+      "file": "Wubai-Sleep-Postures-v0.3.0.png",
+      "bytes": 1223217,
+      "sha256": "229f07b16debf62803081afe72bbad8fdce4df9a3585a363ddcd5f200c422228"
+    },
+    {
+      "file": "SHA256SUMS.txt",
+      "bytes": 441,
+      "sha256": "54b461aaa1eedcc8363656207238f6b219f3e97e09e6e9f94c7c6180cb2d6e35"
+    }
+  ]
+}
