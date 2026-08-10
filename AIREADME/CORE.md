@@ -51,10 +51,10 @@ PetsGraph 是面向真实宠物的 macOS 单宠桌面陪伴运行时与素材包
 
 ## 生命周期
 
-`public-alpha / petsgraph-0.3.1 + wubai-quiet-companion-0.3.1`。通用 App 统一使用 `PetsGraph` 和 `com.maxwell.petsgraph`，当前内置李五百。普通睡眠、枕头睡眠、两个场景坐姿、点击往返、随机换姿、中文指定睡姿、全桌面拖动、窗口层级、左下角默认位置和异常恢复已经组成完整离线运行时。
+`public-alpha / petsgraph-0.4.0 + wubai-quiet-companion-0.4.0`。通用 App 统一使用 `PetsGraph` 和 `com.maxwell.petsgraph`，当前内置李五百。普通睡眠、枕头睡眠、两个场景坐姿、点击往返、随机换姿、中文指定睡姿、全桌面拖动、窗口层级、左下角默认位置和异常恢复已经组成完整离线运行时。
 
-正式包状态为 `runtime-chain-approved` 和 `installable=true`。获批链包含 53 个 clip、14 个节点与 39 条边，已通过 45 项 XCTest、6,925 条完整性记录、30 分钟真实桌面稳定性观察、正常速度与慢放评审，以及拖动、Space 和锁屏恢复人工验收。`0.3.0` 的全部获批帧与 `0.2.0` 哈希一致。
+正式 v0.4.0 包状态为 `runtime-chain-approved` 和 `installable=true`。获批链包含 53 个 clip、14 个节点与 39 条边，运行时媒体包含 6,866 帧和 113 条完整性记录。57 项 XCTest、完整包与媒体校验、本机普通睡眠和连续换姿资源测量已经通过。既有 30 分钟真实桌面稳定性、正常速度与慢放、点击、拖动、Space 和锁屏恢复结论来自同一批准动作图的 v0.3.1 PNG 基线。
 
 公开版只构建 Apple 芯片 `arm64`，最低 macOS 14。App 使用 ad-hoc 签名，没有 Developer ID 签名和 Apple 公证，朋友首次打开时需要通过 Finder 右键「打开」或「隐私与安全性」确认。正式媒体内嵌在 App 中，Release 不再重复上传独立 `.petsgraph-pet`。
 
-main 分支提交 `e80fa09` 新增 schema `0.4.0` 的固定 clip 裁剪预乘 RGBA 候选、内存映射播放、有界预加载和单实例锁。它保留 `0.3.1` PNG 包作为不可变事实源，完整候选为 53 个 clip、6,866 帧和 1.827 GB。57 项 XCTest、完整性校验、全部媒体帧可读和真实桌面随机换姿链已通过；普通睡眠约 1.3% 到 1.6% CPU、53 MiB，连续过渡约 2.1% 到 2.7% CPU、19 到 46 MiB。该候选仍为 `cropped-rgba-awaiting-human-runtime-review` 与 `installable=false`，未替换已发布的 v0.3.1。
+v0.4.0 从 v0.3.1 的已批准 PNG 包确定性编译 schema `0.4.0` 固定 clip 裁剪预乘 RGBA，保留 PNG 包作为不可变制作事实源和回滚基线。解压后媒体约 1.827 GB，无损压缩 DMG 约 548 MiB。普通睡眠约 1.3% 到 1.6% CPU、53 MiB，连续过渡约 2.1% 到 2.7% CPU、19 到 46 MiB。GUI 使用每用户单实例锁，重复启动在加载媒体前退出。

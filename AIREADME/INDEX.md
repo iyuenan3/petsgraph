@@ -1,7 +1,7 @@
 # petsgraph · AIREADME
 > 面向真实宠物的单宠 macOS 安静桌面陪伴运行时与公开素材包体系 ｜ 生命周期: public-alpha
-> last-synced: 94e141e · 2026-08-10
-> phase: low-power-runtime-candidate
+> last-synced: 70cdb69 · 2026-08-10
+> phase: public-low-power-v0.4.0
 
 ## 状态
 
@@ -9,15 +9,15 @@
 |---|:---:|---|
 | CORE | ✅ | PetsGraph 通用运行时、李五百首发宠物包、阶段边界与质量红线 |
 | RELATIONS | ✅ | 生成服务、只读参考项目与未来消费方关系 |
-| SPEC | ✅ | 正式 PNG `0.2.0`、HEVC 对照 `0.3.0` 与固定裁剪 RGBA 候选 `0.4.0` 契约 |
+| SPEC | ✅ | PNG 事实源、HEVC 对照与正式固定裁剪 RGBA `0.4.0` 契约 |
 | ARCHITECTURE | ✅ | 通用 App、动作图、CALayer、raw mmap、有界预加载、单实例和公开发布边界 |
-| DEPLOYMENT | ✅ | Apple 芯片 `0.3.1` 正式发布、raw 候选构建校验、性能测量与非公证边界 |
+| DEPLOYMENT | ✅ | Apple 芯片 `0.4.0` 本机构建、Release 校验、性能测量与非公证边界 |
 | PRD | ✅ | 安静睡眠陪伴、朋友安装、指定睡姿、枕头核心场景和 PM 风险闸门 |
-| ROADMAP | ✅ | v0.3.1 继续正式分发，下一阶段完成人工低功耗整链验收和通用素材 Skill |
+| ROADMAP | ✅ | v0.4.0 朋友安装与长期资源反馈，下一阶段推进公证和通用素材 Skill |
 | CONVENTIONS | ✅ | App 与宠物命名、固定 raw crop、单实例、性能测量、Release 和验收约定 |
-| DECISIONS | ✅ | 追加固定 clip 裁剪预乘 RGBA、单实例和不提前替换正式包的决策 |
+| DECISIONS | ✅ | 追加固定 clip 裁剪预乘 RGBA、单实例和 v0.4.0 正式晋级决策 |
 | MEMORY | ✅ | 素材、PNG 体积、HEVC 转换成本、Gatekeeper 重复实例和 macOS 打包事故 |
-| CHANGELOG | ✅ | `e80fa09` 低功耗候选、`0.3.1` 通用正式版和既有素材里程碑 |
+| CHANGELOG | ✅ | `0.4.0` 低功耗正式版、`0.3.1` PNG 回滚版和既有素材里程碑 |
 
 ## 按任务读
 

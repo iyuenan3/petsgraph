@@ -1,12 +1,12 @@
 # SPEC：petsgraph 宠物素材包 v0.4
 
-> 本契约是素材生成 Skill 与桌面运行时之间的边界。schema `0.2.0` 是 v0.3.1 PNG 正式包；schema `0.3.0` 是 HEVC Alpha 对照实验；schema `0.4.0` 是固定 clip 裁剪预乘 RGBA 低功耗候选。三者都由当前 Swift 加载器显式验证，旧工程包继续作为只读历史证据。
+> 本契约是素材生成 Skill 与桌面运行时之间的边界。schema `0.2.0` 是 v0.3.1 PNG 回滚包；schema `0.3.0` 是 HEVC Alpha 对照实验；schema `0.4.0` 是 v0.4.0 正式固定 clip 裁剪预乘 RGBA 运行时。三者都由当前 Swift 加载器显式验证，旧工程包继续作为只读历史证据。
 
 ## 1. 契约范围
 
 - 安装单元：一个只包含一只宠物的本地 `.petsgraph-pet` 目录或压缩包。
 - 制作事实源：RGBA PNG 序列、动作清单、图结构、验收记录和完整性清单。
-- 运行时产物：正式 v0.3.1 直接使用 PNG 序列；main 分支可以从同一事实源编译固定 clip 裁剪的连续预乘 RGBA 媒体。分页图集仍是未来可重建选项。
+- 运行时产物：v0.3.1 直接使用 PNG 序列；v0.4.0 从同一事实源编译固定 clip 裁剪的连续预乘 RGBA 媒体。分页图集仍是未来可重建选项。
 - 预览产物：动态 WebP、GIF 或 MP4，不是运行时事实源。
 - 隐私边界：安装包不携带原始宠物照片、生成凭据、提示词私密上下文或可执行脚本。
 
@@ -298,7 +298,7 @@
 - `bytesPerRow = cropWidth × 4`，`frameByteCount = bytesPerRow × cropHeight`，文件字节数严格等于 `frameCount × frameByteCount`。
 - `compiledFrameSequenceDigest` 是 `.rgba` 文件 SHA-256，并必须与 `integrity.json` 对应条目一致。`sourceSequenceDigest` 必须继续匹配批准配方履历。
 - 运行时用只读内存映射与 Core Graphics 直接寻址。小循环可以在预算内预建全部图像，长过渡按固定 crop 分块预建并有界释放。
-- schema `0.4.0` 通过机械与性能验证不等于视觉或安装批准。`reviews/index.json` 必须保持 `cropped-rgba-awaiting-human-runtime-review` 与 `installable=false`，直到完整桌面链人工通过。
+- schema `0.4.0` 通过机械与性能验证不等于自动获得安装批准。编译器默认保持 `cropped-rgba-awaiting-human-runtime-review` 与 `installable=false`。只有源 PNG 包已是 `runtime-chain-approved`、明确获得版本发布授权并使用显式 `--release-approved` 构建时，才可把新版本写成 `runtime-chain-approved`、`installable=true`，且发布工作流必须再次核对该状态。
 
 ## 7. 李五百睡觉陪伴 MVP 必备能力
 
@@ -423,6 +423,7 @@ PNG 序列摘要固定按文件名字典序处理。每帧依次写入 UTF-8 文
 - 公开宠物包版本 `0.3.0` 继续使用 schema `0.2.0`，只新增向后兼容的节点 `displayName` 数据和运行时指定睡姿交互，不改变帧、坐标或动作图语义。
 - App 名称、Bundle ID 与宠物包身份是不同契约。运行时使用 `PetsGraph` 与 `com.maxwell.petsgraph`；当前宠物名称来自 `package.json.pet.displayName`，不能写死在通用菜单或反馈中。
 - `0.3.1` 继续使用 schema `0.2.0`，帧与 `0.3.0` 完全一致。版本变化只涉及 App 品牌分层、动态宠物名称和发布载体。
+- `0.4.0` 使用 schema `0.4.0` 与 `cropped-rgba-clips`。它从 `0.3.1` 已批准 PNG 包确定性编译，帧序、时间、完整画布坐标、动作图、锚点、碰撞区与 root motion 保持不变；PNG 继续作为制作事实源和回滚基线。
 - 同一主版本新增未知字段时，旧运行时应忽略未知字段并读取已知部分。
 - 未知主版本必须拒绝，并给出可读错误。
 - 任何改变坐标、root motion、图语义或验收要求的变更都视为潜在破坏性变更，必须追加 ADR 并升级 schema。

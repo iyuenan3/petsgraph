@@ -2,6 +2,15 @@
 
 > Append-only。记录版本与里程碑，决策理由见 `DECISIONS.md`。
 
+## v0.8.0-public-low-power · 2026-08-10
+
+- Added: 发布 PetsGraph App `0.4.0`，正式内嵌 schema `0.4.0`、`cropped-rgba-clips` 的李五百低功耗宠物包。正式包含 53 个 clip、6,866 帧、113 条完整性记录和 1.827 GB raw 媒体。
+- Added: 低功耗编译器新增显式 `--release-approved` 晋级路径，只接受 `runtime-chain-approved`、`installable=true` 的来源包和正式语义版本。默认构建继续保持候选状态。
+- Changed: 发布构建器拒绝 App 与内嵌宠物包版本不一致、未整链批准或不可安装的输入。GitHub Actions 额外核对 schema `0.4.0`、`cropped-rgba-clips`、批准状态、剩余闸门和精确四附件集合。
+- Changed: v0.3.1 已批准 PNG 包继续作为不可变制作事实源和公开回滚基线。v0.4.0 不重新生成、抠图、补帧、逐帧定位或修改获批帧。
+- Fixed: 正式 GUI 使用每用户单实例锁，重复启动在加载 1.827 GB 媒体前退出，减少两只宠物叠加和资源重复占用。
+- Review: 本机 57 项 XCTest 全部通过；53 个 clip 与 6,866 帧运行时媒体、arm64 架构、ad-hoc 签名、ZIP、DMG 和四附件 SHA-256 全部校验通过。DMG 为 574,621,053 字节，约 548 MiB。普通睡眠约 1.3% 到 1.6% CPU 与 53 MiB physical footprint，连续换姿约 2.1% 到 2.7% CPU 与 19 到 46 MiB。Maxwell 明确授权发布 v0.4.0。
+
 ## v0.7.0-low-power-candidate · 2026-08-10
 
 - Added: 新增 schema `0.4.0` 的 `cropped-rgba-clips` 媒体契约与编译器。它从完整性已验证的 PNG 包确定性生成每 clip 固定 alpha 并集裁剪、预乘 RGBA 连续帧流、来源清单和新完整性清单，不覆盖或修改批准 PNG。

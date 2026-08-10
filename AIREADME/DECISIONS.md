@@ -209,3 +209,11 @@
 - Decision: PNG 继续作为不可变制作事实源。schema `0.4.0` 为每个 clip 计算一次全帧 alpha 并集并增加固定 4 px 透明边距，将所有帧按同一 crop 编译为 sRGB `rgba8-premultiplied` 连续流。运行时只读内存映射媒体，Core Graphics provider 直接引用映射字节，CALayer 在包级完整画布坐标中放置 crop。小循环整段预建，长过渡按固定 crop 有界分块。GUI 增加每用户单实例锁。
 - Alternatives（否决）: 继续全画布 PNG 全量解码；把 HEVC 每帧转成 AppKit 图像；逐帧重算 crop 或重新居中；只用动态 WebP；为了省磁盘删除批准 PNG；在未人工视觉通过时直接替换 v0.3.1。
 - Tradeoff: 完整候选从约 465 MB PNG 增长到约 1.827 GB raw 媒体，但普通睡眠降到约 1.3% 到 1.6% CPU 与 53 MiB，连续过渡约 2.1% 到 2.7% CPU 与 19 到 46 MiB。启动完整性哈希仍需读取大文件，Release 体积可能增加。候选保持 `installable=false`，完整视觉、点击拖动、锁屏恢复和长时间运行验收通过后才决定下一版本默认格式。
+
+## ADR-027 · v0.4.0 正式采用固定裁剪 RGBA 并保留 PNG 回滚基线 · 2026-08-10
+
+- Problem: v0.3.1 PNG 运行时已经通过完整桌面验收，但长期稳定态约占 4.4% 到 5.9% CPU 与约 215 MiB 内存。低功耗候选达到资源目标后，需要决定是否作为朋友安装的正式默认包，同时避免丢失人工批准事实源和可回滚版本。
+- Constraint: v0.4.0 不得重新生成、抠图、补帧、逐帧定位或修改批准源帧；正式包必须可追溯到已批准来源；远端发布不得接受错版本、候选状态或未校验媒体；用户明确接受用磁盘换长期 CPU 和内存，并授权发布 v0.4.0。
+- Decision: v0.4.0 使用 schema `0.4.0` 与 `cropped-rgba-clips` 作为正式默认运行时，包状态为 `runtime-chain-approved` 与 `installable=true`。编译器只有在来源包已批准且显式传入 `--release-approved` 时才允许晋级。App、素材包和 Release 版本必须一致；GitHub Actions 核对 schema、渲染模式、批准状态、剩余闸门、附件哈希、arm64 架构和完整测试后才发布。v0.3.1 PNG Release 与私有 PNG 包永久保留为回滚基线。
+- Alternatives（否决）: 继续公开高资源 PNG 默认包；删除 PNG 只留 raw；把 HEVC Alpha 对照直接升级正式；让 GitHub Actions 重新编译另一份未在本机验收的 DMG；仅凭文件名把候选包标记为可安装。
+- Tradeoff: 解压后 App 从约 465 MB 增长到约 1.827 GB，DMG 从约 454 MiB 增长到约 548 MiB；换来普通睡眠约 1.3% 到 1.6% CPU 与约 53 MiB physical footprint、连续换姿约 2.1% 到 2.7% CPU 与约 19 到 46 MiB，以及重复启动保护。发布链上传和下载时间增加，但 Git 历史仍保持轻量。
