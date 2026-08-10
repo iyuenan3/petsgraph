@@ -1,6 +1,6 @@
 # petsgraph · AIREADME
 > 面向真实宠物的单宠 macOS 安静桌面陪伴运行时与公开素材包体系 ｜ 生命周期: public-alpha
-> last-synced: e80fa09 · 2026-08-10
+> last-synced: 94e141e · 2026-08-10
 > phase: low-power-runtime-candidate
 
 ## 状态
