@@ -132,6 +132,7 @@ final class PetWindowController {
   var onClipChanged: ((String) -> Void)?
 
   private let package: LoadedPetPackage
+  private let petDisplayName: String
   private let staticTimeline: PlaybackTimeline
   private let panel: PetPanel
   private let rootView: NSView
@@ -183,6 +184,7 @@ final class PetWindowController {
     quietSceneRoundTripDemo: Bool = false
   ) throws {
     self.package = package
+    petDisplayName = package.manifest.pet.displayName
     staticTimeline = try PlaybackTimeline(
       clips: package.clips,
       sequence: package.demoSequence
@@ -462,7 +464,7 @@ final class PetWindowController {
       case .queued:
         showCommandFeedback("将在当前动作结束后切换到\(displayName)")
       case .ignored:
-        showCommandFeedback("五百已经是\(displayName)")
+        showCommandFeedback("\(petDisplayName)已经是\(displayName)")
       case .unavailable:
         showCommandFeedback("当前无法切换睡姿")
       }
@@ -546,7 +548,7 @@ final class PetWindowController {
       print("petsgraph interaction-state=\(presentation.interactionState)")
       if presentation.interactionState == .sitting, priorState != nil {
         showCommandFeedback(
-          quietCompanion ? "再点一下，回去睡觉" : "点击桌面，让五百过去"
+          quietCompanion ? "再点一下，回去睡觉" : "点击桌面，让\(petDisplayName)过去"
         )
       }
     }
@@ -645,7 +647,7 @@ final class PetWindowController {
       case .debounced:
         showCommandFeedback("正在响应刚才的点击")
       case .transitionInProgress:
-        showCommandFeedback("先让五百完成当前动作")
+        showCommandFeedback("先让\(petDisplayName)完成当前动作")
       case .alreadyReturningToSleep:
         showCommandFeedback("正在准备睡觉")
       }

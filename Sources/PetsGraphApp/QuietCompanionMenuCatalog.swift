@@ -53,6 +53,11 @@ struct QuietCompanionMenuCatalog {
     return node.id
   }
 
+  static func petMenuTitle(displayName: String) -> String {
+    let name = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+    return name.isEmpty ? "当前宠物" : "当前宠物：\(name)"
+  }
+
   private static func usableName(_ value: String?) -> String? {
     guard let name = value?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
       return nil

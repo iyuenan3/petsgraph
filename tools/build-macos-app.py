@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a local versioned petsgraph .app with one bundled pet package."""
+"""Build a versioned PetsGraph .app with one bundled default pet package."""
 
 from __future__ import annotations
 
@@ -21,9 +21,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--build-number", default="1")
+    parser.add_argument("--app-name", default="PetsGraph")
     parser.add_argument(
         "--bundle-identifier",
-        default="com.maxwell.petsgraph.quiet-companion",
+        default="com.maxwell.petsgraph",
     )
     return parser.parse_args()
 
@@ -49,6 +50,9 @@ def main() -> None:
         character.isspace() for character in args.bundle_identifier
     ):
         raise ValueError("--bundle-identifier must be a non-empty identifier without spaces")
+    app_name = args.app_name.strip()
+    if not app_name or "/" in app_name or ":" in app_name:
+        raise ValueError("--app-name must be a non-empty macOS file-safe name")
     output.parent.mkdir(parents=True, exist_ok=True)
 
     environment = os.environ.copy()
@@ -107,11 +111,11 @@ def main() -> None:
         shutil.copytree(package, resources / "DefaultPet.petsgraph-pet")
         info = {
             "CFBundleDevelopmentRegion": "zh_CN",
-            "CFBundleDisplayName": "李五百睡觉陪伴",
+            "CFBundleDisplayName": app_name,
             "CFBundleExecutable": "petsgraph",
             "CFBundleIdentifier": args.bundle_identifier,
             "CFBundleInfoDictionaryVersion": "6.0",
-            "CFBundleName": "李五百睡觉陪伴",
+            "CFBundleName": app_name,
             "CFBundlePackageType": "APPL",
             "CFBundleShortVersionString": args.version,
             "CFBundleVersion": args.build_number,

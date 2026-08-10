@@ -43,7 +43,12 @@ jobs:
           head_commit="$(git rev-parse HEAD)"
           test "$tag_commit" = "$head_commit"
           test -f "release/manifests/$RELEASE_TAG.json"
-          jq -e --arg tag "$RELEASE_TAG" '.tag == $tag and (.artifacts | length) >= 4' \
+          jq -e --arg tag "$RELEASE_TAG" '
+            .tag == $tag
+            and .platform == "macos-arm64"
+            and (([.artifacts[].kind] | sort) == ["app-zip", "checksums", "installer-dmg", "preview-image"])
+            and all(.artifacts[]; (.file | endswith(".petsgraph-pet.zip") | not))
+          ' \
             "release/manifests/$RELEASE_TAG.json" >/dev/null
 
       - name: Run the full Swift test baseline
@@ -54,6 +59,12 @@ jobs:
         run: |
           is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
           test "$is_draft" = "true"
+          jq -r '.artifacts[].file' "release/manifests/$RELEASE_TAG.json" | sort > declared-assets.txt
+          gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json assets \
+            --jq '.assets[].name' | sort > actual-assets.txt
+          diff -u declared-assets.txt actual-assets.txt
 
       - name: Download every declared release artifact
         shell: bash
@@ -86,13 +97,27 @@ jobs:
       - name: Verify the public app is Apple Silicon only
         shell: bash
         run: |
-          app_zip="$(jq -r '.artifacts[].file | select(endswith("-macOS.zip"))' \
+          app_zip="$(jq -er '
+            [.artifacts[] | select(.kind == "app-zip")]
+            | if length == 1 then .[0].file else error("expected exactly one app zip") end
+          ' \
             "release/manifests/$RELEASE_TAG.json")"
-          binary_path="$(unzip -Z1 "release-download/$app_zip" | \
-            grep '/Contents/MacOS/petsgraph$')"
-          test -n "$binary_path"
-          unzip -p "release-download/$app_zip" "$binary_path" > release-download/petsgraph-bin
-          test "$(lipo -archs release-download/petsgraph-bin)" = "arm64"
+          mkdir -p release-download/app-unpacked
+          ditto -x -k "release-download/$app_zip" release-download/app-unpacked
+          app_count="$(find release-download/app-unpacked -maxdepth 1 -type d -name '*.app' | wc -l | tr -d ' ')"
+          test "$app_count" = "1"
+          app_path="$(find release-download/app-unpacked -maxdepth 1 -type d -name '*.app' -print -quit)"
+          binary_path="$app_path/Contents/MacOS/petsgraph"
+          info_path="$app_path/Contents/Info.plist"
+          package_path="$app_path/Contents/Resources/DefaultPet.petsgraph-pet"
+          test "$(lipo -archs "$binary_path")" = "arm64"
+          test "$(plutil -extract CFBundleDisplayName raw -o - "$info_path")" = "PetsGraph"
+          test "$(plutil -extract CFBundleName raw -o - "$info_path")" = "PetsGraph"
+          test "$(plutil -extract CFBundleIdentifier raw -o - "$info_path")" = "com.maxwell.petsgraph"
+          test "$(plutil -extract CFBundleShortVersionString raw -o - "$info_path")" = "${RELEASE_TAG#v}"
+          test "$(plutil -extract LSMinimumSystemVersion raw -o - "$info_path")" = "14.0"
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          "$binary_path" "$package_path" --validate-only
 
       - name: Publish the verified release
         shell: bash

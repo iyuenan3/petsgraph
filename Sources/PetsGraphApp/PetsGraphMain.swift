@@ -432,10 +432,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     item.button?.image = NSImage(
       systemSymbolName: "pawprint.fill",
-      accessibilityDescription: "petsgraph"
+      accessibilityDescription: "PetsGraph"
     )
     let menu = NSMenu()
-    let current = NSMenuItem(title: "当前：准备中", action: nil, keyEquivalent: "")
+    let pet = NSMenuItem(
+      title: QuietCompanionMenuCatalog.petMenuTitle(
+        displayName: package.manifest.pet.displayName
+      ),
+      action: nil,
+      keyEquivalent: ""
+    )
+    pet.isEnabled = false
+    menu.addItem(pet)
+    let current = NSMenuItem(title: "当前状态：准备中", action: nil, keyEquivalent: "")
     current.isEnabled = false
     clipMenuItem = current
     menu.addItem(current)
@@ -485,7 +494,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     menu.addItem(
       NSMenuItem(
-        title: "退出 petsgraph",
+        title: "退出 PetsGraph",
         action: #selector(quit),
         keyEquivalent: "q"
       )

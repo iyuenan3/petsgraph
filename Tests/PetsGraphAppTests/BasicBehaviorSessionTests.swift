@@ -145,6 +145,14 @@ final class BasicBehaviorSessionTests: XCTestCase {
     XCTAssertEqual(catalog.statusTitle(forClipID: "prone-to-side"), "正在切换到：左侧蜷卧")
     XCTAssertEqual(catalog.statusTitle(forClipID: "prone-to-sit"), "正在起身")
     XCTAssertFalse(catalog.statusTitle(forClipID: "prone-loop").contains("prone-loop"))
+    XCTAssertEqual(
+      QuietCompanionMenuCatalog.petMenuTitle(displayName: "李五百"),
+      "当前宠物：李五百"
+    )
+    XCTAssertEqual(
+      QuietCompanionMenuCatalog.petMenuTitle(displayName: "另一只宠物"),
+      "当前宠物：另一只宠物"
+    )
   }
 }
 
