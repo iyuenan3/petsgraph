@@ -2,26 +2,26 @@
 
 ## 主机 + 环境
 
-⚑ 尚无可安装的睡觉陪伴版本。当前只有本机 macOS 工程预览，运行时离线，宠物素材生成和私有包编译均在用户自行 clone 的项目工作区执行。
+李五百睡觉陪伴 `0.2.0` 已构建为本地 `.petsgraph-pet` 和可双击 `.app`，状态为 `runtime-chain-approved` 与 `installable=true`。运行时离线，宠物素材生成和私有包编译均在用户自行 clone 的项目工作区执行。
 
-当前验证环境：macOS、Xcode 26.6 完整版、Swift 6.3.3、Python 3.12 和 Pillow 12.2.0。当前 `xcode-select` 指向的 CommandLineTools 不包含 `Testing` 或 `XCTest` 模块，裸跑 `swift test` 不是可信基线。测试脚本显式使用 `/Applications/Xcode.app/Contents/Developer`，不修改全局 `xcode-select`。2026-08-10 本轮真实执行 25 项 XCTest，0 失败；这些测试覆盖当前工程实现，不代表目标 `0.2.0` 睡眠行为契约已经实现。
+当前验证环境：macOS、Xcode 26.6 完整版、Swift 6.3.3、Python 3.12 和 Pillow 12.2.0。当前 `xcode-select` 指向的 CommandLineTools 不包含 `Testing` 或 `XCTest` 模块，裸跑 `swift test` 不是可信基线。测试脚本显式使用 `/Applications/Xcode.app/Contents/Developer`，不修改全局 `xcode-select`。2026-08-10 最终真实执行 41 项 XCTest，0 失败，并对正式包执行独立加载和完整性校验。
 
 ## 怎么起
 
-首个原型使用 Swift Package Manager。公开代码测试：
+公开代码测试：
 
 ```bash
 bash tools/test-swift.sh
 ```
 
-私有原型包需要 Pillow，使用隔离环境，不修改 Homebrew 或系统 Python：
+私有素材包编译需要 Pillow，使用隔离环境，不修改 Homebrew 或系统 Python：
 
 ```bash
 uv venv .venv --python /opt/homebrew/bin/python3.12
 uv pip install --python .venv/bin/python -r requirements-prototype.txt
 .venv/bin/python tools/build-prototype-package.py \
-  --config workspaces/wubai-private/runtime-records/wubai-side-stretched-supine-v0.2-source.json \
-  --output workspaces/wubai-private/runtime-builds/wubai-side-stretched-supine-v0.2.0-preview.petsgraph-pet
+  --config workspaces/wubai-private/runtime-records/wubai-quiet-companion-0.2.0-source.json \
+  --output workspaces/wubai-private/runtime/wubai-quiet-companion-0.2.0.petsgraph-pet
 ```
 
 校验私有包但不启动窗口：
@@ -29,7 +29,7 @@ uv pip install --python .venv/bin/python -r requirements-prototype.txt
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   xcrun swift run petsgraph \
-  workspaces/wubai-private/runtime-builds/wubai-side-stretched-supine-v0.2.0-preview.petsgraph-pet \
+  workspaces/wubai-private/runtime/wubai-quiet-companion-0.2.0.petsgraph-pet \
   --validate-only
 ```
 
@@ -38,24 +38,32 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   xcrun swift run petsgraph \
-  workspaces/wubai-private/runtime-builds/wubai-side-stretched-supine-v0.2.0-preview.petsgraph-pet \
+  workspaces/wubai-private/runtime/wubai-quiet-companion-0.2.0.petsgraph-pet \
   --display-height 150
 ```
 
-当前示例命令使用历史 0.2.0 聚焦预览包，只用于验证既有睡姿图、逐帧播放和完整性清单。它不是新的睡觉陪伴 MVP 包，也不是正式安装入口。
+构建可双击的本机 App：
+
+```bash
+.venv/bin/python tools/build-macos-app.py \
+  --package workspaces/wubai-private/runtime/wubai-quiet-companion-0.2.0.petsgraph-pet \
+  --output workspaces/wubai-private/runtime/PetsGraph-Wubai-Quiet-Companion-0.2.0.app \
+  --version 0.2.0 \
+  --build-number 1 \
+  --bundle-identifier com.maxwell.petsgraph.quiet-companion
+```
+
+双击该 App，或本地执行：
+
+```bash
+open workspaces/wubai-private/runtime/PetsGraph-Wubai-Quiet-Companion-0.2.0.app
+```
+
+App 默认把宠物地面锚点放在物理屏幕左下角。用户随后可以在整个桌面改变 x 和 y；宠物自己的睡眠行为不会改写用户放置的 y。
 
 工作树中的 `--engineering-behavior-preview`、`--accelerated-behavior`、`--native-left-chain-demo`、强制走路和强制跑步菜单属于工程验证入口。首发睡眠 MVP 的默认启动不得依赖这些参数，也不得安装全桌面目的地点击监听。
 
-新的睡眠 MVP 包完成后，目标启动方式仍是显式本地包路径：
-
-```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcrun swift run petsgraph \
-  workspaces/wubai-private/runtime-builds/<versioned-sleep-mvp>.petsgraph-pet \
-  --display-height 150
-```
-
-包名、版本和路径在完成编译与人工验收后回填，不能预先把工程候选写成正式版本。
+正式包和 App 都位于被 Git 忽略的私有工作区，不随公开仓库分发。当前 App 使用 ad-hoc 本机签名，尚未进行 Developer ID 签名、Apple 公证或公开发布。
 
 ## 域名 / 入口
 
@@ -77,7 +85,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 
 ## 本地安装入口
 
-⚑ 正式安装目录和应用入口仍待确定。当前私有包只从显式命令行路径预览。正式方案必须满足：
+当前本地安装入口是版本化 `.app`。它可以从私有工作区直接双击运行，不覆盖历史预览包。公开分发方案仍待确定，并必须继续满足：
 
 - 本地导入 `.petsgraph-pet`。
 - 先严格验证，再原子安装。
@@ -85,7 +93,8 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 - 包版本可并存或可回滚，不覆盖历史批准资产。
 - 默认启动进入睡眠，不启用点击目的地移动或走跑工程菜单。
 - 窗口保持在普通窗口和 Dock 前方，不抢键盘焦点。
-- 用户可全桌面拖动，退出后是否恢复最后位置需要在正式安装方案中明确。
+- 用户可全桌面拖动。每次新启动默认回到物理屏幕左下角，暂不持久化上次位置。
+- Developer ID 签名和 Apple 公证完成前，不把 ad-hoc App 描述为公开安装包。
 
 ## 共享底座引用
 

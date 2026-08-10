@@ -1,6 +1,6 @@
-# SPEC：petsgraph 宠物素材包 v0.2（draft）
+# SPEC：petsgraph 宠物素材包 v0.2
 
-> 本契约是素材生成 Skill 与桌面运行时之间的边界。目标 schema 为 `0.2.0`。现有 `0.1.0` 工程包继续作为只读预览证据，新增的睡眠场景、节点职责和行为字段尚未全部由 Swift 运行时强制执行。
+> 本契约是素材生成 Skill 与桌面运行时之间的边界。schema `0.2.0` 已由 Swift 加载器、行为规划器、包编译器和正式五百本地包实现。`0.1.0` 工程包继续作为只读历史证据。
 
 ## 1. 契约范围
 
@@ -60,7 +60,7 @@
   },
   "renderAssets": {
     "mode": "frames",
-    "pixelFormat": "rgba8-premultiplied"
+    "pixelFormat": "rgba8-straight"
   },
   "graph": "graph.json",
   "behavior": "behavior.json",
@@ -110,7 +110,7 @@
       "loopClip": "prone-left-loop-v1"
     },
     {
-      "id": "pillow.gateway.leaning.right",
+      "id": "gateway.pillow.b",
       "posture": "leaning-rest",
       "orientation": "right",
       "grounded": true,
@@ -126,7 +126,7 @@
     {
       "id": "prone-left-to-pillow-gateway-right",
       "from": "rest.prone.left",
-      "to": "pillow.gateway.leaning.right",
+      "to": "gateway.pillow.b",
       "clip": "prone-left-to-pillow-rest-right-v2",
       "kind": "transition",
       "interruptPolicy": "finish-before-retarget",
@@ -174,7 +174,7 @@
   "scenePolicy": {
     "pillow": {
       "sticky": true,
-      "gateway": "pillow.gateway.leaning.right"
+      "gateway": "gateway.pillow.b"
     }
   },
   "interactions": {
@@ -272,7 +272,7 @@
 
 ### MVP 最小图基线
 
-节点 ID 以新包最终清单为准。当前目标语义：
+五百 `0.2.0` 的已实现节点基线：
 
 | 节点 | scene | role | 作用 |
 |---|---|---|---|
@@ -280,18 +280,22 @@
 | `rest.side-curled.left` | floor | dwell | 左侧蜷卧 |
 | `rest.side-stretched.left` | floor | dwell | 左侧伸展 |
 | `rest.supine.left` | floor | dwell | 仰卧 |
-| `rest.loaf.left` | floor | dwell | 香箱，可否首发由整体节奏验收决定 |
+| `rest.curled-supine.left` | floor | dwell | 蜷缩仰卧 |
+| `rest.semi-supine.left` | floor | dwell | 松散半仰卧 |
+| `rest.sleeping-loaf.left` | floor | dwell | 睡眠香箱 |
+| `gateway.loaf.legacy.left` | floor | gateway | 旧香箱兼容汇合点，不参与随机停留 |
 | `sit.front.floor` | floor | interaction | 普通睡眠点击后的正面坐姿 |
-| `pillow.gateway.leaning.right` | pillow | gateway | 枕头场景进入、离开、预加载和唤醒汇合 |
-| `pillow.compact-semi-supine.right` | pillow | dwell | 枕头支撑的紧凑半仰卧 |
-| `pillow.top-curled.right` | pillow | dwell | 整个身体蜷睡在枕头上 |
+| `gateway.pillow.b` | pillow | gateway | 枕头场景进入、离开、预加载和唤醒汇合 |
+| `rest.pillow.head-on` | pillow | dwell | 头趴枕头睡姿 |
+| `rest.pillow.compact-semi-supine` | pillow | dwell | 枕头支撑的紧凑半仰卧 |
+| `rest.pillow.top-curled` | pillow | dwell | 整个身体蜷睡在枕头上 |
 | `sit.front.pillow` | pillow | interaction | 保留枕头的正面坐姿 |
 
 最低路径要求：
 
 - 普通 `dwell` 节点构成至少一个不硬切的闭合睡眠子图。
 - 每个首发普通 `dwell` 节点能在点击响应目标内到达 `sit.front.floor`，并能返回普通睡眠。
-- `rest.prone.left → pillow.gateway.leaning.right` 和独立回程连接两个场景。反向不能倒放正向素材。
+- `rest.prone.left → gateway.pillow.b` 和独立回程连接两个场景。反向不能倒放正向素材。
 - 网关与每个首发枕头睡姿有批准路径；枕头内部至少存在一条不经过网关的随机换姿路径。
 - 每个首发枕头睡姿能经批准醒来路径到达 `sit.front.pillow`，并能返回枕头睡眠。
 - 网关与两个坐姿均设置 `autonomousEligible=false`。
@@ -372,7 +376,7 @@ PNG 序列摘要固定按文件名字典序处理。每帧依次写入 UTF-8 文
 ## 11. 版本与兼容
 
 - `schemaVersion` 使用语义化版本。
-- 现有 `0.1.0` 包是走跑与睡眠工程预览契约。新增必需的 `behavior.json`、节点职责、场景和猫道具命中字段进入 `0.2.0`，在加载器和编译器实现并通过回归测试前不得标记 installable。
+- `0.1.0` 包是走跑与睡眠工程预览契约。`0.2.0` 已加入必需的 `behavior.json`、节点职责、场景和猫道具命中字段，并由加载器、编译器和回归测试执行。
 - 同一主版本新增未知字段时，旧运行时应忽略未知字段并读取已知部分。
 - 未知主版本必须拒绝，并给出可读错误。
 - 任何改变坐标、root motion、图语义或验收要求的变更都视为潜在破坏性变更，必须追加 ADR 并升级 schema。

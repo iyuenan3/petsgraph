@@ -16,7 +16,7 @@
 
 ## 入向（谁用我）
 
-- 当前 petsgraph Swift/AppKit 桌面运行时消费 `.petsgraph-pet` 预览包。
+- 当前 petsgraph Swift/AppKit 桌面运行时消费通过完整性校验的 `.petsgraph-pet`，五百本地 `0.2.0` 已达到 `runtime-chain-approved`。
 - 未来 petsgraph 素材生成 Skill 产出符合 `SPEC.md` 的素材包。
 - 当前没有其他项目把 petsgraph 作为依赖。
 

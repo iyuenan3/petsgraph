@@ -7,6 +7,7 @@ petsgraph 是一个面向真实宠物的开源 macOS 桌面陪伴项目。第一
 ## 首个 MVP
 
 - 默认状态是睡觉，随机时间自然切换已批准睡姿。
+- 打开后默认出现在物理屏幕左下角，不遮挡主要工作区。
 - 普通地面睡姿和带枕头的睡姿都是核心体验。
 - 点击睡眠中的宠物后，沿动作图醒来到正面坐姿。
 - 点击坐着的宠物后，沿动作图回到当前场景的睡姿。
@@ -32,11 +33,11 @@ petsgraph 是一个面向真实宠物的开源 macOS 桌面陪伴项目。第一
 
 ## 当前状态
 
-- Swift/AppKit 原型已经能够逐帧播放 PNG 素材、校验动作图与完整性清单，并在透明原生窗口中运行。
-- 趴卧与左侧蜷卧闭环已经通过真实桌面运行时验收，其他多种睡姿已完成素材级批准或运行时接入实验。
-- 正面坐姿及坐姿与趴卧之间的双向桥接已有批准素材。
-- 带枕头场景已有批准入口和部分通过的睡姿路径，但尚缺网关短循环、枕头场景坐姿和完整回程。
-- 当前完整包仍为 `installable=false`，没有正式可安装版本。
+- 李五百睡觉陪伴 `0.2.0` 已完成本地 MVP 验收，状态为 `runtime-chain-approved` 和 `installable=true`。
+- 正式包包含 53 个逐帧 clip、14 个姿态节点和 39 条有向边，覆盖 7 种普通睡姿、3 种枕头睡姿和两个场景坐姿。
+- 普通与枕头睡眠、点击醒来与返回、随机换姿、安全退出、预加载、全桌面拖动、Dock 前方层级、Space 和锁屏恢复均已完成真实桌面验收。
+- 完整 Xcode 下 41 项 XCTest 全部通过；正式包另行通过 6,925 条完整性记录、hidden 标记和内嵌包一致性校验。
+- 当前可双击 App 使用本机 ad-hoc 签名，尚未完成 Apple 公证，也没有公开发布二进制和五百的私有素材包。
 - 现有走跑与点击目的地移动属于工程验证能力，不是首个 MVP 的产品范围。
 
 真实宠物照片、Seedance 任务记录、未批准候选和私有素材包位于被 Git 忽略的本地工作区，不随公开仓库分发。
@@ -45,8 +46,10 @@ petsgraph 是一个面向真实宠物的开源 macOS 桌面陪伴项目。第一
 
 - `Sources/PetsGraphCore/`：宠物包校验、动作图、时间轴与 root motion
 - `Sources/PetsGraphApp/`：AppKit 透明窗口、逐帧渲染和桌面交互
-- `tools/build-prototype-package.py`：把已批准 PNG 事实源编译为本地预览包
+- `tools/build-prototype-package.py`：把固定的 PNG 事实源编译为版本化本地宠物包
+- `tools/build-macos-app.py`：把已校验宠物包嵌入本机版本化 macOS App
 - `Tests/PetsGraphCoreTests/`：包完整性、动作图、安全退出、预加载与行为规划测试
+- `Tests/PetsGraphAppTests/`：点击状态机、默认行为和左下角启动测试
 - [`AIREADME/CORE.md`](AIREADME/CORE.md)：产品身份、范围和不可违反的红线
 - [`AIREADME/PRD.md`](AIREADME/PRD.md)：睡觉陪伴 MVP 的产品需求和验收标准
 - [`AIREADME/SPEC.md`](AIREADME/SPEC.md)：宠物包、动作图、场景和交互数据契约
@@ -62,6 +65,8 @@ bash tools/test-swift.sh
 ```
 
 当前私有素材包的构建、校验和运行方式见 [`AIREADME/DEPLOYMENT.md`](AIREADME/DEPLOYMENT.md)。素材生成所需的 Seedance 等 provider 由用户自行配置，凭据不会进入桌面运行时或宠物素材包。
+
+五百的照片、生成母片、任务账本、批准配方、正式素材包和本机 App 均保存在被 Git 忽略的私有工作区。公开仓库只提供运行时代码、数据契约、测试和脱敏生产工具。
 
 ## License
 
