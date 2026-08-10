@@ -39,17 +39,37 @@ final class PetImageView: NSImageView {
 
 struct CachedPetFrame {
   let image: NSImage
-  let mirroredImage: NSImage
+  let mirroredImage: NSImage?
   let bitmap: NSBitmapImageRep
+}
+
+private struct EnvironmentPropPresentation {
+  let definition: EnvironmentProp
+  let panel: PetPanel
+}
+
+struct PetStartupPlacement {
+  static func bottomLeft(
+    screenFrame: NSRect,
+    groundFromWindowBottomPt: Double,
+    margin: Double = 0
+  ) -> NSPoint {
+    NSPoint(
+      x: screenFrame.minX + margin,
+      y: screenFrame.minY - groundFromWindowBottomPt + margin
+    )
+  }
 }
 
 @MainActor
 final class ClipImageCache {
   private let package: LoadedPetPackage
+  private let createMirroredImages: Bool
   private var frames: [String: [CachedPetFrame]] = [:]
 
-  init(package: LoadedPetPackage) {
+  init(package: LoadedPetPackage, createMirroredImages: Bool) {
     self.package = package
+    self.createMirroredImages = createMirroredImages
   }
 
   func prepare(clipIDs: [String]) throws {
@@ -63,15 +83,16 @@ final class ClipImageCache {
         guard
           let url = package.frameURL(clipID: clipID, frameIndex: frameIndex),
           let data = try? Data(contentsOf: url),
-          let image = NSImage(data: data),
           let bitmap = NSBitmapImageRep(data: data)
         else {
           throw PackageValidationError.missing("\(clipID) frame \(frameIndex)")
         }
+        let image = NSImage(size: bitmap.size)
+        image.addRepresentation(bitmap)
         image.cacheMode = .always
         return CachedPetFrame(
           image: image,
-          mirroredImage: Self.makeMirroredImage(image),
+          mirroredImage: createMirroredImages ? Self.makeMirroredImage(image) : nil,
           bitmap: bitmap
         )
       }
@@ -126,7 +147,10 @@ final class PetWindowController {
   private let screenFrame: NSRect
   private let screenMargin = 0.0
   private let engineeringBehaviorPreview: Bool
+  private let quietCompanion: Bool
   private let nativeLeftChainDemo: Bool
+  private let quietSceneRoundTripDemo: Bool
+  private var environmentProps: [EnvironmentPropPresentation] = []
   private var behaviorSession: BasicBehaviorSession?
   private var globalMouseMonitor: Any?
 
@@ -137,6 +161,8 @@ final class PetWindowController {
   private var lastInteractionState: BehaviorInteractionState?
   private var currentFrame: CachedPetFrame?
   private var currentFrameIsMirrored = false
+  private var currentClipID: String?
+  private var currentSourceFrameIndex: Int?
   private var calculatedPanelX = 0.0
   private var manualOffsetX = 0.0
   private var manualOffsetY = 0.0
@@ -153,7 +179,8 @@ final class PetWindowController {
     startDelaySeconds: Double,
     engineeringBehaviorPreview: Bool = false,
     acceleratedBehavior: Bool = false,
-    nativeLeftChainDemo: Bool = false
+    nativeLeftChainDemo: Bool = false,
+    quietSceneRoundTripDemo: Bool = false
   ) throws {
     self.package = package
     staticTimeline = try PlaybackTimeline(
@@ -161,7 +188,9 @@ final class PetWindowController {
       sequence: package.demoSequence
     )
     self.engineeringBehaviorPreview = engineeringBehaviorPreview
+    quietCompanion = package.behavior?.profile == "quiet-sleep-companion"
     self.nativeLeftChainDemo = nativeLeftChainDemo
+    self.quietSceneRoundTripDemo = quietSceneRoundTripDemo
     guard let screen = NSScreen.main ?? NSScreen.screens.first else {
       throw PackageValidationError.invalid("no active macOS screen")
     }
@@ -186,12 +215,21 @@ final class PetWindowController {
       : staticTimeline.finiteRootMotionXPt * motionScale
     let displayWidthPt = displayHeightPt * canvasAspect
     let footprint = displayWidthPt + travel
-    startX = max(visible.minX + screenMargin, visible.midX - footprint / 2)
-
     groundFromWindowBottomPt = (
       canvasHeight - package.manifest.art.groundYPx
     ) / canvasHeight * displayHeightPt
-    windowY = visible.minY + 5 - groundFromWindowBottomPt
+    if quietCompanion {
+      let placement = PetStartupPlacement.bottomLeft(
+        screenFrame: screen.frame,
+        groundFromWindowBottomPt: groundFromWindowBottomPt,
+        margin: screenMargin
+      )
+      startX = placement.x
+      windowY = placement.y
+    } else {
+      startX = max(visible.minX + screenMargin, visible.midX - footprint / 2)
+      windowY = visible.minY + 5 - groundFromWindowBottomPt
+    }
 
     panel = PetPanel(
       contentRect: NSRect(
@@ -235,8 +273,52 @@ final class PetWindowController {
     imageView.wantsLayer = true
     imageView.layer?.backgroundColor = NSColor.clear.cgColor
     rootView.addSubview(imageView)
-    imageCache = ClipImageCache(package: package)
-    if engineeringBehaviorPreview {
+    imageCache = ClipImageCache(
+      package: package,
+      createMirroredImages: !quietCompanion
+    )
+    for definition in package.manifest.renderAssets.environmentProps ?? [] {
+      guard
+        let url = package.environmentPropURL(id: definition.id),
+        let image = NSImage(contentsOf: url)
+      else {
+        throw PackageValidationError.missing("environment prop \(definition.id)")
+      }
+      if definition.visibility == "embedded" {
+        continue
+      }
+      let propPanel = PetPanel(
+        contentRect: NSRect(
+          x: startX,
+          y: windowY,
+          width: displayWidthPt,
+          height: displayHeightPt
+        ),
+        styleMask: [.borderless, .nonactivatingPanel],
+        backing: .buffered,
+        defer: false,
+        screen: screen
+      )
+      propPanel.isFloatingPanel = true
+      propPanel.becomesKeyOnlyIfNeeded = true
+      propPanel.worksWhenModal = true
+      propPanel.level = panel.level
+      propPanel.isOpaque = false
+      propPanel.backgroundColor = .clear
+      propPanel.hasShadow = false
+      propPanel.hidesOnDeactivate = false
+      propPanel.ignoresMouseEvents = true
+      propPanel.collectionBehavior = panel.collectionBehavior
+      let propView = NSImageView(frame: propPanel.contentView?.bounds ?? .zero)
+      propView.autoresizingMask = [.width, .height]
+      propView.imageScaling = .scaleAxesIndependently
+      propView.image = image
+      propPanel.contentView = propView
+      environmentProps.append(
+        EnvironmentPropPresentation(definition: definition, panel: propPanel)
+      )
+    }
+    if engineeringBehaviorPreview || quietCompanion {
       behaviorSession = try BasicBehaviorSession(
         package: package,
         accelerated: acceleratedBehavior
@@ -300,10 +382,12 @@ final class PetWindowController {
         try imageCache.prepare(clipIDs: staticTimeline.clipIDsNear(segmentIndex: 0))
         renderStatic(staticTimeline.sample(at: 0))
       }
-      panel.orderFrontRegardless()
+      orderPanelsFront()
       if nativeLeftChainDemo {
         try startNativeLeftChainDemo(at: startUptime)
-      } else {
+      } else if quietSceneRoundTripDemo {
+        try behaviorSession?.startQuietSceneRoundTripDemo(at: startUptime)
+      } else if engineeringBehaviorPreview, !quietCompanion {
         installDestinationClickMonitor()
       }
       let timer = Timer(
@@ -343,7 +427,7 @@ final class PetWindowController {
       playbackStartUptime = now + startDelaySeconds
       renderStatic(staticTimeline.sample(at: 0))
     }
-    panel.orderFrontRegardless()
+    orderPanelsFront()
     print("petsgraph restarted")
   }
 
@@ -373,6 +457,10 @@ final class PetWindowController {
     }
     panel.orderOut(nil)
     panel.close()
+    for prop in environmentProps {
+      prop.panel.orderOut(nil)
+      prop.panel.close()
+    }
   }
 
   @objc private func tick(_ timer: Timer) {
@@ -432,7 +520,9 @@ final class PetWindowController {
       lastInteractionState = presentation.interactionState
       print("petsgraph interaction-state=\(presentation.interactionState)")
       if presentation.interactionState == .sitting, priorState != nil {
-        showCommandFeedback("点击桌面，让五百过去")
+        showCommandFeedback(
+          quietCompanion ? "再点一下，回去睡觉" : "点击桌面，让五百过去"
+        )
       }
     }
     if presentation.generation != currentGeneration
@@ -472,9 +562,12 @@ final class PetWindowController {
     ) else {
       return
     }
+    let clipChanged = currentClipID != sample.clipID
     currentFrame = frame
     currentFrameIsMirrored = mirrored
-    let displayedImage = mirrored ? frame.mirroredImage : frame.image
+    currentClipID = sample.clipID
+    currentSourceFrameIndex = sample.sourceFrameIndex
+    let displayedImage = mirrored ? (frame.mirroredImage ?? frame.image) : frame.image
     if imageView.image !== displayedImage {
       imageView.image = displayedImage
     }
@@ -493,6 +586,7 @@ final class PetWindowController {
           y: windowY + manualOffsetY
         )
       )
+      positionEnvironmentProps()
       if placement.hitBoundary, !wasClampedAtHorizontalBoundary {
         print(
           String(
@@ -502,6 +596,9 @@ final class PetWindowController {
         )
       }
       wasClampedAtHorizontalBoundary = placement.hitBoundary
+    }
+    if clipChanged {
+      updateEnvironmentPropVisibility(for: sample.clipID)
     }
   }
 
@@ -520,6 +617,10 @@ final class PetWindowController {
         showCommandFeedback("准备睡觉")
       case .sleepQueued:
         showCommandFeedback("动作结束后睡觉")
+      case .debounced:
+        showCommandFeedback("正在响应刚才的点击")
+      case .transitionInProgress:
+        showCommandFeedback("先让五百完成当前动作")
       case .alreadyReturningToSleep:
         showCommandFeedback("正在准备睡觉")
       }
@@ -569,6 +670,7 @@ final class PetWindowController {
   }
 
   private func beginPetDrag(at point: NSPoint) {
+    behaviorSession?.handleDragStarted()
     dragStartMouse = point
     dragStartPanelOrigin = panel.frame.origin
     isDraggingPet = true
@@ -604,6 +706,10 @@ final class PetWindowController {
       )
     )
     panel.setFrameOrigin(NSPoint(x: clampedX, y: clampedY))
+    positionEnvironmentProps(
+      floorOriginX: clampedX - (calculatedPanelX - startX),
+      floorOriginY: clampedY
+    )
   }
 
   private func finishPetDrag(at point: NSPoint) {
@@ -797,7 +903,7 @@ final class PetWindowController {
       return
     }
     guard
-      engineeringBehaviorPreview,
+      behaviorSession != nil,
       let frame = currentFrame,
       panel.frame.contains(NSEvent.mouseLocation)
     else {
@@ -824,7 +930,36 @@ final class PetWindowController {
     )
     let pixelY = frame.bitmap.pixelsHigh - 1 - unflippedPixelY
     let opaque = (frame.bitmap.colorAt(x: pixelX, y: pixelY)?.alphaComponent ?? 0) > 0.05
-    setPointerHit(opaque)
+    let hitRegion = currentPetHitEllipse()
+    let insidePetRegion = hitRegion.map { ellipseContains($0, x: pixelX, y: pixelY) } ?? true
+    setPointerHit(opaque && insidePetRegion)
+  }
+
+  private func currentPetHitEllipse() -> [Double]? {
+    guard
+      let currentClipID,
+      let currentSourceFrameIndex,
+      let clip = package.clips[currentClipID],
+      clip.frames.indices.contains(currentSourceFrameIndex)
+    else {
+      return nil
+    }
+    let frame = clip.frames[currentSourceFrameIndex]
+    // Floor scenes have no prop to distinguish, so every opaque pet pixel is
+    // intentionally clickable. Pillow scenes use the narrower authored pet
+    // ellipse to keep the exposed pillow from becoming a click target.
+    guard frame.propBoundsPx?.isEmpty == false else { return nil }
+    return frame.collision.petHitEllipsePx
+  }
+
+  private func ellipseContains(_ ellipse: [Double], x: Int, y: Int) -> Bool {
+    guard ellipse.count == 4, ellipse[2] > 0, ellipse[3] > 0 else { return false }
+    let pointX = Double(x)
+    let centerX = ellipse[0] + ellipse[2] / 2
+    let centerY = ellipse[1] + ellipse[3] / 2
+    let dx = (pointX - centerX) / (ellipse[2] / 2)
+    let dy = (Double(y) - centerY) / (ellipse[3] / 2)
+    return dx * dx + dy * dy <= 1
   }
 
   private func setPointerHit(_ hit: Bool) {
@@ -833,6 +968,71 @@ final class PetWindowController {
       lastPointerHit = hit
       print("petsgraph pointer-hit=\(hit ? "yes" : "no")")
     }
+  }
+
+  private func positionEnvironmentProps(
+    floorOriginX: Double? = nil,
+    floorOriginY: Double? = nil
+  ) {
+    let originX = floorOriginX ?? (startX + manualOffsetX)
+    let originY = floorOriginY ?? (windowY + manualOffsetY)
+    for prop in environmentProps {
+      prop.panel.setFrameOrigin(
+        NSPoint(
+          x: originX + prop.definition.offsetFromFloorOriginPt[0] * motionScale,
+          y: originY + prop.definition.offsetFromFloorOriginPt[1] * motionScale
+        )
+      )
+    }
+  }
+
+  private func environmentPropIsVisible(
+    _ definition: EnvironmentProp,
+    for clipID: String?
+  ) -> Bool {
+    if definition.visibility == "persistent" {
+      return true
+    }
+    guard
+      definition.visibility == "node-scenes",
+      let clipID,
+      package.clips[clipID]?.type == "loop",
+      let node = package.graph.nodes.first(where: { $0.loopClip == clipID }),
+      let scene = node.scene
+    else {
+      return false
+    }
+    return definition.scenes?.contains(scene) == true
+  }
+
+  private func updateEnvironmentPropVisibility(for clipID: String?) {
+    for prop in environmentProps {
+      let visible = environmentPropIsVisible(prop.definition, for: clipID)
+      if visible {
+        prop.panel.orderFrontRegardless()
+        panel.orderFrontRegardless()
+      } else {
+        prop.panel.orderOut(nil)
+      }
+      let visibility = visible ? "yes" : "no"
+      let activeClip = clipID ?? "none"
+      print(
+        "petsgraph environment-prop=\(prop.definition.id) "
+          + "visible=\(visibility) clip=\(activeClip)"
+      )
+    }
+  }
+
+  private func orderPanelsFront() {
+    positionEnvironmentProps()
+    for prop in environmentProps {
+      if environmentPropIsVisible(prop.definition, for: currentClipID) {
+        prop.panel.orderFrontRegardless()
+      } else {
+        prop.panel.orderOut(nil)
+      }
+    }
+    panel.orderFrontRegardless()
   }
 
   private func failAndTerminate(_ error: Error) {
@@ -863,7 +1063,7 @@ final class PetWindowController {
           currentPetCenterX: panel.frame.midX
         )
       )
-      panel.orderFrontRegardless()
+      orderPanelsFront()
       showCommandFeedback("动作已恢复")
     } catch {
       failAndTerminate(error)

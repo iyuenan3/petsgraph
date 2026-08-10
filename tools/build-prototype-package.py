@@ -136,6 +136,64 @@ def validate_approved_recipe(
         )
 
 
+def validate_candidate_recipe(
+    repo_root: Path,
+    clip_config: dict[str, Any],
+    source: Path,
+) -> None:
+    recipe_reference = clip_config.get("candidateRecipe")
+    if recipe_reference is None:
+        return
+    recipe_path = safe_repo_path(repo_root, recipe_reference)
+    actual_recipe_digest = sha256(recipe_path)
+    expected_recipe_digest = clip_config.get("candidateRecipeSha256")
+    if (
+        expected_recipe_digest is not None
+        and actual_recipe_digest != expected_recipe_digest.lower()
+    ):
+        raise ValueError(
+            f"{recipe_path} candidate recipe digest mismatch: {actual_recipe_digest}"
+        )
+    recipe = read_json(recipe_path)
+    actual_subject = recipe.get("subjectId") or recipe.get("edgeId")
+    expected_subject = clip_config.get("approvalSubjectId")
+    if expected_subject is not None and actual_subject != expected_subject:
+        raise ValueError(
+            f"{recipe_path} declares subject {actual_subject}, expected {expected_subject}"
+        )
+    approval_status = recipe.get("approval", {}).get("status") or recipe.get("status")
+    if approval_status != clip_config["approvalStatus"]:
+        raise ValueError(
+            f"{recipe_path} candidate status {approval_status}, "
+            f"expected {clip_config['approvalStatus']}"
+        )
+    selection = recipe.get("selection", {})
+    selected_frames = selection.get("selectedFrames")
+    if int(selected_frames if selected_frames is not None else -1) != int(
+        clip_config["frameCount"]
+    ):
+        raise ValueError(f"{recipe_path} candidate frame count does not match clip config")
+    if not math.isclose(
+        float(selection.get("fps", -1)),
+        float(clip_config.get("fps", 24)),
+    ):
+        raise ValueError(f"{recipe_path} candidate FPS does not match clip config")
+    fact_source = recipe.get("factSource") or selection.get("factSource")
+    if not isinstance(fact_source, dict):
+        raise ValueError(f"{recipe_path} does not declare a candidate fact source")
+    candidate_source = (recipe_path.parent / fact_source["path"]).resolve(strict=True)
+    if candidate_source != source:
+        raise ValueError(
+            f"{recipe_path} fact source {candidate_source} does not match {source}"
+        )
+    if fact_source.get("orderedSequenceDigest") != clip_config.get(
+        "sourceSequenceDigest"
+    ):
+        raise ValueError(
+            f"{recipe_path} candidate sequence digest does not match clip config"
+        )
+
+
 def frame_paths(
     source: Path,
     expected: int,
@@ -281,6 +339,17 @@ def motion_at(profile: dict[str, Any], time_seconds: float, duration: float) -> 
         ramp_motion = start * ramp * u + (end - start) * ramp * integrated_smoothstep
         after_ramp = max(0.0, clamped - delay - ramp)
         return start * before_ramp + ramp_motion + end * after_ramp
+    if kind == "windowed-smooth-distance":
+        start_time = float(profile["startSeconds"])
+        motion_duration = float(profile["durationSeconds"])
+        distance = float(profile["distancePt"])
+        if start_time < 0 or motion_duration <= 0 or start_time + motion_duration > duration + 1e-9:
+            raise ValueError(
+                "windowed smooth distance must fit inside the clip duration"
+            )
+        u = min(1.0, max(0.0, (time_seconds - start_time) / motion_duration))
+        smoothstep = 3 * u**2 - 2 * u**3
+        return distance * smoothstep
     raise ValueError(f"unsupported motion profile: {kind}")
 
 
@@ -288,7 +357,14 @@ def bounds_and_metadata(
     image: Image.Image,
     ground_y: float,
     facing: str,
-) -> tuple[list[float], dict[str, list[float]], dict[str, list[float]]]:
+    metadata: dict[str, Any],
+) -> tuple[
+    list[float],
+    list[float],
+    dict[str, list[float]],
+    dict[str, list[float]],
+    dict[str, list[float]],
+]:
     alpha = image.getchannel("A")
     bounds = alpha.getbbox()
     if bounds is None:
@@ -297,23 +373,71 @@ def bounds_and_metadata(
     width = right - left
     height = bottom - top
     content = [float(left), float(top), float(width), float(height)]
+    pet = [float(value) for value in metadata.get("petBoundsPx", content)]
+    if len(pet) != 4 or pet[2] <= 0 or pet[3] <= 0:
+        raise ValueError("petBoundsPx must be a positive rectangle")
+    prop_bounds = {
+        str(key): [float(value) for value in value]
+        for key, value in metadata.get("propBoundsPx", {}).items()
+    }
+    if any(len(value) != 4 or value[2] <= 0 or value[3] <= 0 for value in prop_bounds.values()):
+        raise ValueError("propBoundsPx values must be positive rectangles")
     root_x = image.width / 2
-    head_x = left + width * (0.80 if facing == "right" else 0.20)
+    head_x = pet[0] + pet[2] * (0.80 if facing == "right" else 0.20)
     anchors = {
         "root": [round(root_x, 3), round(ground_y, 3)],
         "ground": [round(root_x, 3), round(ground_y, 3)],
-        "head": [round(head_x, 3), round(top + height * 0.25, 3)],
+        "head": [round(head_x, 3), round(pet[1] + pet[3] * 0.25, 3)],
     }
+    body_core = [
+        round(pet[0] + pet[2] * 0.16, 3),
+        round(pet[1] + pet[3] * 0.27, 3),
+        round(pet[2] * 0.68, 3),
+        round(pet[3] * 0.50, 3),
+    ]
+    pet_hit = [float(value) for value in metadata.get("petHitEllipsePx", body_core)]
+    if len(pet_hit) != 4 or pet_hit[2] <= 0 or pet_hit[3] <= 0:
+        raise ValueError("petHitEllipsePx must be a positive ellipse rectangle")
     collision = {
-        "bodyCoreEllipsePx": [
-            round(left + width * 0.16, 3),
-            round(top + height * 0.27, 3),
-            round(width * 0.68, 3),
-            round(height * 0.50, 3),
-        ],
+        "bodyCoreEllipsePx": body_core,
         "screenBoundsPx": content,
+        "petHitEllipsePx": pet_hit,
     }
-    return content, anchors, collision
+    return content, pet, prop_bounds, anchors, collision
+
+
+def scaled_runtime_metadata(
+    metadata: dict[str, Any],
+    metadata_canvas: tuple[int, int],
+    runtime_canvas: tuple[int, int],
+) -> dict[str, Any]:
+    """Scale authored compile-canvas rectangles into runtime-frame pixels."""
+    if not metadata or metadata_canvas == runtime_canvas:
+        return metadata
+    scale_x = runtime_canvas[0] / metadata_canvas[0]
+    scale_y = runtime_canvas[1] / metadata_canvas[1]
+
+    def rectangle(value: list[float]) -> list[float]:
+        if len(value) != 4:
+            raise ValueError("runtime metadata rectangles must contain four values")
+        return [
+            float(value[0]) * scale_x,
+            float(value[1]) * scale_y,
+            float(value[2]) * scale_x,
+            float(value[3]) * scale_y,
+        ]
+
+    result = dict(metadata)
+    if "petBoundsPx" in result:
+        result["petBoundsPx"] = rectangle(result["petBoundsPx"])
+    if "petHitEllipsePx" in result:
+        result["petHitEllipsePx"] = rectangle(result["petHitEllipsePx"])
+    if "propBoundsPx" in result:
+        result["propBoundsPx"] = {
+            str(key): rectangle(value)
+            for key, value in result["propBoundsPx"].items()
+        }
+    return result
 
 
 def compile_clip(
@@ -329,6 +453,9 @@ def compile_clip(
     clip_id = config["id"]
     source = safe_repo_path(repo_root, config["source"])
     validate_approved_recipe(repo_root, config, source)
+    validate_candidate_recipe(repo_root, config, source)
+    if "approvedRecipe" not in config and "candidateRecipe" not in config:
+        raise ValueError(f"{clip_id} must declare an approved or candidate recipe")
     sources = frame_paths(
         source,
         int(config["frameCount"]),
@@ -346,6 +473,11 @@ def compile_clip(
     )
     if len(clip_source_canvas) != 2:
         raise ValueError(f"{clip_id} sourceCanvasPx must contain two dimensions")
+    runtime_metadata = scaled_runtime_metadata(
+        config.get("metadata", {}),
+        compilation_canvas or runtime_canvas,
+        runtime_canvas,
+    )
     frames: list[dict[str, Any]] = []
     for index, source_frame in enumerate(sources):
         image = runtime_frame(
@@ -358,10 +490,11 @@ def compile_clip(
         )
         destination = output_frames / f"{index:04d}.png"
         image.save(destination, optimize=True)
-        content, anchors, collision = bounds_and_metadata(
+        content, pet_bounds, prop_bounds, anchors, collision = bounds_and_metadata(
             image,
             ground_y,
             config["facing"],
+            runtime_metadata,
         )
         motion_x = motion_at(profile, index / fps, total_duration)
         frames.append(
@@ -369,6 +502,8 @@ def compile_clip(
                 "src": destination.relative_to(build_root).as_posix(),
                 "durationMs": round(duration_ms, 6),
                 "contentBoundsPx": content,
+                "petBoundsPx": pet_bounds,
+                "propBoundsPx": prop_bounds,
                 "anchorsPx": anchors,
                 "collision": collision,
                 "rootMotionPt": [round(motion_x, 6), 0.0],
@@ -390,8 +525,11 @@ def compile_clip(
         "frames": frames,
         "provenance": {
             "approvalStatus": config["approvalStatus"],
-            "approvedRecipe": config["approvedRecipe"],
+            "approvedRecipe": config.get("approvedRecipe"),
             "approvedRecipeSha256": config.get("approvedRecipeSha256"),
+            "candidateRecipe": config.get("candidateRecipe"),
+            "candidateRecipeSha256": config.get("candidateRecipeSha256"),
+            "sourceSequenceDigest": config.get("sourceSequenceDigest"),
             "rootMotionStatus": config.get(
                 "rootMotionStatus",
                 "provisional-calibrated-awaiting-runtime-review",
@@ -406,6 +544,57 @@ def compile_clip(
         "durationSeconds": round(total_duration, 6),
         "rootMotionEndPt": round(terminal_motion, 6),
     }
+
+
+def compile_environment_prop(
+    repo_root: Path,
+    build_root: Path,
+    config: dict[str, Any],
+    runtime_canvas: tuple[int, int],
+    compilation_canvas: tuple[int, int] | None,
+    source_placement: tuple[int, int],
+) -> dict[str, Any]:
+    prop_id = str(config["id"])
+    source = safe_repo_path(repo_root, config["source"])
+    evidence = config.get("candidateManifest")
+    if evidence is not None:
+        evidence_path = safe_repo_path(repo_root, evidence)
+        expected = config.get("candidateManifestSha256")
+        actual = sha256(evidence_path)
+        if expected is not None and actual != str(expected).lower():
+            raise ValueError(
+                f"{evidence_path} environment prop evidence digest mismatch: {actual}"
+            )
+    source_canvas = tuple(int(value) for value in config["sourceCanvasPx"])
+    if len(source_canvas) != 2:
+        raise ValueError(f"environment prop {prop_id} sourceCanvasPx must contain two dimensions")
+    image = runtime_frame(
+        source,
+        source_canvas,
+        runtime_canvas,
+        config.get("transform", {}),
+        compilation_canvas,
+        source_placement,
+    )
+    if image.getchannel("A").getbbox() is None:
+        raise ValueError(f"environment prop {prop_id} has no visible alpha")
+    destination = build_root / "props" / f"{prop_id}.png"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    image.save(destination, optimize=True)
+    offset = [float(value) for value in config["offsetFromFloorOriginPt"]]
+    if len(offset) != 2 or not all(math.isfinite(value) for value in offset):
+        raise ValueError(f"environment prop {prop_id} has invalid desktop offset")
+    result = {
+        "id": prop_id,
+        "src": destination.relative_to(build_root).as_posix(),
+        "offsetFromFloorOriginPt": offset,
+        "visibility": config.get("visibility", "persistent"),
+        "layer": config.get("layer", "behind-pet"),
+        "hitTest": config.get("hitTest", "passthrough"),
+    }
+    if "scenes" in config:
+        result["scenes"] = [str(value) for value in config["scenes"]]
+    return result
 
 
 def integrity_manifest(build_root: Path) -> dict[str, Any]:
@@ -485,6 +674,7 @@ def load_config(repo_root: Path, config_path: Path) -> dict[str, Any]:
         "sourcePlacementPx",
         "runtimeCanvasPx",
         "sourceGroundYExclusivePx",
+        "compiledGroundYExclusivePx",
         "baseHeightPt",
         "defaultNode",
         "calibration",
@@ -492,6 +682,9 @@ def load_config(repo_root: Path, config_path: Path) -> dict[str, Any]:
         "normalization",
         "graphConnectivity",
         "runtimeReview",
+        "behavior",
+        "environmentProps",
+        "schemaVersion",
     ):
         if key in overlay:
             config[key] = copy.deepcopy(overlay[key])
@@ -527,6 +720,9 @@ def validate_config(config: dict[str, Any]) -> None:
     ):
         if len(identifiers) != len(set(identifiers)):
             raise ValueError(f"duplicate {kind} identifier in build config")
+    prop_ids = [str(prop["id"]) for prop in config.get("environmentProps", [])]
+    if len(prop_ids) != len(set(prop_ids)):
+        raise ValueError("duplicate environment prop identifier in build config")
 
 
 def apply_overrides(config: dict[str, Any], args: argparse.Namespace) -> None:
@@ -559,10 +755,12 @@ def apply_overrides(config: dict[str, Any], args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    global SCHEMA_VERSION
     args = parse_args()
     repo_root = args.repo_root.resolve(strict=True)
     config_path = args.config.resolve(strict=True)
     config = load_config(repo_root, config_path)
+    SCHEMA_VERSION = str(config.get("schemaVersion", "0.1.0"))
     apply_overrides(config, args)
     validate_config(config)
     output = args.output.resolve(strict=False)
@@ -572,8 +770,6 @@ def main() -> None:
     runtime_canvas = tuple(int(value) for value in config["runtimeCanvasPx"])
     if len(source_canvas) != 2 or len(runtime_canvas) != 2:
         raise ValueError("canvas dimensions must contain width and height")
-    scale_y = runtime_canvas[1] / source_canvas[1]
-    ground_y = float(config["sourceGroundYExclusivePx"]) * scale_y
     compilation_canvas_value = config.get("compilationCanvasPx")
     compilation_canvas = (
         tuple(int(value) for value in compilation_canvas_value)
@@ -582,6 +778,19 @@ def main() -> None:
     )
     if compilation_canvas is not None and len(compilation_canvas) != 2:
         raise ValueError("compilationCanvasPx must contain two dimensions")
+    compiled_ground = config.get("compiledGroundYExclusivePx")
+    if compiled_ground is not None:
+        if compilation_canvas is None:
+            raise ValueError(
+                "compiledGroundYExclusivePx requires compilationCanvasPx"
+            )
+        ground_y = float(compiled_ground) * runtime_canvas[1] / compilation_canvas[1]
+    else:
+        ground_y = (
+            float(config["sourceGroundYExclusivePx"])
+            * runtime_canvas[1]
+            / source_canvas[1]
+        )
     source_placement = tuple(int(value) for value in config.get("sourcePlacementPx", [0, 0]))
     if len(source_placement) != 2:
         raise ValueError("sourcePlacementPx must contain two values")
@@ -590,6 +799,17 @@ def main() -> None:
         tempfile.mkdtemp(prefix=f"{output.name}.build-", dir=output.parent)
     )
     try:
+        environment_props = [
+            compile_environment_prop(
+                repo_root,
+                temporary,
+                prop,
+                runtime_canvas,
+                compilation_canvas,
+                source_placement,
+            )
+            for prop in config.get("environmentProps", [])
+        ]
         summaries = [
             compile_clip(
                 repo_root,
@@ -618,11 +838,16 @@ def main() -> None:
             "renderAssets": {
                 "mode": "frames",
                 "pixelFormat": "rgba8-straight",
+                "environmentProps": environment_props,
             },
             "graph": "graph.json",
             "reviewIndex": "reviews/index.json",
             "integrity": "integrity.json",
         }
+        if SCHEMA_VERSION.startswith("0.2."):
+            if "behavior" not in config:
+                raise ValueError("schema 0.2 package requires behavior configuration")
+            package_manifest["behavior"] = "behavior.json"
         write_json(temporary / "package.json", package_manifest)
         write_json(
             temporary / "graph.json",
@@ -640,6 +865,11 @@ def main() -> None:
                 "segments": config["demoSequence"]["segments"],
             },
         )
+        if "behavior" in config:
+            write_json(
+                temporary / "behavior.json",
+                {"schemaVersion": SCHEMA_VERSION, **config["behavior"]},
+            )
         write_json(
             temporary / "reviews" / "index.json",
             {
@@ -660,14 +890,36 @@ def main() -> None:
                     [],
                 ),
                 "materialUnits": config["materialUnits"],
+                "environmentProps": [
+                    {
+                        "id": prop["id"],
+                        "source": prop["source"],
+                        "sourceSha256": sha256(safe_repo_path(repo_root, prop["source"])),
+                        "candidateManifest": prop.get("candidateManifest"),
+                        "candidateManifestSha256": prop.get("candidateManifestSha256"),
+                        "status": prop.get(
+                            "status",
+                            "internal-candidate-awaiting-Maxwell-and-runtime-chain",
+                        ),
+                    }
+                    for prop in config.get("environmentProps", [])
+                ],
                 "rootMotion": {
                     "status": config["calibration"].get(
                         "status",
                         "provisional-calibrated-awaiting-runtime-review",
                     ),
-                    "walkAveragePtPerSecond": config["calibration"]["walkAveragePtPerSecond"],
-                    "runAveragePtPerSecond": config["calibration"]["runAveragePtPerSecond"],
-                    "method": "per-frame cumulative samples compiled from clip-specific calibrated motion profiles",
+                    "walkAveragePtPerSecond": config["calibration"].get(
+                        "walkAveragePtPerSecond"
+                    ),
+                    "runAveragePtPerSecond": config["calibration"].get(
+                        "runAveragePtPerSecond"
+                    ),
+                    "sceneTransitions": config["calibration"].get("sceneTransitions", {}),
+                    "method": config["calibration"].get(
+                        "method",
+                        "per-frame cumulative samples compiled from clip-specific calibrated motion profiles",
+                    ),
                     "mechanicalLimit": "calibration and tests do not replace human desktop review of paw contact and window motion",
                 },
                 "normalization": config.get("normalization"),

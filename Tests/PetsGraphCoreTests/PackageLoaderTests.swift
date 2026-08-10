@@ -192,6 +192,107 @@ final class PackageLoaderTests: XCTestCase {
     assertIntegrityFailure(try PetPackageLoader().load(at: fixture.root))
   }
 
+  func testLoadsQuietCompanionSchemaContract() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+
+    let package = try PetPackageLoader().load(at: fixture.root)
+    XCTAssertEqual(package.manifest.schemaVersion, "0.2.0")
+    XCTAssertEqual(package.behavior?.profile, "quiet-sleep-companion")
+    XCTAssertEqual(package.behavior?.interactions.desktopClick, "ignore")
+    XCTAssertEqual(
+      package.behavior?.interactions.petClick.debounceSeconds ?? -1,
+      0.35,
+      accuracy: 0.000_001
+    )
+    XCTAssertEqual(package.manifest.renderAssets.environmentProps?.map(\.id), ["pillow"])
+    XCTAssertEqual(
+      package.manifest.renderAssets.environmentProps?.first?.offsetFromFloorOriginPt,
+      [35.625, 0]
+    )
+    XCTAssertEqual(package.manifest.renderAssets.environmentProps?.first?.hitTest, "passthrough")
+    XCTAssertEqual(package.manifest.renderAssets.environmentProps?.first?.scenes, ["floor"])
+    XCTAssertEqual(package.environmentPropURL(id: "pillow")?.lastPathComponent, "pillow.png")
+    XCTAssertEqual(package.graph.nodes.first(where: { $0.id == "rest.prone.left" })?.role, "dwell")
+    XCTAssertEqual(package.graph.nodes.first(where: { $0.id == "sit.front.floor" })?.role, "interaction")
+    XCTAssertTrue(package.clips.values.allSatisfy { clip in
+      clip.rootMotionEndPt == [0, 0]
+        && clip.frames.allSatisfy { $0.rootMotionPt == [0, 0] }
+    })
+  }
+
+  func testLoadsEmbeddedEnvironmentPropContract() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.setEnvironmentPropVisibility("embedded")
+
+    let package = try PetPackageLoader().load(
+      at: fixture.root,
+      verifyIntegrity: false
+    )
+    XCTAssertEqual(
+      package.manifest.renderAssets.environmentProps?.first?.visibility,
+      "embedded"
+    )
+    XCTAssertEqual(
+      package.manifest.renderAssets.environmentProps?.first?.scenes,
+      ["floor"]
+    )
+  }
+
+  func testMissingEnvironmentPropIsRejected() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try FileManager.default.removeItem(at: fixture.environmentPropURL)
+
+    XCTAssertThrowsError(try PetPackageLoader().load(at: fixture.root))
+  }
+
+  func testModifiedEnvironmentPropFailsIntegrity() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    var data = try Data(contentsOf: fixture.environmentPropURL)
+    data.append(0x20)
+    try data.write(to: fixture.environmentPropURL)
+
+    assertIntegrityFailure(try PetPackageLoader().load(at: fixture.root))
+  }
+
+  func testHiddenEnvironmentPropFailsIntegrity() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    var prop = fixture.environmentPropURL
+    var values = URLResourceValues()
+    values.isHidden = true
+    try prop.setResourceValues(values)
+
+    assertIntegrityFailure(try PetPackageLoader().load(at: fixture.root))
+  }
+
+  func testRejectsQuietSameSceneRootMotion() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.setTerminalRootMotion(clipID: "prone-left-to-sit-front-v1", x: 12)
+
+    XCTAssertThrowsError(
+      try PetPackageLoader().load(at: fixture.root, verifyIntegrity: false)
+    ) { error in
+      XCTAssertTrue(String(describing: error).contains("same-scene edge"))
+    }
+  }
+
+  func testRejectsQuietNodeLoopRootMotion() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.setTerminalRootMotion(clipID: "prone-left-loop-v1", x: 12)
+
+    XCTAssertThrowsError(
+      try PetPackageLoader().load(at: fixture.root, verifyIntegrity: false)
+    ) { error in
+      XCTAssertTrue(String(describing: error).contains("zero root motion"))
+    }
+  }
+
   private func assertIntegrityFailure<T>(
     _ expression: @autoclosure () throws -> T,
     file: StaticString = #filePath,
@@ -209,10 +310,14 @@ final class PackageLoaderTests: XCTestCase {
 private enum SleepFixtureKind: Equatable {
   case proneSideCurled
   case sideStretchedSupine
+  case quietCompanion
 }
 
 private final class SleepPackageFixture: @unchecked Sendable {
   let root: URL
+  var environmentPropURL: URL {
+    root.appendingPathComponent("props/pillow.png")
+  }
   private let kind: SleepFixtureKind
   private var writtenPaths = Set<String>()
 
@@ -247,6 +352,29 @@ private final class SleepPackageFixture: @unchecked Sendable {
     edges[0]["targetStartFrame"] = 53
     value["edges"] = edges
     let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
+    try data.write(to: url)
+  }
+
+  func setTerminalRootMotion(clipID: String, x: Double) throws {
+    let url = root.appendingPathComponent("clips/\(clipID).json")
+    var value = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    value["rootMotionEndPt"] = [x, 0]
+    let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
+    try data.write(to: url)
+  }
+
+  func setEnvironmentPropVisibility(_ visibility: String) throws {
+    let url = root.appendingPathComponent("package.json")
+    var value = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    var renderAssets = value["renderAssets"] as! [String: Any]
+    var props = renderAssets["environmentProps"] as! [[String: Any]]
+    props[0]["visibility"] = visibility
+    renderAssets["environmentProps"] = props
+    value["renderAssets"] = renderAssets
+    let data = try JSONSerialization.data(
+      withJSONObject: value,
+      options: [.prettyPrinted, .sortedKeys]
+    )
     try data.write(to: url)
   }
 
@@ -331,6 +459,45 @@ private final class SleepPackageFixture: @unchecked Sendable {
           preloadHints: ["side-stretched-left-loop-v1"]
         ),
       ]
+    case .quietCompanion:
+      clips = [
+        clip(
+          id: "prone-left-loop-v1",
+          type: "loop",
+          entry: "rest.prone.left",
+          exit: "rest.prone.left",
+          frameCount: 16,
+          safeExits: [15],
+          preloadHints: ["prone-left-to-sit-front-v1"]
+        ),
+        clip(
+          id: "sit-front-floor-loop-v1",
+          type: "loop",
+          entry: "sit.front.floor",
+          exit: "sit.front.floor",
+          frameCount: 4,
+          safeExits: [3],
+          preloadHints: ["sit-front-to-prone-left-v1"]
+        ),
+        clip(
+          id: "prone-left-to-sit-front-v1",
+          type: "transition",
+          entry: "rest.prone.left",
+          exit: "sit.front.floor",
+          frameCount: 2,
+          safeExits: [],
+          preloadHints: ["sit-front-floor-loop-v1"]
+        ),
+        clip(
+          id: "sit-front-to-prone-left-v1",
+          type: "transition",
+          entry: "sit.front.floor",
+          exit: "rest.prone.left",
+          frameCount: 2,
+          safeExits: [],
+          preloadHints: ["prone-left-loop-v1"]
+        ),
+      ]
     }
     for clip in clips {
       try writeJSON(clip, to: "clips/\(clip["id"] as! String).json")
@@ -400,11 +567,64 @@ private final class SleepPackageFixture: @unchecked Sendable {
         segment("supine-left-to-side-stretched-left-v1"),
         segment("side-stretched-left-loop-v1", repeatForever: true),
       ]
+    case .quietCompanion:
+      graphNodes = [
+        quietNode(
+          id: "rest.prone.left",
+          posture: "prone",
+          loop: "prone-left-loop-v1",
+          role: "dwell",
+          autonomous: true
+        ),
+        quietNode(
+          id: "sit.front.floor",
+          posture: "sit",
+          loop: "sit-front-floor-loop-v1",
+          role: "interaction",
+          autonomous: false
+        ),
+      ]
+      graphEdges = [
+        quietEdge(
+          id: "prone-left-to-sit-front",
+          from: "rest.prone.left",
+          to: "sit.front.floor",
+          clip: "prone-left-to-sit-front-v1"
+        ),
+        quietEdge(
+          id: "sit-front-to-prone-left",
+          from: "sit.front.floor",
+          to: "rest.prone.left",
+          clip: "sit-front-to-prone-left-v1"
+        ),
+      ]
+      demoSegments = [
+        segment("prone-left-loop-v1", cycles: 1),
+        segment("prone-left-to-sit-front-v1"),
+        segment("sit-front-floor-loop-v1", repeatForever: true),
+      ]
     }
 
-    try writeJSON(
-      [
-        "schemaVersion": "0.1.0",
+    let schemaVersion = kind == .quietCompanion ? "0.2.0" : "0.1.0"
+
+    var renderAssets: [String: Any] = [
+      "mode": "frames",
+      "pixelFormat": "rgba8-straight",
+    ]
+    if kind == .quietCompanion {
+      try writeData(Data([0x89, 0x50, 0x4E, 0x47]), to: "props/pillow.png")
+      renderAssets["environmentProps"] = [[
+        "id": "pillow",
+        "src": "props/pillow.png",
+        "offsetFromFloorOriginPt": [35.625, 0],
+        "visibility": "node-scenes",
+        "scenes": ["floor"],
+        "layer": "behind-pet",
+        "hitTest": "passthrough",
+      ]]
+    }
+    var packageManifest: [String: Any] = [
+        "schemaVersion": schemaVersion,
         "package": [
           "id": "sleep-test",
           "version": "0.0.0-test",
@@ -422,19 +642,21 @@ private final class SleepPackageFixture: @unchecked Sendable {
           "coordinateOrigin": "top-left",
           "defaultNode": kind == .proneSideCurled
             ? "rest.prone.left"
-            : "rest.side-stretched.left",
+            : (kind == .sideStretchedSupine ? "rest.side-stretched.left" : "rest.prone.left"),
           "groundYPx": 266,
         ],
-        "renderAssets": ["mode": "frames", "pixelFormat": "rgba8-straight"],
+        "renderAssets": renderAssets,
         "graph": "graph.json",
         "reviewIndex": "reviews/index.json",
         "integrity": "integrity.json",
-      ],
-      to: "package.json"
-    )
+    ]
+    if kind == .quietCompanion {
+      packageManifest["behavior"] = "behavior.json"
+    }
+    try writeJSON(packageManifest, to: "package.json")
     try writeJSON(
       [
-        "schemaVersion": "0.1.0",
+        "schemaVersion": schemaVersion,
         "nodes": graphNodes,
         "edges": graphEdges,
       ],
@@ -442,12 +664,48 @@ private final class SleepPackageFixture: @unchecked Sendable {
     )
     try writeJSON(
       [
-        "schemaVersion": "0.1.0",
+        "schemaVersion": schemaVersion,
         "id": "sleep-test-chain",
         "segments": demoSegments,
       ],
       to: "demo-sequence.json"
     )
+    if kind == .quietCompanion {
+      try writeJSON(
+        [
+          "schemaVersion": "0.2.0",
+          "profile": "quiet-sleep-companion",
+          "defaultIntent": "sleep",
+          "timing": [
+            "strategy": "random-long-tail",
+            "parametersStatus": "product-default-awaiting-runtime-review",
+            "avoidImmediateRepeat": true,
+            "minimumDwellSeconds": 120,
+            "medianDwellSeconds": 420,
+            "maximumDwellSeconds": 1_200,
+          "recentHistoryLimit": 2,
+          "sameSceneProbability": 0.9,
+          ],
+          "scenePolicy": [
+            "floor": [
+              "sticky": true,
+              "minimumDwellSeconds": 300,
+              "exitCooldownSeconds": 300,
+            ],
+          ],
+          "interactions": [
+            "petClick": [
+              "sleeping": "wake-to-scene-sit",
+              "sitting": "return-to-scene-sleep",
+              "debounceSeconds": 0.35,
+            ],
+            "desktopClick": "ignore",
+            "drag": "direct-manipulation",
+          ],
+        ],
+        to: "behavior.json"
+      )
+    }
     try writeJSON(["runtimeChainStatus": "awaiting-human-runtime-review"], to: "reviews/index.json")
 
     let entries = try writtenPaths.sorted().map { path -> [String: Any] in
@@ -459,7 +717,7 @@ private final class SleepPackageFixture: @unchecked Sendable {
       ]
     }
     try writeJSON(
-      ["schemaVersion": "0.1.0", "algorithm": "sha256", "files": entries],
+      ["schemaVersion": schemaVersion, "algorithm": "sha256", "files": entries],
       to: "integrity.json"
     )
   }
@@ -488,6 +746,44 @@ private final class SleepPackageFixture: @unchecked Sendable {
       "clip": clip,
       "kind": "transition",
       "interruptPolicy": "direct-manipulation-only",
+    ]
+  }
+
+  private func quietNode(
+    id: String,
+    posture: String,
+    loop: String,
+    role: String,
+    autonomous: Bool
+  ) -> [String: Any] {
+    [
+      "id": id,
+      "posture": posture,
+      "orientation": "front",
+      "grounded": true,
+      "stability": "stable",
+      "loopClip": loop,
+      "scene": "floor",
+      "role": role,
+      "autonomousEligible": autonomous,
+      "props": [],
+    ]
+  }
+
+  private func quietEdge(
+    id: String,
+    from: String,
+    to: String,
+    clip: String
+  ) -> [String: Any] {
+    [
+      "id": id,
+      "from": from,
+      "to": to,
+      "clip": clip,
+      "kind": "transition",
+      "interruptPolicy": "finish-before-retarget",
+      "targetStartFrame": 0,
     ]
   }
 

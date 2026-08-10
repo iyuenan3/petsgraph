@@ -4,13 +4,14 @@ import PetsGraphCore
 
 struct AppConfiguration {
   let packageURL: URL
-  let displayHeightPt: Double
+  let displayHeightPt: Double?
   let startDelaySeconds: Double
   let verifyIntegrity: Bool
   let validateOnly: Bool
   let engineeringBehaviorPreview: Bool
   let acceleratedBehavior: Bool
   let nativeLeftChainDemo: Bool
+  let quietSceneRoundTripDemo: Bool
 }
 
 @main
@@ -31,7 +32,9 @@ struct PetsGraphMain {
           + String(format: "load=%.3fs", loadDuration)
       )
       if configuration.validateOnly {
-        if configuration.engineeringBehaviorPreview {
+        if package.behavior?.profile == "quiet-sleep-companion" {
+          try validateQuietCompanionBehavior(package)
+        } else if configuration.engineeringBehaviorPreview {
           try validateEngineeringBehavior(package)
         }
         print("petsgraph validation passed")
@@ -46,6 +49,9 @@ struct PetsGraphMain {
             + (nativeLeft ? "yes" : "no")
             + "; this package remains non-installable until human desktop review"
         )
+      }
+      if package.behavior?.profile == "quiet-sleep-companion" {
+        print("petsgraph quiet-sleep-companion enabled; desktop clicks and locomotion are disabled")
       }
 
       let application = NSApplication.shared
@@ -139,29 +145,136 @@ struct PetsGraphMain {
     )
   }
 
+  private static func validateQuietCompanionBehavior(
+    _ package: LoadedPetPackage
+  ) throws {
+    let planner = try QuietCompanionPlanner(package: package)
+    let dwellNodes = planner.autonomousNodeIDs()
+    guard !dwellNodes.isEmpty else {
+      throw PackageValidationError.invalid("quiet companion needs autonomous dwell nodes")
+    }
+    let interactionNodeIDs = Set(
+      package.graph.nodes.filter { $0.role == "interaction" }.map(\.id)
+    )
+    func validateAutonomousPlan(_ plan: EngineeringBehaviorPlan) throws {
+      guard plan.mirroredClipIDs.isEmpty else {
+        throw PackageValidationError.invalid("quiet companion cannot mirror formal clips")
+      }
+      for segment in plan.sequence.segments {
+        guard let clip = package.clips[segment.clip] else {
+          throw PackageValidationError.missing("quiet plan clip \(segment.clip)")
+        }
+        if interactionNodeIDs.contains(clip.entryPose)
+          || interactionNodeIDs.contains(clip.exitPose)
+        {
+          throw PackageValidationError.invalid(
+            "autonomous quiet plan uses interaction clip \(clip.id)"
+          )
+        }
+      }
+    }
+    var sleepPaths = 0
+    var wakePaths = 0
+    var returnPaths = 0
+    for source in dwellNodes {
+      _ = try planner.idlePlan(nodeID: source)
+      let wake = try planner.wakeToSceneSitPlan(fromSleepNodeID: source, currentFrame: 0)
+      guard abs(wake.finiteRootMotionPt) < 0.000_001 else {
+        throw PackageValidationError.invalid("quiet wake path must have zero root motion")
+      }
+      guard
+        planner.role(for: wake.finalNodeID) == "interaction",
+        planner.scene(for: wake.finalNodeID) == planner.scene(for: source),
+        wake.mirroredClipIDs.isEmpty
+      else {
+        throw PackageValidationError.invalid("quiet wake path must end at its scene interaction")
+      }
+      wakePaths += 1
+      let returnPlan = try planner.returnToSceneSleepPlan(
+        fromInteractionNodeID: wake.finalNodeID,
+        currentFrame: 0,
+        preferredDwellNodeID: source
+      )
+      guard
+        returnPlan.finalNodeID == source,
+        abs(returnPlan.finiteRootMotionPt) < 0.000_001,
+        returnPlan.mirroredClipIDs.isEmpty
+      else {
+        throw PackageValidationError.invalid("quiet return path must restore its preferred dwell")
+      }
+      returnPaths += 1
+      for target in dwellNodes where target != source {
+        let plan = try planner.sleepChangePlan(
+          fromNodeID: source,
+          toNodeID: target,
+          currentFrame: 0
+        )
+        let sameScene = planner.scene(for: source) == planner.scene(for: target)
+        if sameScene, abs(plan.finiteRootMotionPt) >= 0.000_001 {
+          throw PackageValidationError.invalid(
+            "same-scene quiet path \(source) to \(target) has root motion"
+          )
+        }
+        try validateAutonomousPlan(plan)
+        if sameScene, plan.movementDirection != nil {
+          throw PackageValidationError.invalid(
+            "same-scene quiet path \(source) to \(target) cannot move the window"
+          )
+        }
+        if !sameScene, plan.movementDirection == nil {
+          throw PackageValidationError.invalid(
+            "cross-scene quiet path \(source) to \(target) needs approved window motion"
+          )
+        }
+        sleepPaths += 1
+      }
+    }
+    print(
+      "petsgraph quiet-companion validation "
+        + "dwell-nodes=\(dwellNodes.count) sleep-paths=\(sleepPaths) "
+        + "wake-paths=\(wakePaths) return-paths=\(returnPaths) "
+        + "autonomous-interaction-shortcuts=0"
+    )
+  }
+
   private static func parseArguments(_ arguments: [String]) throws -> AppConfiguration {
     if arguments.contains("--help") || arguments.contains("-h") {
       print(
         "Usage: petsgraph <package.petsgraph-pet> "
-          + "[--display-height <points>] [--start-delay <seconds>] "
+          + "[--display-height <points, defaults to package baseHeightPt>] "
+          + "[--start-delay <seconds>] "
           + "[--no-integrity] [--validate-only] "
           + "[--engineering-behavior-preview] [--accelerated-behavior] "
-          + "[--native-left-chain-demo]"
+          + "[--native-left-chain-demo] [--quiet-scene-round-trip-demo]"
       )
       exit(0)
     }
-    guard let packagePath = arguments.first, !packagePath.hasPrefix("--") else {
-      throw PackageValidationError.invalid("a .petsgraph-pet directory is required")
+    let packagePath: String
+    let firstOptionIndex: Int
+    if let supplied = arguments.first, !supplied.hasPrefix("--") {
+      packagePath = supplied
+      firstOptionIndex = 1
+    } else if let bundled = Bundle.main.url(
+      forResource: "DefaultPet",
+      withExtension: "petsgraph-pet"
+    ) {
+      packagePath = bundled.path
+      firstOptionIndex = 0
+    } else {
+      throw PackageValidationError.invalid(
+        "a .petsgraph-pet directory is required, or DefaultPet.petsgraph-pet must be bundled"
+      )
     }
 
-    var displayHeight = 150.0
+    var displayHeight: Double?
     var startDelay = 1.0
     var verifyIntegrity = true
     var validateOnly = false
     var engineeringBehaviorPreview = false
     var acceleratedBehavior = false
     var nativeLeftChainDemo = false
-    var index = 1
+    var quietSceneRoundTripDemo = false
+    var index = firstOptionIndex
     while index < arguments.count {
       switch arguments[index] {
       case "--display-height":
@@ -196,6 +309,8 @@ struct PetsGraphMain {
         acceleratedBehavior = true
       case "--native-left-chain-demo":
         nativeLeftChainDemo = true
+      case "--quiet-scene-round-trip-demo":
+        quietSceneRoundTripDemo = true
       default:
         throw PackageValidationError.invalid("unknown argument \(arguments[index])")
       }
@@ -211,6 +326,16 @@ struct PetsGraphMain {
         "native left chain demo requires --engineering-behavior-preview"
       )
     }
+    guard !quietSceneRoundTripDemo || engineeringBehaviorPreview else {
+      throw PackageValidationError.invalid(
+        "quiet scene round-trip demo requires --engineering-behavior-preview"
+      )
+    }
+    guard !(nativeLeftChainDemo && quietSceneRoundTripDemo) else {
+      throw PackageValidationError.invalid(
+        "native left and quiet scene demos cannot run together"
+      )
+    }
 
     return AppConfiguration(
       packageURL: URL(fileURLWithPath: packagePath, isDirectory: true),
@@ -220,7 +345,8 @@ struct PetsGraphMain {
       validateOnly: validateOnly,
       engineeringBehaviorPreview: engineeringBehaviorPreview,
       acceleratedBehavior: acceleratedBehavior,
-      nativeLeftChainDemo: nativeLeftChainDemo
+      nativeLeftChainDemo: nativeLeftChainDemo,
+      quietSceneRoundTripDemo: quietSceneRoundTripDemo
     )
   }
 }
@@ -242,11 +368,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     do {
       let controller = try PetWindowController(
         package: package,
-        requestedDisplayHeightPt: configuration.displayHeightPt,
+        requestedDisplayHeightPt: configuration.displayHeightPt
+          ?? package.manifest.art.baseHeightPt,
         startDelaySeconds: configuration.startDelaySeconds,
         engineeringBehaviorPreview: configuration.engineeringBehaviorPreview,
         acceleratedBehavior: configuration.acceleratedBehavior,
-        nativeLeftChainDemo: configuration.nativeLeftChainDemo
+        nativeLeftChainDemo: configuration.nativeLeftChainDemo,
+        quietSceneRoundTripDemo: configuration.quietSceneRoundTripDemo
       )
       controller.onClipChanged = { [weak self] clipID in
         self?.clipMenuItem?.title = "当前：\(clipID)"
@@ -324,7 +452,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       NSMenuItem(
         title: configuration.engineeringBehaviorPreview
           ? "重置为睡眠"
-          : "重新播放当前预览链",
+          : (package.behavior == nil ? "重新播放当前预览链" : "回到默认睡姿"),
         action: #selector(restart),
         keyEquivalent: "r"
       )

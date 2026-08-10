@@ -7,6 +7,7 @@ public struct PetPackageManifest: Codable, Sendable {
   public let art: ArtConfiguration
   public let renderAssets: RenderAssets
   public let graph: String
+  public let behavior: String?
   public let reviewIndex: String
   public let integrity: String
 
@@ -17,6 +18,7 @@ public struct PetPackageManifest: Codable, Sendable {
     art: ArtConfiguration,
     renderAssets: RenderAssets,
     graph: String,
+    behavior: String? = nil,
     reviewIndex: String,
     integrity: String
   ) {
@@ -26,6 +28,7 @@ public struct PetPackageManifest: Codable, Sendable {
     self.art = art
     self.renderAssets = renderAssets
     self.graph = graph
+    self.behavior = behavior
     self.reviewIndex = reviewIndex
     self.integrity = integrity
   }
@@ -55,6 +58,45 @@ public struct ArtConfiguration: Codable, Sendable {
 public struct RenderAssets: Codable, Sendable {
   public let mode: String
   public let pixelFormat: String
+  public let environmentProps: [EnvironmentProp]?
+
+  public init(
+    mode: String,
+    pixelFormat: String,
+    environmentProps: [EnvironmentProp]? = nil
+  ) {
+    self.mode = mode
+    self.pixelFormat = pixelFormat
+    self.environmentProps = environmentProps
+  }
+}
+
+public struct EnvironmentProp: Codable, Sendable {
+  public let id: String
+  public let src: String
+  public let offsetFromFloorOriginPt: [Double]
+  public let visibility: String
+  public let scenes: [String]?
+  public let layer: String
+  public let hitTest: String
+
+  public init(
+    id: String,
+    src: String,
+    offsetFromFloorOriginPt: [Double],
+    visibility: String,
+    scenes: [String]? = nil,
+    layer: String,
+    hitTest: String
+  ) {
+    self.id = id
+    self.src = src
+    self.offsetFromFloorOriginPt = offsetFromFloorOriginPt
+    self.visibility = visibility
+    self.scenes = scenes
+    self.layer = layer
+    self.hitTest = hitTest
+  }
 }
 
 public struct GraphDefinition: Codable, Sendable {
@@ -69,7 +111,35 @@ public struct GraphNode: Codable, Sendable {
   public let orientation: String
   public let grounded: Bool
   public let stability: String
+  public let scene: String?
+  public let role: String?
+  public let autonomousEligible: Bool?
+  public let props: [String]?
   public let loopClip: String
+
+  public init(
+    id: String,
+    posture: String,
+    orientation: String,
+    grounded: Bool,
+    stability: String,
+    scene: String? = nil,
+    role: String? = nil,
+    autonomousEligible: Bool? = nil,
+    props: [String]? = nil,
+    loopClip: String
+  ) {
+    self.id = id
+    self.posture = posture
+    self.orientation = orientation
+    self.grounded = grounded
+    self.stability = stability
+    self.scene = scene
+    self.role = role
+    self.autonomousEligible = autonomousEligible
+    self.props = props
+    self.loopClip = loopClip
+  }
 }
 
 public struct GraphEdge: Codable, Sendable {
@@ -80,6 +150,7 @@ public struct GraphEdge: Codable, Sendable {
   public let kind: String
   public let interruptPolicy: String
   public let targetStartFrame: Int?
+  public let sceneChange: String?
 
   public init(
     id: String,
@@ -88,7 +159,8 @@ public struct GraphEdge: Codable, Sendable {
     clip: String,
     kind: String,
     interruptPolicy: String,
-    targetStartFrame: Int? = nil
+    targetStartFrame: Int? = nil,
+    sceneChange: String? = nil
   ) {
     self.id = id
     self.from = from
@@ -97,6 +169,7 @@ public struct GraphEdge: Codable, Sendable {
     self.kind = kind
     self.interruptPolicy = interruptPolicy
     self.targetStartFrame = targetStartFrame
+    self.sceneChange = sceneChange
   }
 }
 
@@ -137,9 +210,31 @@ public struct ClipFrame: Codable, Sendable {
   public let src: String
   public let durationMs: Double
   public let contentBoundsPx: [Double]
+  public let petBoundsPx: [Double]?
+  public let propBoundsPx: [String: [Double]]?
   public let anchorsPx: FrameAnchors
   public let collision: FrameCollision
   public let rootMotionPt: [Double]
+
+  public init(
+    src: String,
+    durationMs: Double,
+    contentBoundsPx: [Double],
+    petBoundsPx: [Double]? = nil,
+    propBoundsPx: [String: [Double]]? = nil,
+    anchorsPx: FrameAnchors,
+    collision: FrameCollision,
+    rootMotionPt: [Double]
+  ) {
+    self.src = src
+    self.durationMs = durationMs
+    self.contentBoundsPx = contentBoundsPx
+    self.petBoundsPx = petBoundsPx
+    self.propBoundsPx = propBoundsPx
+    self.anchorsPx = anchorsPx
+    self.collision = collision
+    self.rootMotionPt = rootMotionPt
+  }
 }
 
 public struct FrameAnchors: Codable, Sendable {
@@ -151,12 +246,75 @@ public struct FrameAnchors: Codable, Sendable {
 public struct FrameCollision: Codable, Sendable {
   public let bodyCoreEllipsePx: [Double]
   public let screenBoundsPx: [Double]
+  public let petHitEllipsePx: [Double]?
+
+  public init(
+    bodyCoreEllipsePx: [Double],
+    screenBoundsPx: [Double],
+    petHitEllipsePx: [Double]? = nil
+  ) {
+    self.bodyCoreEllipsePx = bodyCoreEllipsePx
+    self.screenBoundsPx = screenBoundsPx
+    self.petHitEllipsePx = petHitEllipsePx
+  }
+}
+
+public struct BehaviorDefinition: Codable, Sendable {
+  public let schemaVersion: String
+  public let profile: String
+  public let defaultIntent: String
+  public let timing: BehaviorTiming
+  public let scenePolicy: [String: SceneBehaviorPolicy]
+  public let interactions: BehaviorInteractions
+}
+
+public struct BehaviorTiming: Codable, Sendable {
+  public let strategy: String
+  public let parametersStatus: String
+  public let avoidImmediateRepeat: Bool
+  public let minimumDwellSeconds: Double?
+  public let medianDwellSeconds: Double?
+  public let maximumDwellSeconds: Double?
+  public let recentHistoryLimit: Int?
+  public let sameSceneProbability: Double?
+}
+
+public struct SceneBehaviorPolicy: Codable, Sendable {
+  public let sticky: Bool
+  public let gateway: String?
+  public let minimumDwellSeconds: Double?
+  public let exitCooldownSeconds: Double?
+}
+
+public struct BehaviorInteractions: Codable, Sendable {
+  public let petClick: PetClickBehavior
+  public let desktopClick: String
+  public let drag: String
+}
+
+public struct PetClickBehavior: Codable, Sendable {
+  public let sleeping: String
+  public let sitting: String
+  public let debounceSeconds: Double?
+
+  public init(
+    sleeping: String,
+    sitting: String,
+    debounceSeconds: Double? = nil
+  ) {
+    self.sleeping = sleeping
+    self.sitting = sitting
+    self.debounceSeconds = debounceSeconds
+  }
 }
 
 public struct ClipProvenance: Codable, Sendable {
   public let approvalStatus: String
-  public let approvedRecipe: String
+  public let approvedRecipe: String?
   public let approvedRecipeSha256: String?
+  public let candidateRecipe: String?
+  public let candidateRecipeSha256: String?
+  public let sourceSequenceDigest: String?
   public let rootMotionStatus: String
   public let normalization: String
 }
@@ -205,6 +363,7 @@ public struct LoadedPetPackage: Sendable {
   public let rootURL: URL
   public let manifest: PetPackageManifest
   public let graph: GraphDefinition
+  public let behavior: BehaviorDefinition?
   public let clips: [String: ClipDefinition]
   public let demoSequence: DemoSequence
 
@@ -212,12 +371,14 @@ public struct LoadedPetPackage: Sendable {
     rootURL: URL,
     manifest: PetPackageManifest,
     graph: GraphDefinition,
+    behavior: BehaviorDefinition? = nil,
     clips: [String: ClipDefinition],
     demoSequence: DemoSequence
   ) {
     self.rootURL = rootURL
     self.manifest = manifest
     self.graph = graph
+    self.behavior = behavior
     self.clips = clips
     self.demoSequence = demoSequence
   }
@@ -230,5 +391,12 @@ public struct LoadedPetPackage: Sendable {
       return nil
     }
     return rootURL.appendingPathComponent(clip.frames[frameIndex].src)
+  }
+
+  public func environmentPropURL(id: String) -> URL? {
+    guard let prop = manifest.renderAssets.environmentProps?.first(where: { $0.id == id }) else {
+      return nil
+    }
+    return rootURL.appendingPathComponent(prop.src)
   }
 }

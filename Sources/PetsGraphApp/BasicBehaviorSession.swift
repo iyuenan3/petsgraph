@@ -18,22 +18,24 @@ struct BehaviorPresentation {
   let interactionState: BehaviorInteractionState
 }
 
-enum BehaviorCommandResult {
+enum BehaviorCommandResult: Equatable {
   case started
   case queued
   case ignored
   case unavailable
 }
 
-enum PetClickResult {
+enum PetClickResult: Equatable {
   case wakeStarted
   case wakeQueued
   case sleepStarted
   case sleepQueued
+  case debounced
+  case transitionInProgress
   case alreadyReturningToSleep
 }
 
-enum DestinationCommandResult {
+enum DestinationCommandResult: Equatable {
   case started(
     gait: PreviewMovementGait,
     direction: PreviewMovementDirection,
@@ -70,7 +72,9 @@ final class BasicBehaviorSession {
 
   private let package: LoadedPetPackage
   private let planner: EngineeringBehaviorPlanner
+  private let quietPlanner: QuietCompanionPlanner?
   private let accelerated: Bool
+  private let petClickDebounceSeconds: Double
 
   private var mode: Mode = .sleeping
   private var activePlan: EngineeringBehaviorPlan
@@ -78,20 +82,32 @@ final class BasicBehaviorSession {
   private var planStartUptime: TimeInterval = 0
   private var accumulatedRootMotionPt = 0.0
   private var activeMotionSign = 1.0
-  private var currentNodeID = "rest.prone.left"
+  private var currentNodeID: String
+  private var lastDwellNodeID: String
   private var previousSleepNodeID: String?
+  private var recentSleepNodeIDs: [String] = []
+  private var currentSceneEnteredUptime: TimeInterval = 0
+  private var lastSceneExitUptime: [String: TimeInterval] = [:]
   private var nextSleepChangeUptime = TimeInterval.greatestFiniteMagnitude
   private var nextSittingSleepUptime = TimeInterval.greatestFiniteMagnitude
   private var wakeRequested = false
   private var sleepRequested = false
   private var queuedMovement: MovementRequest?
+  private var engineeringSleepTargets: [String] = []
+  private var engineeringDwellSeconds: Double?
   private var generation = 0
+  private var lastPetClickUptime = -Double.infinity
 
   init(package: LoadedPetPackage, accelerated: Bool) throws {
     self.package = package
     planner = try EngineeringBehaviorPlanner(package: package)
+    quietPlanner = package.behavior == nil ? nil : try QuietCompanionPlanner(package: package)
     self.accelerated = accelerated
-    activePlan = try planner.idlePlan(nodeID: currentNodeID)
+    petClickDebounceSeconds = package.behavior?.interactions.petClick.debounceSeconds ?? 0.35
+    currentNodeID = quietPlanner?.defaultNodeID ?? "rest.prone.left"
+    lastDwellNodeID = currentNodeID
+    activePlan = try quietPlanner?.idlePlan(nodeID: currentNodeID)
+      ?? planner.idlePlan(nodeID: currentNodeID)
     timeline = try PlaybackTimeline(
       clips: package.clips,
       sequence: activePlan.sequence
@@ -100,6 +116,8 @@ final class BasicBehaviorSession {
 
   func start(at uptime: TimeInterval) {
     planStartUptime = uptime
+    currentSceneEnteredUptime = uptime
+    recentSleepNodeIDs = [currentNodeID]
     scheduleNextSleepChange(after: uptime)
   }
 
@@ -133,6 +151,11 @@ final class BasicBehaviorSession {
   }
 
   func handlePetClick(at uptime: TimeInterval) throws -> PetClickResult {
+    guard uptime - lastPetClickUptime >= petClickDebounceSeconds else {
+      return .debounced
+    }
+    lastPetClickUptime = uptime
+    cancelEngineeringSleepSequence()
     switch mode {
     case .sleeping:
       try beginWakeToSit(at: uptime)
@@ -141,6 +164,9 @@ final class BasicBehaviorSession {
       wakeRequested = true
       return .wakeQueued
     case .waking:
+      if quietPlanner != nil {
+        return .transitionInProgress
+      }
       sleepRequested = true
       queuedMovement = nil
       return .sleepQueued
@@ -162,6 +188,7 @@ final class BasicBehaviorSession {
     at uptime: TimeInterval,
     motionScale: Double
   ) throws -> DestinationCommandResult {
+    guard quietPlanner == nil else { return .unavailable }
     let phase: PreviewDestinationPhase = switch mode {
     case .sitting: .sitting
     case .moving: .moving
@@ -189,6 +216,7 @@ final class BasicBehaviorSession {
     availableLeftPt: Double,
     availableRightPt: Double
   ) throws -> BehaviorCommandResult {
+    guard quietPlanner == nil else { return .unavailable }
     let direction: PreviewMovementDirection = requestedDirection
       ?? (availableLeftPt > availableRightPt ? .left : .right)
     let available = direction == .left ? availableLeftPt : availableRightPt
@@ -236,14 +264,60 @@ final class BasicBehaviorSession {
     try beginSleepChange(at: uptime)
   }
 
+  func startQuietSceneRoundTripDemo(
+    at uptime: TimeInterval,
+    dwellSeconds: Double = 3
+  ) throws {
+    guard let quietPlanner else {
+      throw PackageValidationError.invalid(
+        "quiet scene round-trip demo requires quiet companion behavior"
+      )
+    }
+    guard mode == .sleeping else {
+      throw PackageValidationError.invalid(
+        "quiet scene round-trip demo must start while sleeping"
+      )
+    }
+    let pillowNodes = quietPlanner.autonomousNodeIDs(scene: "pillow")
+    guard !pillowNodes.isEmpty else {
+      throw PackageValidationError.missing("quiet scene round-trip demo needs a pillow dwell")
+    }
+    let pillowTarget = pillowNodes.contains("rest.pillow.head-on")
+      ? "rest.pillow.head-on"
+      : pillowNodes[0]
+    engineeringSleepTargets = [pillowTarget, quietPlanner.defaultNodeID]
+    engineeringDwellSeconds = max(1, dwellSeconds)
+    try beginSleepChange(at: uptime)
+    print(
+      "petsgraph quiet-scene-round-trip-demo queued "
+        + "targets=\(engineeringSleepTargets.joined(separator: ","))"
+    )
+  }
+
+  func handleDragStarted() {
+    cancelEngineeringSleepSequence()
+    wakeRequested = false
+    sleepRequested = false
+    queuedMovement = nil
+    engineeringSleepTargets = []
+    engineeringDwellSeconds = nil
+  }
+
   func resetToSleep(at uptime: TimeInterval) throws {
-    let plan = try planner.idlePlan(nodeID: "rest.prone.left")
+    let target = quietPlanner?.defaultNodeID ?? "rest.prone.left"
+    let plan = try quietPlanner?.idlePlan(nodeID: target)
+      ?? planner.idlePlan(nodeID: target)
     replacePlan(plan, at: uptime)
-    currentNodeID = "rest.prone.left"
+    currentNodeID = target
+    lastDwellNodeID = target
     mode = .sleeping
     wakeRequested = false
     sleepRequested = false
     queuedMovement = nil
+    recentSleepNodeIDs = [target]
+    currentSceneEnteredUptime = uptime
+    lastSceneExitUptime = [:]
+    lastPetClickUptime = -Double.infinity
     scheduleNextSleepChange(after: uptime)
     nextSittingSleepUptime = .greatestFiniteMagnitude
     print("petsgraph behavior reset node=\(currentNodeID)")
@@ -266,10 +340,18 @@ final class BasicBehaviorSession {
 
   private func beginWakeToSit(at uptime: TimeInterval) throws {
     let currentFrame = timeline.sample(at: elapsed(at: uptime)).sourceFrameIndex
-    let plan = try planner.wakeToSitPlan(
-      fromSleepNodeID: currentNodeID,
-      currentFrame: currentFrame
-    )
+    lastDwellNodeID = currentNodeID
+    let plan = if let quietPlanner {
+      try quietPlanner.wakeToSceneSitPlan(
+        fromSleepNodeID: currentNodeID,
+        currentFrame: currentFrame
+      )
+    } else {
+      try planner.wakeToSitPlan(
+        fromSleepNodeID: currentNodeID,
+        currentFrame: currentFrame
+      )
+    }
     replacePlan(plan, at: uptime)
     mode = .waking
     wakeRequested = false
@@ -280,7 +362,15 @@ final class BasicBehaviorSession {
 
   private func beginReturnToSleep(at uptime: TimeInterval) throws {
     let currentFrame = timeline.sample(at: elapsed(at: uptime)).sourceFrameIndex
-    let plan = try planner.sitToSleepPlan(currentFrame: currentFrame)
+    let plan = if let quietPlanner {
+      try quietPlanner.returnToSceneSleepPlan(
+        fromInteractionNodeID: currentNodeID,
+        currentFrame: currentFrame,
+        preferredDwellNodeID: lastDwellNodeID
+      )
+    } else {
+      try planner.sitToSleepPlan(currentFrame: currentFrame)
+    }
     replacePlan(plan, at: uptime)
     mode = .returningToSleep
     sleepRequested = false
@@ -404,22 +494,73 @@ final class BasicBehaviorSession {
   }
 
   private func beginSleepChange(at uptime: TimeInterval) throws {
-    let neighbors = planner.sleepNeighborNodeIDs(from: currentNodeID)
+    if !engineeringSleepTargets.isEmpty {
+      let target = engineeringSleepTargets.removeFirst()
+      try beginSleepChange(to: target, at: uptime)
+      return
+    }
+    let neighbors: [String]
+    if let quietPlanner {
+      let currentScene = quietPlanner.scene(for: currentNodeID)
+      let sameScene = quietPlanner.autonomousNodeIDs(scene: currentScene)
+        .filter { $0 != currentNodeID }
+      let allOther = quietPlanner.autonomousNodeIDs()
+        .filter { candidate in
+          guard candidate != currentNodeID, !sameScene.contains(candidate) else {
+            return false
+          }
+          guard
+            let candidateScene = quietPlanner.scene(for: candidate),
+            let lastExit = lastSceneExitUptime[candidateScene],
+            let cooldown = package.behavior?.scenePolicy[candidateScene]?.exitCooldownSeconds
+          else {
+            return true
+          }
+          return uptime - lastExit >= cooldown
+        }
+      let scenePolicy = currentScene.flatMap { package.behavior?.scenePolicy[$0] }
+      let stickyMinimum = scenePolicy?.minimumDwellSeconds ?? 0
+      let mustStay = scenePolicy?.sticky == true
+        && uptime - currentSceneEnteredUptime < stickyMinimum
+      let sameSceneProbability = package.behavior?.timing.sameSceneProbability ?? 0.86
+      let chooseSameScene = mustStay
+        || allOther.isEmpty
+        || Double.random(in: 0..<1) < sameSceneProbability
+      neighbors = chooseSameScene && !sameScene.isEmpty ? sameScene : allOther
+    } else {
+      neighbors = planner.sleepNeighborNodeIDs(from: currentNodeID)
+    }
     guard !neighbors.isEmpty else {
       scheduleNextSleepChange(after: uptime)
       return
     }
-    let alternatives = neighbors.filter { $0 != previousSleepNodeID }
+    let recent = Set(recentSleepNodeIDs)
+    let deDuplicated = neighbors.filter { !recent.contains($0) }
+    let alternatives = deDuplicated.isEmpty
+      ? neighbors.filter { $0 != previousSleepNodeID }
+      : deDuplicated
     let candidates = alternatives.isEmpty ? neighbors : alternatives
     guard let target = candidates.randomElement() else {
       return
     }
+    try beginSleepChange(to: target, at: uptime)
+  }
+
+  private func beginSleepChange(to target: String, at uptime: TimeInterval) throws {
     let currentFrame = timeline.sample(at: elapsed(at: uptime)).sourceFrameIndex
-    let plan = try planner.sleepChangePlan(
-      fromNodeID: currentNodeID,
-      toNodeID: target,
-      currentFrame: currentFrame
-    )
+    let plan = if let quietPlanner {
+      try quietPlanner.sleepChangePlan(
+        fromNodeID: currentNodeID,
+        toNodeID: target,
+        currentFrame: currentFrame
+      )
+    } else {
+      try planner.sleepChangePlan(
+        fromNodeID: currentNodeID,
+        toNodeID: target,
+        currentFrame: currentFrame
+      )
+    }
     previousSleepNodeID = currentNodeID
     replacePlan(plan, at: uptime)
     mode = .changingSleep
@@ -441,14 +582,26 @@ final class BasicBehaviorSession {
 
     switch mode {
     case .changingSleep:
+      let previousScene = quietPlanner?.scene(for: currentNodeID)
       currentNodeID = activePlan.finalNodeID
+      lastDwellNodeID = currentNodeID
+      if let previousScene, quietPlanner?.scene(for: currentNodeID) != previousScene {
+        lastSceneExitUptime[previousScene] = uptime
+        currentSceneEnteredUptime = uptime
+      }
+      appendRecentSleepNode(currentNodeID)
       mode = .sleeping
-      scheduleNextSleepChange(after: uptime)
+      if !engineeringSleepTargets.isEmpty, let dwell = engineeringDwellSeconds {
+        nextSleepChangeUptime = uptime + dwell
+      } else {
+        engineeringDwellSeconds = nil
+        scheduleNextSleepChange(after: uptime)
+      }
       if wakeRequested {
         try beginWakeToSit(at: uptime)
       }
     case .waking:
-      currentNodeID = "sit.front"
+      currentNodeID = activePlan.finalNodeID
       mode = .sitting
       scheduleSittingSleep(after: uptime)
       if sleepRequested {
@@ -466,7 +619,14 @@ final class BasicBehaviorSession {
         _ = try startMovement(request, at: uptime, motionScale: motionScale)
       }
     case .returningToSleep:
-      currentNodeID = "rest.prone.left"
+      let previousScene = quietPlanner?.scene(for: currentNodeID)
+      currentNodeID = activePlan.finalNodeID
+      lastDwellNodeID = currentNodeID
+      if let previousScene, quietPlanner?.scene(for: currentNodeID) != previousScene {
+        lastSceneExitUptime[previousScene] = uptime
+        currentSceneEnteredUptime = uptime
+      }
+      appendRecentSleepNode(currentNodeID)
       mode = .sleeping
       scheduleNextSleepChange(after: uptime)
       if wakeRequested || queuedMovement != nil {
@@ -496,13 +656,39 @@ final class BasicBehaviorSession {
   }
 
   private func scheduleNextSleepChange(after uptime: TimeInterval) {
-    let delay = accelerated
-      ? Double.random(in: 18...28)
-      : Double.random(in: 90...240)
+    let delay: Double
+    if accelerated {
+      delay = Double.random(in: 18...28)
+    } else if let timing = package.behavior?.timing {
+      let minimum = timing.minimumDwellSeconds ?? 150
+      let median = timing.medianDwellSeconds ?? 420
+      let maximum = timing.maximumDwellSeconds ?? 1_200
+      let u1 = max(Double.leastNonzeroMagnitude, Double.random(in: 0..<1))
+      let u2 = Double.random(in: 0..<1)
+      let standardNormal = sqrt(-2 * log(u1)) * cos(2 * .pi * u2)
+      delay = min(maximum, max(minimum, exp(log(median) + 0.68 * standardNormal)))
+    } else {
+      delay = Double.random(in: 90...240)
+    }
     nextSleepChangeUptime = uptime + delay
   }
 
   private func scheduleSittingSleep(after uptime: TimeInterval) {
-    nextSittingSleepUptime = uptime + (accelerated ? 15 : 30)
+    nextSittingSleepUptime = quietPlanner == nil
+      ? uptime + (accelerated ? 15 : 30)
+      : .greatestFiniteMagnitude
+  }
+
+  private func appendRecentSleepNode(_ nodeID: String) {
+    recentSleepNodeIDs.append(nodeID)
+    let limit = package.behavior?.timing.recentHistoryLimit ?? 2
+    if recentSleepNodeIDs.count > limit {
+      recentSleepNodeIDs.removeFirst(recentSleepNodeIDs.count - limit)
+    }
+  }
+
+  private func cancelEngineeringSleepSequence() {
+    engineeringSleepTargets = []
+    engineeringDwellSeconds = nil
   }
 }

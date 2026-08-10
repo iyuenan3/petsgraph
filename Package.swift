@@ -21,5 +21,9 @@ let package = Package(
       name: "PetsGraphCoreTests",
       dependencies: ["PetsGraphCore"]
     ),
+    .testTarget(
+      name: "PetsGraphAppTests",
+      dependencies: ["PetsGraphApp", "PetsGraphCore"]
+    ),
   ]
 )

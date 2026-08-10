@@ -46,6 +46,7 @@ public struct PetPackageLoader: Sendable {
       decoder: decoder
     )
     try validateManifest(manifest)
+    try validateEnvironmentProps(manifest.renderAssets.environmentProps, root: root)
 
     let graph: GraphDefinition = try decode(
       GraphDefinition.self,
@@ -53,6 +54,21 @@ public struct PetPackageLoader: Sendable {
       root: root,
       decoder: decoder
     )
+    try validateEnvironmentPropScenes(
+      manifest.renderAssets.environmentProps,
+      graph: graph
+    )
+    let behavior: BehaviorDefinition?
+    if let behaviorPath = manifest.behavior {
+      behavior = try decode(
+        BehaviorDefinition.self,
+        relativePath: behaviorPath,
+        root: root,
+        decoder: decoder
+      )
+    } else {
+      behavior = nil
+    }
     let demo: DemoSequence = try decode(
       DemoSequence.self,
       relativePath: "demo-sequence.json",
@@ -76,7 +92,16 @@ public struct PetPackageLoader: Sendable {
       try validateClip(clip, root: root)
       clips[clip.id] = clip
     }
-    try validateGraph(graph, clips: clips, defaultNode: manifest.art.defaultNode)
+    try validateGraph(
+      graph,
+      clips: clips,
+      defaultNode: manifest.art.defaultNode,
+      requiresSceneContract: Self.schemaMinor(manifest.schemaVersion) >= 2,
+      declaredEnvironmentPropIDs: Set(
+        manifest.renderAssets.environmentProps?.map(\.id) ?? []
+      )
+    )
+    try validateBehavior(behavior, manifest: manifest, graph: graph)
     try validateDemo(demo, clips: clips)
 
     if verifyIntegrity {
@@ -93,6 +118,7 @@ public struct PetPackageLoader: Sendable {
       rootURL: root,
       manifest: manifest,
       graph: graph,
+      behavior: behavior,
       clips: clips,
       demoSequence: demo
     )
@@ -127,8 +153,14 @@ public struct PetPackageLoader: Sendable {
   }
 
   private func validateManifest(_ manifest: PetPackageManifest) throws {
-    guard manifest.schemaVersion.hasPrefix("0."), manifest.renderAssets.mode == "frames" else {
+    guard
+      Self.schemaMinor(manifest.schemaVersion) >= 1,
+      manifest.renderAssets.mode == "frames"
+    else {
       throw PackageValidationError.invalid("unsupported schema or render mode")
+    }
+    if Self.schemaMinor(manifest.schemaVersion) >= 2, manifest.behavior == nil {
+      throw PackageValidationError.missing("behavior.json for schema 0.2 or newer")
     }
     guard
       manifest.art.canvasPx.count == 2,
@@ -137,6 +169,64 @@ public struct PetPackageLoader: Sendable {
       manifest.art.coordinateOrigin == "top-left"
     else {
       throw PackageValidationError.invalid("invalid art coordinate contract")
+    }
+  }
+
+  private func validateEnvironmentProps(
+    _ props: [EnvironmentProp]?,
+    root: URL
+  ) throws {
+    guard let props else { return }
+    let ids = props.map(\.id)
+    guard Set(ids).count == ids.count else {
+      throw PackageValidationError.invalid("duplicate environment prop ids")
+    }
+    for prop in props {
+      guard
+        !prop.id.isEmpty,
+        prop.id.unicodeScalars.allSatisfy({
+          CharacterSet.alphanumerics.contains($0) || "._-".unicodeScalars.contains($0)
+        }),
+        prop.offsetFromFloorOriginPt.count == 2,
+        prop.offsetFromFloorOriginPt.allSatisfy(\.isFinite),
+        ["persistent", "node-scenes", "embedded"].contains(prop.visibility),
+        prop.layer == "behind-pet",
+        prop.hitTest == "passthrough"
+      else {
+        throw PackageValidationError.invalid("invalid environment prop contract for \(prop.id)")
+      }
+      let url = try validatedRegularFileURL(relativePath: prop.src, root: root)
+      guard url.pathExtension.lowercased() == "png" else {
+        throw PackageValidationError.invalid("environment prop \(prop.id) is not a regular PNG")
+      }
+    }
+  }
+
+  private func validateEnvironmentPropScenes(
+    _ props: [EnvironmentProp]?,
+    graph: GraphDefinition
+  ) throws {
+    guard let props else { return }
+    let declaredScenes = Set(graph.nodes.compactMap(\.scene))
+    for prop in props {
+      if prop.visibility == "persistent" {
+        guard prop.scenes == nil || prop.scenes?.isEmpty == true else {
+          throw PackageValidationError.invalid(
+            "persistent environment prop \(prop.id) cannot declare scenes"
+          )
+        }
+        continue
+      }
+      guard
+        let scenes = prop.scenes,
+        !scenes.isEmpty,
+        Set(scenes).count == scenes.count,
+        scenes.allSatisfy({ !$0.isEmpty && declaredScenes.contains($0) })
+      else {
+        throw PackageValidationError.invalid(
+          "scene-scoped environment prop \(prop.id) must reference graph scenes"
+        )
+      }
     }
   }
 
@@ -156,7 +246,19 @@ public struct PetPackageLoader: Sendable {
 
     var previousX = -Double.infinity
     for (index, frame) in clip.frames.enumerated() {
-      guard frame.durationMs > 0, frame.rootMotionPt.count == 2 else {
+      guard
+        frame.durationMs > 0,
+        frame.rootMotionPt.count == 2,
+        frame.contentBoundsPx.count == 4,
+        frame.anchorsPx.root.count == 2,
+        frame.anchorsPx.ground.count == 2,
+        frame.anchorsPx.head.count == 2,
+        frame.collision.bodyCoreEllipsePx.count == 4,
+        frame.collision.screenBoundsPx.count == 4,
+        (frame.petBoundsPx?.count ?? 4) == 4,
+        (frame.collision.petHitEllipsePx?.count ?? 4) == 4,
+        (frame.propBoundsPx?.values.allSatisfy({ $0.count == 4 }) ?? true)
+      else {
         throw PackageValidationError.invalid("clip \(clip.id) frame \(index) has invalid timing or root motion")
       }
       guard abs(frame.rootMotionPt[1]) < 0.000_001 else {
@@ -192,7 +294,9 @@ public struct PetPackageLoader: Sendable {
   private func validateGraph(
     _ graph: GraphDefinition,
     clips: [String: ClipDefinition],
-    defaultNode: String
+    defaultNode: String,
+    requiresSceneContract: Bool,
+    declaredEnvironmentPropIDs: Set<String>
   ) throws {
     let nodeIDs = Set(graph.nodes.map(\.id))
     guard nodeIDs.count == graph.nodes.count else {
@@ -218,6 +322,34 @@ public struct PetPackageLoader: Sendable {
       else {
         throw PackageValidationError.invalid("node \(node.id) has an incompatible loop clip")
       }
+      if requiresSceneContract {
+        guard
+          let scene = node.scene,
+          ["floor", "pillow"].contains(scene),
+          let role = node.role,
+          ["dwell", "gateway", "interaction", "cyclic"].contains(role),
+          node.autonomousEligible != nil,
+          node.props != nil
+        else {
+          throw PackageValidationError.invalid("node \(node.id) lacks schema 0.2 scene semantics")
+        }
+        guard Set(node.props ?? []).isSubset(of: declaredEnvironmentPropIDs) else {
+          throw PackageValidationError.invalid(
+            "node \(node.id) references an undeclared environment prop"
+          )
+        }
+        if ["gateway", "interaction"].contains(role), node.autonomousEligible == true {
+          throw PackageValidationError.invalid("node \(node.id) cannot be autonomous")
+        }
+        if role == "dwell", node.autonomousEligible != true {
+          throw PackageValidationError.invalid("dwell node \(node.id) must be autonomous")
+        }
+        guard Self.hasZeroRootMotion(loop) else {
+          throw PackageValidationError.invalid(
+            "schema 0.2 node loop \(loop.id) must have zero root motion"
+          )
+        }
+      }
     }
     for edge in graph.edges {
       guard
@@ -232,8 +364,35 @@ public struct PetPackageLoader: Sendable {
       guard clip.entryPose == edge.from, clip.exitPose == edge.to else {
         throw PackageValidationError.invalid("edge \(edge.id) clip poses do not match its nodes")
       }
-      guard ["direct-manipulation-only", "safe-exit-only"].contains(edge.interruptPolicy) else {
+      guard [
+        "direct-manipulation-only",
+        "safe-exit-only",
+        "finish-before-retarget",
+      ].contains(edge.interruptPolicy) else {
         throw PackageValidationError.invalid("edge \(edge.id) has an unsupported interrupt policy")
+      }
+      if requiresSceneContract {
+        guard
+          let sourceNode = graph.nodes.first(where: { $0.id == edge.from }),
+          let sourceScene = sourceNode.scene,
+          let targetScene = targetNode.scene
+        else {
+          throw PackageValidationError.invalid("edge \(edge.id) has missing scene metadata")
+        }
+        if sourceScene == targetScene {
+          guard edge.sceneChange == nil, sourceNode.props == targetNode.props else {
+            throw PackageValidationError.invalid("edge \(edge.id) changes props inside one scene")
+          }
+          guard Self.hasZeroRootMotion(clip) else {
+            throw PackageValidationError.invalid(
+              "same-scene edge \(edge.id) must have zero root motion"
+            )
+          }
+        } else {
+          guard edge.sceneChange == "\(sourceScene)-to-\(targetScene)" else {
+            throw PackageValidationError.invalid("edge \(edge.id) lacks explicit scene change")
+          }
+        }
       }
       if let targetStartFrame = edge.targetStartFrame {
         guard targetLoop.frames.indices.contains(targetStartFrame) else {
@@ -248,6 +407,137 @@ public struct PetPackageLoader: Sendable {
         throw PackageValidationError.invalid("clip \(clip.id) has unknown preload hint \(hint)")
       }
     }
+    if requiresSceneContract {
+      try validateSceneReachability(graph)
+    }
+  }
+
+  private static func hasZeroRootMotion(_ clip: ClipDefinition) -> Bool {
+    clip.rootMotionEndPt.allSatisfy({ abs($0) < 0.000_001 })
+      && clip.frames.allSatisfy({ frame in
+        frame.rootMotionPt.allSatisfy({ abs($0) < 0.000_001 })
+      })
+  }
+
+  private func validateBehavior(
+    _ behavior: BehaviorDefinition?,
+    manifest: PetPackageManifest,
+    graph: GraphDefinition
+  ) throws {
+    let requiresBehavior = Self.schemaMinor(manifest.schemaVersion) >= 2
+    guard requiresBehavior else { return }
+    guard let behavior else {
+      throw PackageValidationError.missing("behavior definition")
+    }
+    guard
+      Self.schemaMinor(behavior.schemaVersion) >= 2,
+      behavior.profile == "quiet-sleep-companion",
+      behavior.defaultIntent == "sleep",
+      behavior.timing.strategy == "random-long-tail",
+      behavior.interactions.desktopClick == "ignore",
+      behavior.interactions.drag == "direct-manipulation",
+      behavior.interactions.petClick.sleeping == "wake-to-scene-sit",
+      behavior.interactions.petClick.sitting == "return-to-scene-sleep"
+    else {
+      throw PackageValidationError.invalid("unsupported quiet companion behavior")
+    }
+    if let minimum = behavior.timing.minimumDwellSeconds,
+      let median = behavior.timing.medianDwellSeconds,
+      let maximum = behavior.timing.maximumDwellSeconds
+    {
+      guard minimum > 0, minimum <= median, median <= maximum else {
+        throw PackageValidationError.invalid("invalid long-tail dwell parameters")
+      }
+    }
+    if let limit = behavior.timing.recentHistoryLimit, limit < 1 {
+      throw PackageValidationError.invalid("recent history limit must be positive")
+    }
+    if let probability = behavior.timing.sameSceneProbability,
+      !(0...1).contains(probability)
+    {
+      throw PackageValidationError.invalid("same-scene probability must be between zero and one")
+    }
+    if let debounce = behavior.interactions.petClick.debounceSeconds,
+      !(0.1...2).contains(debounce)
+    {
+      throw PackageValidationError.invalid("pet click debounce must be between 0.1 and 2 seconds")
+    }
+    let nodes = Dictionary(uniqueKeysWithValues: graph.nodes.map { ($0.id, $0) })
+    for (scene, policy) in behavior.scenePolicy {
+      guard ["floor", "pillow"].contains(scene) else {
+        throw PackageValidationError.invalid("unknown behavior scene \(scene)")
+      }
+      if let gateway = policy.gateway {
+        guard
+          let node = nodes[gateway],
+          node.scene == scene,
+          node.role == "gateway",
+          node.autonomousEligible == false
+        else {
+          throw PackageValidationError.invalid("invalid gateway \(gateway) for scene \(scene)")
+        }
+      }
+    }
+  }
+
+  private func validateSceneReachability(_ graph: GraphDefinition) throws {
+    let nodes = Dictionary(uniqueKeysWithValues: graph.nodes.map { ($0.id, $0) })
+    let outgoing = Dictionary(grouping: graph.edges, by: \GraphEdge.from)
+    for node in graph.nodes where node.role == "dwell" && node.autonomousEligible == true {
+      guard let scene = node.scene else { continue }
+      let sceneSits = Set(
+        graph.nodes.filter { $0.scene == scene && $0.role == "interaction" }.map(\.id)
+      )
+      guard !sceneSits.isEmpty, Self.canReach(
+        from: node.id,
+        targetIDs: sceneSits,
+        outgoing: outgoing,
+        nodes: nodes,
+        requiredScene: scene
+      ) else {
+        throw PackageValidationError.invalid("dwell node \(node.id) cannot reach its scene interaction")
+      }
+      let dwellTargets = Set(
+        graph.nodes.filter {
+          $0.scene == scene && $0.role == "dwell" && $0.autonomousEligible == true
+        }.map(\.id)
+      )
+      for sit in sceneSits where !Self.canReach(
+        from: sit,
+        targetIDs: dwellTargets,
+        outgoing: outgoing,
+        nodes: nodes,
+        requiredScene: scene
+      ) {
+        throw PackageValidationError.invalid("interaction node \(sit) cannot return to sleep")
+      }
+    }
+  }
+
+  private static func canReach(
+    from start: String,
+    targetIDs: Set<String>,
+    outgoing: [String: [GraphEdge]],
+    nodes: [String: GraphNode],
+    requiredScene: String
+  ) -> Bool {
+    var queue = [start]
+    var visited = Set(queue)
+    var cursor = 0
+    while cursor < queue.count {
+      let current = queue[cursor]
+      cursor += 1
+      if current != start, targetIDs.contains(current) { return true }
+      for edge in outgoing[current] ?? [] {
+        guard
+          !visited.contains(edge.to),
+          nodes[edge.to]?.scene == requiredScene
+        else { continue }
+        visited.insert(edge.to)
+        queue.append(edge.to)
+      }
+    }
+    return targetIDs.contains(start)
   }
 
   private func validateDemo(
@@ -349,6 +639,12 @@ public struct PetPackageLoader: Sendable {
       "demo-sequence.json",
       manifest.reviewIndex,
     ]
+    if let behavior = manifest.behavior {
+      requiredPaths.insert(behavior)
+    }
+    for prop in manifest.renderAssets.environmentProps ?? [] {
+      requiredPaths.insert(prop.src)
+    }
     for clip in clips.values {
       requiredPaths.insert("clips/\(clip.id).json")
       requiredPaths.formUnion(clip.frames.map(\.src))
@@ -403,5 +699,18 @@ public struct PetPackageLoader: Sendable {
       throw PackageValidationError.invalid("path escapes package root")
     }
     return candidate
+  }
+
+  private static func schemaMinor(_ version: String) -> Int {
+    let components = version.split(separator: ".", omittingEmptySubsequences: false)
+    guard
+      components.count == 3,
+      components[0] == "0",
+      let minor = Int(components[1]),
+      Int(components[2]) != nil
+    else {
+      return -1
+    }
+    return minor
   }
 }
