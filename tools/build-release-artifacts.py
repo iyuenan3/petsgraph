@@ -46,19 +46,45 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def read_embedded_pet_name(app: Path) -> str:
+def safe_package_child(package: Path, relative: str) -> Path:
+    candidate = Path(relative)
+    if not relative or candidate.is_absolute() or any(
+        part in ("", ".", "..") for part in candidate.parts
+    ):
+        raise ValueError(f"unsafe embedded package path: {relative}")
+    result = (package / candidate).resolve(strict=True)
+    result.relative_to(package.resolve(strict=True))
+    return result
+
+
+def read_embedded_pet_metadata(app: Path, expected_version: str) -> dict[str, object]:
+    package = app / "Contents" / "Resources" / "DefaultPet.petsgraph-pet"
     package_json = (
-        app
-        / "Contents"
-        / "Resources"
-        / "DefaultPet.petsgraph-pet"
-        / "package.json"
+        package / "package.json"
     )
     payload = json.loads(package_json.read_text(encoding="utf-8"))
     name = str(payload.get("pet", {}).get("displayName", "")).strip()
     if not name:
         raise ValueError("embedded default pet needs a displayName")
-    return name
+    package_version = str(payload.get("package", {}).get("version", ""))
+    if package_version != expected_version:
+        raise ValueError(
+            "embedded package version does not match release version: "
+            f"{package_version} != {expected_version}"
+        )
+    review_path = safe_package_child(package, str(payload.get("reviewIndex", "")))
+    review = json.loads(review_path.read_text(encoding="utf-8"))
+    if review.get("runtimeChainStatus") != "runtime-chain-approved":
+        raise ValueError("embedded package is not runtime-chain-approved")
+    if review.get("installable") is not True:
+        raise ValueError("embedded package is not installable")
+    return {
+        "embeddedPet": name,
+        "packageSchemaVersion": str(payload.get("schemaVersion", "")),
+        "renderMode": str(payload.get("renderAssets", {}).get("mode", "")),
+        "runtimeChainStatus": str(review.get("runtimeChainStatus", "")),
+        "installable": bool(review.get("installable")),
+    }
 
 
 def artifact_entry(path: Path, kind: str) -> dict[str, object]:
@@ -149,7 +175,8 @@ def main() -> None:
             ],
             check=True,
         )
-        pet_name = read_embedded_pet_name(sanitized_app)
+        package_metadata = read_embedded_pet_metadata(sanitized_app, args.version)
+        pet_name = str(package_metadata["embeddedPet"])
         prefix = f"PetsGraph-v{args.version}-macOS-arm64"
         app_zip = build_output / f"{prefix}.zip"
         dmg = build_output / f"{prefix}.dmg"
@@ -237,7 +264,7 @@ def main() -> None:
             "version": args.version,
             "platform": "macos-arm64",
             "minimumSystemVersion": "14.0",
-            "embeddedPet": pet_name,
+            **package_metadata,
             "artifacts": entries,
         }
         (build_output / "artifact-metadata.json").write_text(

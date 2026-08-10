@@ -2,9 +2,9 @@
 
 PetsGraph 是一个面向真实宠物的开源 macOS 桌面陪伴运行时。当前首发包内置李五百，让它在你的桌面上安静睡觉、翻身，并偶尔换一个舒服的姿势。
 
-[下载 Apple 芯片 Mac 安装包](https://github.com/iyuenan3/petsgraph/releases/download/v0.3.1/PetsGraph-v0.3.1-macOS-arm64.dmg) · [查看 v0.3.1 发布说明](https://github.com/iyuenan3/petsgraph/releases/tag/v0.3.1)
+[下载 Apple 芯片 Mac 安装包](https://github.com/iyuenan3/petsgraph/releases/download/v0.4.0/PetsGraph-v0.4.0-macOS-arm64.dmg) · [查看 v0.4.0 发布说明](https://github.com/iyuenan3/petsgraph/releases/tag/v0.4.0)
 
-![李五百的十种睡姿](https://github.com/iyuenan3/petsgraph/releases/download/v0.3.1/Wubai-Sleep-Postures-v0.3.1.png)
+![李五百的十种睡姿](https://github.com/iyuenan3/petsgraph/releases/download/v0.4.0/Wubai-Sleep-Postures-v0.4.0.png)
 
 ## 安装
 
@@ -57,20 +57,20 @@ PetsGraph 最初验证过走路、跑步和真实桌面位移。真正长时间�
 
 ## 为什么安装包比较大
 
-v0.3.1 内置 53 个逐帧动作片段、6,866 个运行时帧和约 286 秒动画。App 中约 465 MB 的内容是已经批准的透明 PNG 素材，主程序本身约 1 MB。
+v0.4.0 内置 53 个逐帧动作片段、6,866 个运行时帧和约 286 秒动画。获批透明 PNG 继续作为制作事实源保留，不会被修改或删除；公开 App 使用由它确定性编译的固定裁剪预乘 RGBA 副本。
 
-PNG 已经压缩，再套 ZIP 或 DMG 只能小幅缩减，所以 DMG 仍有约 454 MiB。Release 不再重复上传独立 `.petsgraph-pet`，普通用户只需要下载 DMG。
+解压后的 App 约 1.827 GB，用存储空间换取更低的长期运行开销。DMG 经过无损压缩后约 548 MiB，备用 App ZIP 约 537 MiB。Release 不重复上传独立 `.petsgraph-pet`，普通用户只需要下载 DMG。
 
-main 分支已经完成一套低功耗候选格式：保留获批 PNG 作为制作事实源，把运行时副本编译成每条动作统一固定裁剪的预乘 RGBA 媒体。它用约 1.827 GB 存储换取更低的长期运行成本，真实桌面普通睡眠约占 1.3% 到 1.6% CPU 和 53 MiB 内存，连续换姿约占 2.1% 到 2.7% CPU 和 19 到 46 MiB 内存。该候选仍等待完整人工视觉验收，因此尚未替换 v0.3.1 Release，也不会为了性能修改获批源帧。
+本机真实桌面测量中，普通睡眠约占 1.3% 到 1.6% CPU，物理内存占用约 53 MiB；连续换姿约占 2.1% 到 2.7% CPU，物理内存占用约 19 到 46 MiB。由于运行时使用只读内存映射，部分工具显示的 RSS 可能约为 110 到 117 MiB，这不等于同等规模的实际内存压力。不同 Mac 和系统版本的数值会有差异。
 
 ## 验证状态
 
 - 53 个逐帧动作片段。
 - 14 个姿态节点和 39 条有向边。
 - 7 种普通睡姿、3 种枕头睡姿和两个场景坐姿。
-- 6,925 条文件完整性记录。
-- v0.3.1 Release 通过 45 项 XCTest。当前 main 分支通过 57 项 XCTest，新增低功耗媒体完整性、媒体哈希、异常隐藏、单实例保护和运行时媒体回归。
-- 正式 v0.3.1 的获批素材帧与 v0.3.0 逐项哈希一致，没有重新生成、抠图或修改源帧。
+- 113 条正式运行时文件完整性记录，覆盖控制文件、53 条动作媒体和枕头道具。
+- v0.4.0 通过 57 项 XCTest，覆盖低功耗媒体完整性、媒体哈希、异常隐藏、单实例保护和运行时媒体回归。
+- v0.4.0 从 v0.3.1 获批 PNG 包确定性编译，没有重新生成、抠图、补帧、重新定位或修改源帧。v0.3.1 继续作为 PNG 回滚基线保留。
 
 正式 App 和素材随 [GitHub Release](https://github.com/iyuenan3/petsgraph/releases) 分发，不把数百 MB 的运行时资源写入 Git 历史。原始宠物照片、Seedance 任务记录、被拒绝的候选和私有生产上下文不会公开。
 

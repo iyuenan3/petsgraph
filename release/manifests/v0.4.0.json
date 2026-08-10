@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "tag": "v0.4.0",
+  "version": "0.4.0",
+  "platform": "macos-arm64",
+  "minimumSystemVersion": "14.0",
+  "packageSchemaVersion": "0.4.0",
+  "renderMode": "cropped-rgba-clips",
+  "runtimeChainStatus": "runtime-chain-approved",
+  "installable": true,
+  "embeddedPet": "李五百",
+  "artifacts": [
+    {
+      "kind": "installer-dmg",
+      "file": "PetsGraph-v0.4.0-macOS-arm64.dmg",
+      "bytes": 574621053,
+      "sha256": "2a3af134efea1606553ec71d47c7a7ee3d1466624001ffe9cb5f635f0b8ee8d4"
+    },
+    {
+      "kind": "app-zip",
+      "file": "PetsGraph-v0.4.0-macOS-arm64.zip",
+      "bytes": 563242253,
+      "sha256": "e9fb2b68f7c92ecbe0788b410dac22982e4ae0f01aed0ee039db56e99e515b7f"
+    },
+    {
+      "kind": "preview-image",
+      "file": "Wubai-Sleep-Postures-v0.4.0.png",
+      "bytes": 1223217,
+      "sha256": "229f07b16debf62803081afe72bbad8fdce4df9a3585a363ddcd5f200c422228"
+    },
+    {
+      "kind": "checksums",
+      "file": "SHA256SUMS.txt",
+      "bytes": 296,
+      "sha256": "bca16beb3723019be3c6cba010e41ef96f0bd5f6c00a8e6f152fd3f231e0cbdf"
+    }
+  ]
+}

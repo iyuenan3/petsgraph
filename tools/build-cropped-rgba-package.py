@@ -8,6 +8,7 @@ from datetime import datetime
 import hashlib
 import json
 from pathlib import Path
+import re
 import shutil
 import stat
 import tempfile
@@ -29,6 +30,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--padding", type=int, default=PADDING_PX)
+    parser.add_argument(
+        "--release-approved",
+        action="store_true",
+        help=(
+            "promote a derivative of an already installable source package to "
+            "runtime-chain-approved; otherwise keep it as a review candidate"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -218,6 +227,23 @@ def main() -> None:
         raise ValueError("source package has an invalid canvas")
     canvas = int(canvas_values[0]), int(canvas_values[1])
 
+    source_review_path = safe_child(
+        source,
+        str(source_manifest.get("reviewIndex", "")),
+        strict=True,
+    )
+    validate_regular_file(source_review_path)
+    source_review = read_json(source_review_path)
+    if args.release_approved:
+        if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", args.version) is None:
+            raise ValueError("release-approved package version must be semantic")
+        if not source_review.get("installable"):
+            raise ValueError("release-approved derivative requires an installable source")
+        if source_review.get("runtimeChainStatus") != "runtime-chain-approved":
+            raise ValueError(
+                "release-approved derivative requires a runtime-chain-approved source"
+            )
+
     temporary = Path(tempfile.mkdtemp(prefix=f"{output.name}.build-", dir=output.parent))
     summaries: list[dict[str, Any]] = []
     try:
@@ -226,16 +252,29 @@ def main() -> None:
             copy_json_with_schema(source / filename, temporary / filename)
 
         review = copy_json_with_schema(
-            source / "reviews" / "index.json",
+            source_review_path,
             temporary / "reviews" / "index.json",
         )
-        review["runtimeChainStatus"] = "cropped-rgba-awaiting-human-runtime-review"
-        review["installable"] = False
-        remaining = list(review.get("remainingRuntimeGates", []))
-        gate = "fixed-crop RGBA full desktop visual quality, CPU, memory and stability review"
-        if gate not in remaining:
-            remaining.append(gate)
-        review["remainingRuntimeGates"] = remaining
+        if args.release_approved:
+            review["runtimeChainStatus"] = "runtime-chain-approved"
+            review["installable"] = True
+            approved_chains = list(review.get("approvedRuntimeChains", []))
+            approved_chain = f"wubai-quiet-companion-{args.version}"
+            if approved_chain not in approved_chains:
+                approved_chains.append(approved_chain)
+            review["approvedRuntimeChains"] = approved_chains
+            review["remainingRuntimeGates"] = []
+        else:
+            review["runtimeChainStatus"] = "cropped-rgba-awaiting-human-runtime-review"
+            review["installable"] = False
+            remaining = list(review.get("remainingRuntimeGates", []))
+            gate = (
+                "fixed-crop RGBA full desktop visual quality, CPU, memory and "
+                "stability review"
+            )
+            if gate not in remaining:
+                remaining.append(gate)
+            review["remainingRuntimeGates"] = remaining
         write_json(temporary / "reviews" / "index.json", review)
 
         for prop in source_manifest.get("renderAssets", {}).get("environmentProps", []):
