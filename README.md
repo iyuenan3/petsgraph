@@ -83,6 +83,10 @@ bash tools/test-swift.sh
 
 本地生产构建、校验和发布流程见 [`AIREADME/DEPLOYMENT.md`](AIREADME/DEPLOYMENT.md)。素材生成所需的 Seedance 等服务由用户自行配置，凭据不会进入桌面运行时、宠物包或 Release。
 
+## 致谢
+
+感谢朋友制作的 [麻薯 Mochi](https://mochi.xin/)。petsgraph 立项时参考了它在透明桌面窗口、宠物素材生成和桌面陪伴体验上的探索，并在此基础上选择了安静睡眠陪伴、完整动作图与开源素材包这条更聚焦的方向。
+
 ## License
 
 运行时代码使用 [MIT License](LICENSE)。李五百的照片和动画素材可以随官方 Release 用于个人桌面陪伴，其他使用边界见 [ASSETS.md](ASSETS.md)。
