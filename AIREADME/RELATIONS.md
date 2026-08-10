@@ -16,7 +16,8 @@
 
 ## 入向（谁用我）
 
-- 当前 petsgraph Swift/AppKit 桌面运行时消费通过完整性校验的 `.petsgraph-pet`，五百本地 `0.2.0` 已达到 `runtime-chain-approved`。
+- 当前 petsgraph Swift/AppKit 桌面运行时消费通过完整性校验的 `.petsgraph-pet`，五百 `0.3.0` 已达到 `runtime-chain-approved`。
+- 喜欢五百的朋友通过 GitHub Release 下载 Apple 芯片 DMG，把 App 安装到自己的 Mac。GitHub 是发布载体，不是运行时依赖。
 - 未来 petsgraph 素材生成 Skill 产出符合 `SPEC.md` 的素材包。
 - 当前没有其他项目把 petsgraph 作为依赖。
 

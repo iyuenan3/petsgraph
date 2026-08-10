@@ -2,11 +2,35 @@
 
 ## 主机 + 环境
 
-李五百睡觉陪伴 `0.2.0` 已构建为本地 `.petsgraph-pet` 和可双击 `.app`，状态为 `runtime-chain-approved` 与 `installable=true`。运行时离线，宠物素材生成和私有包编译均在用户自行 clone 的项目工作区执行。
+李五百睡觉陪伴 `0.3.0` 构建为 Apple 芯片专用 `.petsgraph-pet`、`.app`、DMG 和 ZIP，素材状态为 `runtime-chain-approved` 与 `installable=true`。公开版最低支持 macOS 14，不构建 Intel 或通用二进制。
 
-当前验证环境：macOS、Xcode 26.6 完整版、Swift 6.3.3、Python 3.12 和 Pillow 12.2.0。当前 `xcode-select` 指向的 CommandLineTools 不包含 `Testing` 或 `XCTest` 模块，裸跑 `swift test` 不是可信基线。测试脚本显式使用 `/Applications/Xcode.app/Contents/Developer`，不修改全局 `xcode-select`。2026-08-10 最终真实执行 41 项 XCTest，0 失败，并对正式包执行独立加载和完整性校验。
+当前生产验证环境：Apple 芯片 macOS、Xcode 26.6 完整版、Swift 6.3.3、Python 3.12 和 Pillow 12.2.0。当前 `xcode-select` 指向的 CommandLineTools 不包含 `Testing` 或 `XCTest` 模块，裸跑 `swift test` 不是可信基线。测试脚本显式使用 `/Applications/Xcode.app/Contents/Developer`，不修改全局 `xcode-select`。2026-08-10 真实执行 45 项 XCTest，0 失败。
 
-## 怎么起
+## 朋友安装
+
+公开入口：<https://github.com/iyuenan3/petsgraph/releases/tag/v0.3.0>
+
+推荐下载 `PetsGraph-Wubai-Quiet-Companion-v0.3.0-macOS.dmg`：
+
+1. 打开 DMG。
+2. 把「李五百睡觉陪伴」拖入「应用程序」。
+3. 第一次启动时，如果 macOS 阻止打开，在 Finder 中右键 App 并选择「打开」。也可以前往「系统设置 > 隐私与安全性」确认打开。
+
+当前 App 使用 ad-hoc 签名，没有 Developer ID 签名和 Apple 公证。必须在下载页和安装说明中保留这个边界，不能把手动确认包装成无提示安装。
+
+## 公开 Release 附件
+
+| 附件 | 用途 |
+|---|---|
+| `PetsGraph-Wubai-Quiet-Companion-v0.3.0-macOS.dmg` | 普通用户推荐安装入口 |
+| `PetsGraph-Wubai-Quiet-Companion-v0.3.0-macOS.zip` | 备用 App 下载 |
+| `wubai-quiet-companion-v0.3.0.petsgraph-pet.zip` | 开发者检查素材包契约 |
+| `Wubai-Sleep-Postures-v0.3.0.png` | 十种睡姿总览 |
+| `SHA256SUMS.txt` | 附件完整性校验 |
+
+附件的固定字节数和 SHA-256 记录在 `release/manifests/v0.3.0.json`。正式媒体属于 Release 附件，不提交到 Git 历史。源照片、生成母片、Seedance 任务记录、被拒绝候选和私有生产配置不公开。
+
+## 开发和生产构建
 
 公开代码测试：
 
@@ -20,98 +44,78 @@ bash tools/test-swift.sh
 uv venv .venv --python /opt/homebrew/bin/python3.12
 uv pip install --python .venv/bin/python -r requirements-prototype.txt
 .venv/bin/python tools/build-prototype-package.py \
-  --config workspaces/wubai-private/runtime-records/wubai-quiet-companion-0.2.0-source.json \
-  --output workspaces/wubai-private/runtime/wubai-quiet-companion-0.2.0.petsgraph-pet
+  --config workspaces/wubai-private/runtime-records/wubai-quiet-companion-0.3.0-source.json \
+  --output workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.0.petsgraph-pet
 ```
 
-校验私有包但不启动窗口：
+校验正式包但不启动窗口：
 
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
   xcrun swift run petsgraph \
-  workspaces/wubai-private/runtime/wubai-quiet-companion-0.2.0.petsgraph-pet \
+  workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.0.petsgraph-pet \
   --validate-only
 ```
 
-启动透明原生窗口：
-
-```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcrun swift run petsgraph \
-  workspaces/wubai-private/runtime/wubai-quiet-companion-0.2.0.petsgraph-pet \
-  --display-height 150
-```
-
-构建可双击的本机 App：
+构建 Apple 芯片 App：
 
 ```bash
 .venv/bin/python tools/build-macos-app.py \
-  --package workspaces/wubai-private/runtime/wubai-quiet-companion-0.2.0.petsgraph-pet \
-  --output workspaces/wubai-private/runtime/PetsGraph-Wubai-Quiet-Companion-0.2.0.app \
-  --version 0.2.0 \
+  --package workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.0.petsgraph-pet \
+  --output workspaces/wubai-private/runtime/PetsGraph-Wubai-Quiet-Companion-0.3.0.app \
+  --version 0.3.0 \
   --build-number 1 \
   --bundle-identifier com.maxwell.petsgraph.quiet-companion
 ```
 
-双击该 App，或本地执行：
+构建公开附件：
 
 ```bash
-open workspaces/wubai-private/runtime/PetsGraph-Wubai-Quiet-Companion-0.2.0.app
+.venv/bin/python tools/build-release-artifacts.py \
+  --app workspaces/wubai-private/runtime/PetsGraph-Wubai-Quiet-Companion-0.3.0.app \
+  --package workspaces/wubai-private/runtime/wubai-quiet-companion-0.3.0.petsgraph-pet \
+  --version 0.3.0 \
+  --output workspaces/wubai-private/release-dist/v0.3.0 \
+  --preview workspaces/wubai-private/runtime-records/wubai-sleep-postures-v0.3.0.png
 ```
 
-App 默认把宠物地面锚点放在物理屏幕左下角。用户随后可以在整个桌面改变 x 和 y；宠物自己的睡眠行为不会改写用户放置的 y。
+构建器必须执行 ZIP 解包校验和 `hdiutil verify`。App 主可执行文件的 `lipo -archs` 结果必须严格等于 `arm64`，内嵌宠物包必须重新通过完整性和行为图校验。
 
-工作树中的 `--engineering-behavior-preview`、`--accelerated-behavior`、`--native-left-chain-demo`、强制走路和强制跑步菜单属于工程验证入口。首发睡眠 MVP 的默认启动不得依赖这些参数，也不得安装全桌面目的地点击监听。
+## GitHub 发布流程
 
-正式包和 App 都位于被 Git 忽略的私有工作区，不随公开仓库分发。当前 App 使用 ad-hoc 本机签名，尚未进行 Developer ID 签名、Apple 公证或公开发布。
+1. 先提交并推送实现、发布清单和文档。
+2. 在最终文档提交上创建带注释的语义版本标签，例如 `v0.3.0`。
+3. 使用 `docs/releases/v0.3.0.md` 和清单声明的五个附件创建草稿 Release。
+4. 手动触发 `.github/workflows/release.yml`，传入同一个标签。
+5. Actions 检出精确标签，运行 45 项测试，下载所有草稿附件并验证文件名、字节数、SHA-256 和 arm64 架构。
+6. 只有全部校验通过，工作流才把草稿改成正式最新版。
+7. 发布后回读 Release 的草稿状态、标签、附件名和附件大小，并测试公开下载入口。
 
-## 域名 / 入口
+任何一步失败都保留草稿，不自动重新上传、不重打同名标签，也不把未核验附件暴露为正式版。
 
-无。第一阶段不提供 Web 服务、云端 API 或公网入口。
+## 运行时与隐私
 
-## 生成服务配置
-
-- 用户自行配置 Seedance 等 provider 的凭据与额度。
-- 凭据只能进入本机环境变量、系统钥匙串或被忽略的本地配置，不得写入 AIREADME、Git、日志、预览或宠物包。
-- 素材 Skill 在每次产生付费调用前展示动作、模型、尝试序号和预计调用数。
-- 网络结果未知时不自动重投。用户明确授权后，核心素材允许多次受控尝试，但每次必须改变明确假设并完整留痕，不设置固定三次上限。
-
-## 权限与本地隐私
-
+- App 默认把宠物地面锚点放在物理屏幕左下角。
+- 用户可以在整个桌面改变 x 和 y；睡眠行为不会改写用户放置的 y。
+- 菜单栏「选择睡姿」只显示中文名称。指定姿态沿同一动作图、安全退出和预加载链执行。
+- 正式模式不开放点击目的地移动、走跑工程菜单或全桌面点击监听。
 - 睡眠 MVP 不需要账号、登录、辅助功能权限、屏幕录制权限或全局鼠标监听。
-- 点击和拖动只发生在宠物透明窗口内部，并通过宠物本体命中区判断。
 - 运行时不读取 provider 凭据，不联网生成，不上传宠物照片，不发送遥测。
-- 真实桌面验收录屏使用受控中性背景，原始全桌面录像不进入公开仓库。
+- 锁屏和系统睡眠时暂停窗口与动画时钟，恢复后回到稳定姿态。
 
-## 本地安装入口
+## 备份、升级与回滚
 
-当前本地安装入口是版本化 `.app`。它可以从私有工作区直接双击运行，不覆盖历史预览包。公开分发方案仍待确定，并必须继续满足：
-
-- 本地导入 `.petsgraph-pet`。
-- 先严格验证，再原子安装。
-- 新包失败时保留当前可用版本。
-- 包版本可并存或可回滚，不覆盖历史批准资产。
-- 默认启动进入睡眠，不启用点击目的地移动或走跑工程菜单。
-- 窗口保持在普通窗口和 Dock 前方，不抢键盘焦点。
-- 用户可全桌面拖动。每次新启动默认回到物理屏幕左下角，暂不持久化上次位置。
-- Developer ID 签名和 Apple 公证完成前，不把 ad-hoc App 描述为公开安装包。
-
-## 共享底座引用
-
-无。生成 provider 是用户外部配置，不是 petsgraph 托管底座。
-
-## 备份 / 升级 / 回滚
-
-- 原始照片和视频母片属于用户私有制作工作区，由用户自行备份，不默认打包分发。
-- 已批准宠物包通过目录级复制备份。
-- 升级使用新版本包，运行时 schema 不兼容时拒绝导入。
-- 回滚切回上一份通过完整性校验的已安装包。
+- 原始照片和视频母片由素材所有者在私有制作工作区备份。
+- 每个公开版本使用独立标签、Release、清单和附件名，不覆盖上一版本。
+- 新包失败时保留当前可用版本。schema 不兼容时拒绝导入。
+- 回滚时从上一条正式 Release 重新安装，并使用对应 `SHA256SUMS.txt` 核验。
+- 同名标签或附件校验不一致时停止发布，不修改已有正式 Release 来掩盖差异。
 
 ## 运维约束
 
 - 运行时不得联网生成或上传宠物素材。
-- 锁屏和系统睡眠时暂停窗口与动画时钟，恢复后回到稳定姿态。
 - 不因 provider 超时、失败或本地网络错误自动重复付费调用。
 - 未通过 `runtime-chain-approved` 的包只能进入显式预览模式，不能替换正式宠物。
-- 睡眠 MVP 发生图规划、解码或预加载错误时回到兼容稳定睡姿并记录错误，不能直接让应用消失。
-- 默认运行不得注册全局桌面点击 monitor。发现该 monitor 被启用时，睡眠 MVP 验收失败。
+- 图规划、解码或预加载错误时回到兼容稳定睡姿并记录错误，不能直接让应用消失。
+- 默认运行不得注册全局桌面点击 monitor。
+- Developer ID 签名和 Apple 公证完成前，所有公开页面都必须说明首次打开的系统确认步骤。

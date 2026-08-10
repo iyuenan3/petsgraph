@@ -100,3 +100,9 @@
 - 现象: 使用系统 `python3` 启动正式包编译立即报 `ModuleNotFoundError: No module named 'PIL'`，目标目录尚未产生。切换到仓库 `.venv/bin/python` 后，53 个 clip 和 6,925 条完整性记录正常编译。
 - 根因: 非交互 shell 的 `python3` 解析到 Apple Command Line Tools Python，而项目 Pillow 12.2.0 安装在隔离 `.venv`。解释器版本可运行不代表项目依赖存在。
 - 结论/避免: 所有素材编译和 QA 命令显式使用 `.venv/bin/python`，Swift 测试继续使用独立的 `tools/test-swift.sh`。失败后先确认没有部分产物，再从冻结配置重跑，不在系统 Python 中安装依赖。
+
+## 沙箱内 hdiutil create 失败不代表附件内容损坏 · 2026-08-10
+
+- 现象: 发布附件构建在沙箱中执行到 `hdiutil create` 时返回“设备未配置”。此前 App ZIP、素材包 ZIP 和 DMG 暂存目录已经部分生成，但没有完整发布元数据。
+- 根因: `hdiutil` 需要真实 macOS 磁盘映像和设备能力，当前受限执行环境不能完成该系统操作。失败发生在容器权限边界，不是素材、App 或 DMG 布局本身的校验结论。
+- 结论/避免: 把不完整输出整体保留为带 `failed-sandbox-hdiutil` 后缀的失败证据，不复用其中任何附件。获得真实 macOS 权限后从冻结 App 和素材包重新执行完整构建，并要求 ZIP 解包测试、`hdiutil verify`、字节数和 SHA-256 全部成功后才生成发布清单。

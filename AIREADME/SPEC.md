@@ -99,6 +99,7 @@
   "nodes": [
     {
       "id": "rest.prone.left",
+      "displayName": "趴卧",
       "posture": "prone",
       "orientation": "left",
       "grounded": true,
@@ -111,6 +112,7 @@
     },
     {
       "id": "gateway.pillow.b",
+      "displayName": "靠枕过渡",
       "posture": "leaning-rest",
       "orientation": "right",
       "grounded": true,
@@ -139,6 +141,8 @@
 节点约束：
 
 - 节点不能只写模糊的 `stand` 或 `sit`，必须包含 `posture + orientation`；需要时再增加支撑关系或视角标签。
+- 每个正式节点可以提供面向用户的 `displayName`。安静陪伴包的所有自主 `dwell` 节点必须提供非空中文显示名，否则加载器拒绝安装。
+- 正式菜单、状态栏和普通反馈只使用 `displayName` 或受控中文回退文案，不能泄露节点 ID、clip ID 或边 ID。
 - `orientation` 第一阶段支持 `front`、`left`、`right`。
 - `scene` 首个 MVP 支持 `floor` 与 `pillow`。场景改变必须由显式边完成。
 - `role` 支持 `dwell`、`gateway`、`interaction` 和 `cyclic`。`gateway` 与 `interaction` 必须设置 `autonomousEligible=false`。
@@ -195,6 +199,8 @@
 - `desktopClick=ignore` 表示运行时不得为了行为功能安装全桌面点击监听。
 - 点击目标按当前 `scene` 解析，不能从 `pillow` 硬切到 `floor` 坐姿。
 - 拖动清除尚未开始的普通目标，保留用户放置的 x 与 y；松手后从兼容稳定姿态恢复。
+- 菜单指定睡姿只接受 `autonomousEligible=true` 的 `dwell` 节点。睡眠状态立即规划到目标，坐姿先返回当前场景睡眠后再规划目标。
+- 已经播放的有限过渡不能被菜单选择截断。过渡期间的新选择覆盖尚未开始的旧选择，只保留最后一个有效目标。
 
 ## 6. `clips/<clip-id>.json`
 
@@ -268,11 +274,12 @@
 - 枕头场景网关、至少两种枕头睡姿、`sit.front.pillow` 和完整双向路径。
 - 枕头只通过显式场景边出现和离开，同一枕头场景中的节点保持道具集合一致。
 - 点击、全桌面拖动、隐藏、退出和恢复行为。
+- 以中文名称列出全部自主睡姿，并允许用户指定其中任意一个目标。
 - 睡眠内部严格零 root motion。枕头进出边如含短步，必须使用批准的水平累计 root motion。
 
 ### MVP 最小图基线
 
-五百 `0.2.0` 的已实现节点基线：
+五百 `0.3.0` 使用 schema `0.2.0` 的已实现节点基线：
 
 | 节点 | scene | role | 作用 |
 |---|---|---|---|
@@ -377,6 +384,7 @@ PNG 序列摘要固定按文件名字典序处理。每帧依次写入 UTF-8 文
 
 - `schemaVersion` 使用语义化版本。
 - `0.1.0` 包是走跑与睡眠工程预览契约。`0.2.0` 已加入必需的 `behavior.json`、节点职责、场景和猫道具命中字段，并由加载器、编译器和回归测试执行。
+- 公开宠物包版本 `0.3.0` 继续使用 schema `0.2.0`，只新增向后兼容的节点 `displayName` 数据和运行时指定睡姿交互，不改变帧、坐标或动作图语义。
 - 同一主版本新增未知字段时，旧运行时应忽略未知字段并读取已知部分。
 - 未知主版本必须拒绝，并给出可读错误。
 - 任何改变坐标、root motion、图语义或验收要求的变更都视为潜在破坏性变更，必须追加 ADR 并升级 schema。
