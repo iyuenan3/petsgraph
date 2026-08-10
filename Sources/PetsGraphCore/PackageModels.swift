@@ -206,7 +206,84 @@ public struct ClipDefinition: Codable, Sendable {
   public let preloadHints: [String]
   public let rootMotionEndPt: [Double]
   public let frames: [ClipFrame]
+  public let media: ClipMedia?
   public let provenance: ClipProvenance?
+
+  public init(
+    schemaVersion: String,
+    id: String,
+    type: String,
+    facing: String,
+    mirrorSafe: Bool,
+    entryPose: String,
+    exitPose: String,
+    safeExitFrames: [Int],
+    preloadHints: [String],
+    rootMotionEndPt: [Double],
+    frames: [ClipFrame],
+    media: ClipMedia? = nil,
+    provenance: ClipProvenance?
+  ) {
+    self.schemaVersion = schemaVersion
+    self.id = id
+    self.type = type
+    self.facing = facing
+    self.mirrorSafe = mirrorSafe
+    self.entryPose = entryPose
+    self.exitPose = exitPose
+    self.safeExitFrames = safeExitFrames
+    self.preloadHints = preloadHints
+    self.rootMotionEndPt = rootMotionEndPt
+    self.frames = frames
+    self.media = media
+    self.provenance = provenance
+  }
+}
+
+public struct ClipMedia: Codable, Sendable {
+  public let type: String
+  public let src: String
+  public let codec: String
+  public let container: String
+  public let frameCount: Int
+  public let frameRate: Double
+  public let alphaMode: String
+  public let colorSpace: String
+  public let sourceSequenceDigest: String
+  public let compiledFrameSequenceDigest: String
+  public let cropRectPx: [Int]?
+  public let bytesPerRow: Int?
+  public let frameByteCount: Int?
+
+  public init(
+    type: String,
+    src: String,
+    codec: String,
+    container: String,
+    frameCount: Int,
+    frameRate: Double,
+    alphaMode: String,
+    colorSpace: String,
+    sourceSequenceDigest: String,
+    compiledFrameSequenceDigest: String,
+    cropRectPx: [Int]? = nil,
+    bytesPerRow: Int? = nil,
+    frameByteCount: Int? = nil
+  ) {
+    self.type = type
+    self.src = src
+    self.codec = codec
+    self.container = container
+    self.frameCount = frameCount
+    self.frameRate = frameRate
+    self.alphaMode = alphaMode
+    self.colorSpace = colorSpace
+    self.sourceSequenceDigest = sourceSequenceDigest
+    self.compiledFrameSequenceDigest = compiledFrameSequenceDigest
+    self.cropRectPx = cropRectPx
+    self.bytesPerRow = bytesPerRow
+    self.frameByteCount = frameByteCount
+  }
 }
 
 public struct ClipFrame: Codable, Sendable {
@@ -388,12 +465,18 @@ public struct LoadedPetPackage: Sendable {
 
   public func frameURL(clipID: String, frameIndex: Int) -> URL? {
     guard
+      manifest.renderAssets.mode == "frames",
       let clip = clips[clipID],
       clip.frames.indices.contains(frameIndex)
     else {
       return nil
     }
     return rootURL.appendingPathComponent(clip.frames[frameIndex].src)
+  }
+
+  public func clipMediaURL(clipID: String) -> URL? {
+    guard let src = clips[clipID]?.media?.src else { return nil }
+    return rootURL.appendingPathComponent(src)
   }
 
   public func environmentPropURL(id: String) -> URL? {

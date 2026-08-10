@@ -4,6 +4,18 @@ import XCTest
 @testable import PetsGraphCore
 
 final class BasicBehaviorSessionTests: XCTestCase {
+  func testSingleInstanceLockRejectsSecondOwnerUntilReleased() throws {
+    let path = FileManager.default.temporaryDirectory
+      .appendingPathComponent("petsgraph-instance-lock-\(UUID().uuidString)")
+      .path
+    var first: SingleInstanceLock? = SingleInstanceLock(path: path)
+    XCTAssertNotNil(first)
+    XCTAssertNil(SingleInstanceLock(path: path))
+    first = nil
+    XCTAssertNotNil(SingleInstanceLock(path: path))
+    try? FileManager.default.removeItem(atPath: path)
+  }
+
   func testQuietCompanionStartsAtPhysicalBottomLeft() {
     let placement = PetStartupPlacement.bottomLeft(
       screenFrame: CGRect(x: -2_056, y: -1_329, width: 2_056, height: 1_329),

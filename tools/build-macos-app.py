@@ -13,6 +13,10 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SIGNING_DETRITUS_XATTRS = {
+    "com.apple.FinderInfo",
+    "com.apple.ResourceFork",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -34,6 +38,34 @@ def within_repo(path: Path, *, strict: bool) -> Path:
     result = result.resolve(strict=strict)
     result.relative_to(ROOT)
     return result
+
+
+def remove_signing_detritus(root: Path) -> None:
+    for name in sorted(SIGNING_DETRITUS_XATTRS):
+        subprocess.run(
+            ["/usr/bin/xattr", "-dr", name, str(root)],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+
+def assert_no_signing_detritus(root: Path) -> None:
+    result = subprocess.run(
+        ["/usr/bin/xattr", "-lr", str(root)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    remaining = [
+        name for name in sorted(SIGNING_DETRITUS_XATTRS)
+        if f"{name}:" in result.stdout
+    ]
+    if remaining:
+        raise ValueError(
+            "app contains Finder metadata rejected by codesign: "
+            + ", ".join(remaining)
+        )
 
 
 def main() -> None:
@@ -125,6 +157,8 @@ def main() -> None:
         }
         with (contents / "Info.plist").open("wb") as handle:
             plistlib.dump(info, handle, sort_keys=True)
+        remove_signing_detritus(temporary)
+        assert_no_signing_detritus(temporary)
         subprocess.run(
             [
                 "/usr/bin/codesign",
@@ -153,6 +187,21 @@ def main() -> None:
             check=True,
         )
         temporary.rename(output)
+        remove_signing_detritus(output)
+        assert_no_signing_detritus(output)
+        subprocess.run(
+            [
+                "/usr/bin/codesign",
+                "--verify",
+                "--deep",
+                "--strict",
+                "--verbose=2",
+                str(output),
+            ],
+            cwd=ROOT,
+            env=environment,
+            check=True,
+        )
     except Exception:
         if temporary.exists():
             shutil.rmtree(temporary)

@@ -89,7 +89,12 @@ public struct PetPackageLoader: Sendable {
           "clip file \(expectedID).json declares mismatched id \(clip.id)"
         )
       }
-      try validateClip(clip, root: root)
+      try validateClip(
+        clip,
+        root: root,
+        renderAssets: manifest.renderAssets,
+        canvasPx: manifest.art.canvasPx
+      )
       clips[clip.id] = clip
     }
     try validateGraph(
@@ -153,10 +158,30 @@ public struct PetPackageLoader: Sendable {
   }
 
   private func validateManifest(_ manifest: PetPackageManifest) throws {
-    guard
-      Self.schemaMinor(manifest.schemaVersion) >= 1,
-      manifest.renderAssets.mode == "frames"
-    else {
+    let schemaMinor = Self.schemaMinor(manifest.schemaVersion)
+    guard schemaMinor >= 1 else {
+      throw PackageValidationError.invalid("unsupported schema or render mode")
+    }
+    switch manifest.renderAssets.mode {
+    case "frames":
+      guard manifest.renderAssets.pixelFormat == "rgba8-straight" else {
+        throw PackageValidationError.invalid("unsupported frame pixel format")
+      }
+    case "hevc-alpha-clips":
+      guard
+        schemaMinor >= 3,
+        manifest.renderAssets.pixelFormat == "bgra8-premultiplied"
+      else {
+        throw PackageValidationError.invalid("unsupported HEVC Alpha package contract")
+      }
+    case "cropped-rgba-clips":
+      guard
+        schemaMinor >= 4,
+        manifest.renderAssets.pixelFormat == "rgba8-premultiplied"
+      else {
+        throw PackageValidationError.invalid("unsupported cropped RGBA package contract")
+      }
+    default:
       throw PackageValidationError.invalid("unsupported schema or render mode")
     }
     if Self.schemaMinor(manifest.schemaVersion) >= 2, manifest.behavior == nil {
@@ -230,7 +255,12 @@ public struct PetPackageLoader: Sendable {
     }
   }
 
-  private func validateClip(_ clip: ClipDefinition, root: URL) throws {
+  private func validateClip(
+    _ clip: ClipDefinition,
+    root: URL,
+    renderAssets: RenderAssets,
+    canvasPx: [Int]
+  ) throws {
     guard !clip.frames.isEmpty else {
       throw PackageValidationError.invalid("clip \(clip.id) has no frames")
     }
@@ -271,9 +301,26 @@ public struct PetPackageLoader: Sendable {
       }
       previousX = frame.rootMotionPt[0]
 
-      let url = try validatedRegularFileURL(relativePath: frame.src, root: root)
-      guard url.pathExtension.lowercased() == "png" else {
-        throw PackageValidationError.invalid("clip \(clip.id) frame \(index) is not a regular PNG")
+      if renderAssets.mode == "frames" {
+        let url = try validatedRegularFileURL(relativePath: frame.src, root: root)
+        guard url.pathExtension.lowercased() == "png" else {
+          throw PackageValidationError.invalid(
+            "clip \(clip.id) frame \(index) is not a regular PNG"
+          )
+        }
+      } else if renderAssets.mode == "hevc-alpha-clips" {
+        let sourceReference = try safeURL(relativePath: frame.src, root: root)
+        guard sourceReference.pathExtension.lowercased() == "png" else {
+          throw PackageValidationError.invalid(
+            "clip \(clip.id) frame \(index) has an invalid PNG source reference"
+          )
+        }
+      } else if let media = clip.media {
+        guard frame.src == media.src else {
+          throw PackageValidationError.invalid(
+            "clip \(clip.id) frame \(index) does not reference its cropped RGBA media"
+          )
+        }
       }
     }
     guard clip.rootMotionEndPt[0] + 0.000_001 >= previousX else {
@@ -289,7 +336,128 @@ public struct PetPackageLoader: Sendable {
         throw PackageValidationError.invalid("rest clip \(clip.id) must have zero root motion")
       }
     }
+    try validateClipMedia(
+      clip,
+      root: root,
+      renderAssets: renderAssets,
+      canvasPx: canvasPx
+    )
   }
+
+  private func validateClipMedia(
+    _ clip: ClipDefinition,
+    root: URL,
+    renderAssets: RenderAssets,
+    canvasPx: [Int]
+  ) throws {
+    if renderAssets.mode == "frames" {
+      guard clip.media == nil else {
+        throw PackageValidationError.invalid(
+          "frame clip \(clip.id) cannot declare clip media"
+        )
+      }
+      return
+    }
+    guard let media = clip.media else {
+      throw PackageValidationError.missing("runtime media for clip \(clip.id)")
+    }
+    if renderAssets.mode == "cropped-rgba-clips" {
+      try validateCroppedRGBAMedia(
+        clip,
+        media: media,
+        root: root,
+        canvasPx: canvasPx
+      )
+      return
+    }
+    guard
+      media.type == "video",
+      media.codec == "hevc-alpha",
+      media.container == "quicktime",
+      media.frameCount == clip.frames.count,
+      abs(media.frameRate - 24) < 0.000_001,
+      media.alphaMode == "premultiplied",
+      media.colorSpace == "sRGB",
+      media.sourceSequenceDigest.count == 64,
+      media.compiledFrameSequenceDigest.count == 64,
+      media.sourceSequenceDigest == clip.provenance?.sourceSequenceDigest,
+      clip.frames.allSatisfy({
+        abs($0.durationMs - 1_000.0 / media.frameRate) < 0.001
+      })
+    else {
+      throw PackageValidationError.invalid(
+        "clip \(clip.id) has an invalid HEVC Alpha media contract"
+      )
+    }
+    let url = try validatedRegularFileURL(relativePath: media.src, root: root)
+    guard url.pathExtension.lowercased() == "mov" else {
+      throw PackageValidationError.invalid(
+        "clip \(clip.id) HEVC Alpha media is not a QuickTime movie"
+      )
+    }
+  }
+
+  private func validateCroppedRGBAMedia(
+    _ clip: ClipDefinition,
+    media: ClipMedia,
+    root: URL,
+    canvasPx: [Int]
+  ) throws {
+    guard
+      let crop = media.cropRectPx,
+      crop.count == 4,
+      crop.allSatisfy({ $0 >= 0 }),
+      crop[2] > 0,
+      crop[3] > 0,
+      let bytesPerRow = media.bytesPerRow,
+      let frameByteCount = media.frameByteCount,
+      media.type == "raw-frames",
+      media.codec == "raw-rgba8",
+      media.container == "contiguous-frame-stream",
+      media.frameCount == clip.frames.count,
+      abs(media.frameRate - 24) < 0.000_001,
+      media.alphaMode == "premultiplied-last",
+      media.colorSpace == "sRGB",
+      bytesPerRow == crop[2] * 4,
+      frameByteCount == bytesPerRow * crop[3],
+      media.sourceSequenceDigest.count == 64,
+      media.compiledFrameSequenceDigest.count == 64,
+      media.sourceSequenceDigest == clip.provenance?.sourceSequenceDigest,
+      clip.frames.allSatisfy({
+        abs($0.durationMs - 1_000.0 / media.frameRate) < 0.001
+      })
+    else {
+      throw PackageValidationError.invalid(
+        "clip \(clip.id) has an invalid cropped RGBA media contract"
+      )
+    }
+    guard
+      canvasPx.count == 2,
+      crop[0] + crop[2] <= canvasPx[0],
+      crop[1] + crop[3] <= canvasPx[1]
+    else {
+      throw PackageValidationError.invalid(
+        "clip \(clip.id) cropped RGBA rectangle exceeds the package canvas"
+      )
+    }
+    let url = try validatedRegularFileURL(relativePath: media.src, root: root)
+    guard url.pathExtension.lowercased() == "rgba" else {
+      throw PackageValidationError.invalid(
+        "clip \(clip.id) cropped RGBA media is not a raw stream"
+      )
+    }
+    let expectedBytes = media.frameCount.multipliedReportingOverflow(by: frameByteCount)
+    guard !expectedBytes.overflow else {
+      throw PackageValidationError.invalid("clip \(clip.id) cropped RGBA byte count overflows")
+    }
+    let actualBytes = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize
+    guard actualBytes == expectedBytes.partialValue else {
+      throw PackageValidationError.invalid(
+        "clip \(clip.id) cropped RGBA media byte count does not match its contract"
+      )
+    }
+  }
+
 
   private func validateGraph(
     _ graph: GraphDefinition,
@@ -659,10 +827,27 @@ public struct PetPackageLoader: Sendable {
     }
     for clip in clips.values {
       requiredPaths.insert("clips/\(clip.id).json")
-      requiredPaths.formUnion(clip.frames.map(\.src))
+      if manifest.renderAssets.mode == "frames" {
+        requiredPaths.formUnion(clip.frames.map(\.src))
+      } else if let media = clip.media {
+        requiredPaths.insert(media.src)
+      }
     }
     for path in requiredPaths where entries[path] == nil {
       throw PackageValidationError.integrity("missing entry for \(path)")
+    }
+    if manifest.renderAssets.mode == "cropped-rgba-clips" {
+      for clip in clips.values {
+        guard let media = clip.media else { continue }
+        guard
+          let entry = entries[media.src],
+          entry.sha256.lowercased() == media.compiledFrameSequenceDigest.lowercased()
+        else {
+          throw PackageValidationError.integrity(
+            "compiled media digest mismatch for \(clip.id)"
+          )
+        }
+      }
     }
 
     for entry in integrity.files {

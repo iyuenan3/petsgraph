@@ -1,6 +1,26 @@
 import AppKit
+import Darwin
 import Foundation
 import PetsGraphCore
+
+final class SingleInstanceLock {
+  private let descriptor: Int32
+
+  init?(path: String) {
+    let descriptor = Darwin.open(path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+    guard descriptor >= 0 else { return nil }
+    guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+      Darwin.close(descriptor)
+      return nil
+    }
+    self.descriptor = descriptor
+  }
+
+  deinit {
+    flock(descriptor, LOCK_UN)
+    Darwin.close(descriptor)
+  }
+}
 
 struct AppConfiguration {
   let packageURL: URL
@@ -8,6 +28,7 @@ struct AppConfiguration {
   let startDelaySeconds: Double
   let verifyIntegrity: Bool
   let validateOnly: Bool
+  let validateMedia: Bool
   let engineeringBehaviorPreview: Bool
   let acceleratedBehavior: Bool
   let nativeLeftChainDemo: Bool
@@ -16,10 +37,22 @@ struct AppConfiguration {
 
 @main
 struct PetsGraphMain {
+  @MainActor private static var instanceLock: SingleInstanceLock?
+
   @MainActor
   static func main() {
     do {
       let configuration = try parseArguments(Array(CommandLine.arguments.dropFirst()))
+      if !configuration.validateOnly, !configuration.validateMedia {
+        let lockPath = URL(fileURLWithPath: NSTemporaryDirectory())
+          .appendingPathComponent("petsgraph-runtime-\(getuid()).lock")
+          .path
+        guard let lock = SingleInstanceLock(path: lockPath) else {
+          print("petsgraph another runtime instance is already active; exiting")
+          return
+        }
+        instanceLock = lock
+      }
       let started = ProcessInfo.processInfo.systemUptime
       let package = try PetPackageLoader().load(
         at: configuration.packageURL,
@@ -38,6 +71,10 @@ struct PetsGraphMain {
           try validateEngineeringBehavior(package)
         }
         print("petsgraph validation passed")
+        return
+      }
+      if configuration.validateMedia {
+        try validateRuntimeMedia(package)
         return
       }
       if configuration.engineeringBehaviorPreview {
@@ -237,13 +274,53 @@ struct PetsGraphMain {
     )
   }
 
+  @MainActor
+  private static func validateRuntimeMedia(_ package: LoadedPetPackage) throws {
+    guard ["hevc-alpha-clips", "cropped-rgba-clips"].contains(
+      package.manifest.renderAssets.mode
+    ) else {
+      throw PackageValidationError.invalid(
+        "--validate-media requires a compiled runtime media package"
+      )
+    }
+    let started = ProcessInfo.processInfo.systemUptime
+    let cache = ClipImageCache(package: package, createMirroredImages: false)
+    var frameCount = 0
+    for clipID in package.clips.keys.sorted() {
+      guard let clip = package.clips[clipID] else { continue }
+      try cache.prepare(clipIDs: [clipID])
+      for frameIndex in clip.frames.indices {
+        let decoded = try autoreleasepool {
+          try cache.frame(clipID: clipID, frameIndex: frameIndex) != nil
+        }
+        guard decoded else {
+          throw PackageValidationError.missing(
+            "decoded runtime media frame \(clipID)/\(frameIndex)"
+          )
+        }
+        frameCount += 1
+      }
+    }
+    let elapsed = ProcessInfo.processInfo.systemUptime - started
+    print(
+      String(
+        format: "petsgraph runtime media validation passed mode=%@ clips=%d frames=%d seconds=%.3f fps=%.1f",
+        package.manifest.renderAssets.mode,
+        package.clips.count,
+        frameCount,
+        elapsed,
+        Double(frameCount) / elapsed
+      )
+    )
+  }
+
   private static func parseArguments(_ arguments: [String]) throws -> AppConfiguration {
     if arguments.contains("--help") || arguments.contains("-h") {
       print(
         "Usage: petsgraph <package.petsgraph-pet> "
           + "[--display-height <points, defaults to package baseHeightPt>] "
           + "[--start-delay <seconds>] "
-          + "[--no-integrity] [--validate-only] "
+          + "[--no-integrity] [--validate-only] [--validate-media] "
           + "[--engineering-behavior-preview] [--accelerated-behavior] "
           + "[--native-left-chain-demo] [--quiet-scene-round-trip-demo]"
       )
@@ -270,6 +347,7 @@ struct PetsGraphMain {
     var startDelay = 1.0
     var verifyIntegrity = true
     var validateOnly = false
+    var validateMedia = false
     var engineeringBehaviorPreview = false
     var acceleratedBehavior = false
     var nativeLeftChainDemo = false
@@ -303,6 +381,8 @@ struct PetsGraphMain {
         verifyIntegrity = false
       case "--validate-only":
         validateOnly = true
+      case "--validate-media":
+        validateMedia = true
       case "--engineering-behavior-preview":
         engineeringBehaviorPreview = true
       case "--accelerated-behavior":
@@ -336,6 +416,11 @@ struct PetsGraphMain {
         "native left and quiet scene demos cannot run together"
       )
     }
+    guard !(validateOnly && validateMedia) else {
+      throw PackageValidationError.invalid(
+        "validate-only and validate-media cannot run together"
+      )
+    }
 
     return AppConfiguration(
       packageURL: URL(fileURLWithPath: packagePath, isDirectory: true),
@@ -343,6 +428,7 @@ struct PetsGraphMain {
       startDelaySeconds: startDelay,
       verifyIntegrity: verifyIntegrity,
       validateOnly: validateOnly,
+      validateMedia: validateMedia,
       engineeringBehaviorPreview: engineeringBehaviorPreview,
       acceleratedBehavior: acceleratedBehavior,
       nativeLeftChainDemo: nativeLeftChainDemo,

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import plistlib
 import shutil
@@ -14,6 +15,10 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SIGNING_DETRITUS_XATTRS = (
+    "com.apple.FinderInfo",
+    "com.apple.ResourceFork",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,6 +70,31 @@ def artifact_entry(path: Path, kind: str) -> dict[str, object]:
     }
 
 
+def remove_signing_detritus(root: Path) -> None:
+    for name in SIGNING_DETRITUS_XATTRS:
+        subprocess.run(
+            ["/usr/bin/xattr", "-dr", name, str(root)],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+
+def assert_no_signing_detritus(root: Path) -> None:
+    result = subprocess.run(
+        ["/usr/bin/xattr", "-lr", str(root)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    remaining = [name for name in SIGNING_DETRITUS_XATTRS if f"{name}:" in result.stdout]
+    if remaining:
+        raise ValueError(
+            "release app contains Finder metadata rejected by codesign: "
+            + ", ".join(remaining)
+        )
+
+
 def main() -> None:
     args = parse_args()
     app = within_repo(args.app, strict=True)
@@ -99,16 +129,27 @@ def main() -> None:
     ).stdout.strip()
     if architectures != "arm64":
         raise ValueError(f"public app must be Apple Silicon only, got: {architectures}")
-    subprocess.run(
-        ["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=2", str(app)],
-        check=True,
-    )
-
-    pet_name = read_embedded_pet_name(app)
+    sanitized_root = Path(tempfile.mkdtemp(prefix="petsgraph-release-app-"))
+    sanitized_app = sanitized_root / app.name
     build_output = Path(
         tempfile.mkdtemp(prefix=f"{output.name}.build-", dir=output.parent)
     )
     try:
+        shutil.copytree(app, sanitized_app, copy_function=shutil.copy2)
+        remove_signing_detritus(sanitized_app)
+        assert_no_signing_detritus(sanitized_app)
+        subprocess.run(
+            [
+                "/usr/bin/codesign",
+                "--verify",
+                "--deep",
+                "--strict",
+                "--verbose=2",
+                str(sanitized_app),
+            ],
+            check=True,
+        )
+        pet_name = read_embedded_pet_name(sanitized_app)
         prefix = f"PetsGraph-v{args.version}-macOS-arm64"
         app_zip = build_output / f"{prefix}.zip"
         dmg = build_output / f"{prefix}.dmg"
@@ -120,7 +161,7 @@ def main() -> None:
                 "-k",
                 "--sequesterRsrc",
                 "--keepParent",
-                str(app),
+                str(sanitized_app),
                 str(app_zip),
             ],
             check=True,
@@ -129,7 +170,7 @@ def main() -> None:
         dmg_stage = Path(tempfile.mkdtemp(prefix="petsgraph-release-dmg-"))
         try:
             shutil.copytree(
-                app,
+                sanitized_app,
                 dmg_stage / f"{app_name}.app",
                 copy_function=shutil.copy2,
             )
@@ -207,6 +248,8 @@ def main() -> None:
     except Exception:
         shutil.rmtree(build_output, ignore_errors=True)
         raise
+    finally:
+        shutil.rmtree(sanitized_root, ignore_errors=True)
     print(json.dumps(metadata, ensure_ascii=False, indent=2))
 
 

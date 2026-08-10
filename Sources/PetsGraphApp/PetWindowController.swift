@@ -1,4 +1,6 @@
 import AppKit
+import AVFoundation
+import CoreImage
 import Foundation
 import PetsGraphCore
 import QuartzCore
@@ -15,10 +17,82 @@ final class PetPanel: NSPanel {
   }
 }
 
-final class PetImageView: NSImageView {
+final class PetImageView: NSView {
   var onPetMouseDown: ((NSPoint) -> Void)?
   var onPetMouseDragged: ((NSPoint) -> Void)?
   var onPetMouseUp: ((NSPoint) -> Void)?
+
+  private let frameLayer = CALayer()
+  private var cropRectPx = [0, 0, 1, 1]
+  private var canvasPx = [1, 1]
+  private var mirrored = false
+
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    wantsLayer = true
+    frameLayer.backgroundColor = NSColor.clear.cgColor
+    frameLayer.contentsGravity = .resize
+    frameLayer.minificationFilter = .linear
+    frameLayer.magnificationFilter = .linear
+    layer?.addSublayer(frameLayer)
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func layout() {
+    super.layout()
+    updateFrameLayerGeometry()
+  }
+
+  func setFrameImage(
+    _ image: CGImage,
+    cropRectPx: [Int],
+    canvasPx: [Int],
+    mirrored: Bool
+  ) {
+    self.cropRectPx = cropRectPx
+    self.canvasPx = canvasPx
+    self.mirrored = mirrored
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    frameLayer.contents = image
+    updateFrameLayerGeometry(disableTransaction: false)
+    CATransaction.commit()
+  }
+
+  private func updateFrameLayerGeometry(disableTransaction: Bool = true) {
+    guard
+      cropRectPx.count == 4,
+      canvasPx.count == 2,
+      canvasPx[0] > 0,
+      canvasPx[1] > 0
+    else { return }
+    if disableTransaction {
+      CATransaction.begin()
+      CATransaction.setDisableActions(true)
+    }
+    let canvasWidth = CGFloat(canvasPx[0])
+    let canvasHeight = CGFloat(canvasPx[1])
+    let sourceX = CGFloat(cropRectPx[0])
+    let sourceY = CGFloat(cropRectPx[1])
+    let sourceWidth = CGFloat(cropRectPx[2])
+    let sourceHeight = CGFloat(cropRectPx[3])
+    let displayX = mirrored ? canvasWidth - sourceX - sourceWidth : sourceX
+    frameLayer.frame = CGRect(
+      x: displayX / canvasWidth * bounds.width,
+      y: (canvasHeight - sourceY - sourceHeight) / canvasHeight * bounds.height,
+      width: sourceWidth / canvasWidth * bounds.width,
+      height: sourceHeight / canvasHeight * bounds.height
+    )
+    frameLayer.setAffineTransform(
+      mirrored ? CGAffineTransform(scaleX: -1, y: 1) : .identity
+    )
+    if disableTransaction {
+      CATransaction.commit()
+    }
+  }
 
   override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
     true
@@ -37,10 +111,68 @@ final class PetImageView: NSImageView {
   }
 }
 
+private enum FrameAlphaSource {
+  case bitmap(NSBitmapImageRep)
+  case raw(
+    data: NSData,
+    frameOffset: Int,
+    cropRectPx: [Int],
+    bytesPerRow: Int
+  )
+
+  func alpha(canvasX: Int, canvasY: Int) -> Double {
+    switch self {
+    case .bitmap(let bitmap):
+      guard
+        canvasX >= 0,
+        canvasY >= 0,
+        canvasX < bitmap.pixelsWide,
+        canvasY < bitmap.pixelsHigh
+      else { return 0 }
+      return Double(bitmap.colorAt(x: canvasX, y: canvasY)?.alphaComponent ?? 0)
+    case .raw(let data, let frameOffset, let crop, let bytesPerRow):
+      guard
+        crop.count == 4,
+        canvasX >= crop[0],
+        canvasY >= crop[1],
+        canvasX < crop[0] + crop[2],
+        canvasY < crop[1] + crop[3]
+      else { return 0 }
+      let localX = canvasX - crop[0]
+      let localY = canvasY - crop[1]
+      let alphaOffset = frameOffset + localY * bytesPerRow + localX * 4 + 3
+      guard alphaOffset >= 0, alphaOffset < data.length else { return 0 }
+      return Double(data.bytes.load(fromByteOffset: alphaOffset, as: UInt8.self)) / 255.0
+    }
+  }
+}
+
 struct CachedPetFrame {
-  let image: NSImage
-  let mirroredImage: NSImage?
-  let bitmap: NSBitmapImageRep
+  let cgImage: CGImage
+  let cropRectPx: [Int]
+  private let alphaSource: FrameAlphaSource
+
+  fileprivate init(
+    cgImage: CGImage,
+    cropRectPx: [Int],
+    alphaSource: FrameAlphaSource
+  ) {
+    self.cgImage = cgImage
+    self.cropRectPx = cropRectPx
+    self.alphaSource = alphaSource
+  }
+
+  func alpha(canvasX: Int, canvasY: Int) -> Double {
+    alphaSource.alpha(canvasX: canvasX, canvasY: canvasY)
+  }
+}
+
+private final class RawFrameProviderContext {
+  let data: NSData
+
+  init(data: NSData) {
+    self.data = data
+  }
 }
 
 private struct EnvironmentPropPresentation {
@@ -62,73 +194,456 @@ struct PetStartupPlacement {
 }
 
 @MainActor
+final class CroppedRGBAClipFrameStore {
+  private static let fullLoopBudgetBytes = 36 * 1024 * 1024
+  private static let chunkBudgetBytes = 16 * 1024 * 1024
+  private static let preloadFrameCount = 8
+
+  private let clip: ClipDefinition
+  private let media: ClipMedia
+  private let data: NSData
+  private let cropRectPx: [Int]
+  private let bytesPerRow: Int
+  private let frameByteCount: Int
+  private let colorSpace: CGColorSpace
+  private var cachedFrames: [Int: CachedPetFrame] = [:]
+  private var cachedRange: Range<Int>?
+
+  init(package: LoadedPetPackage, clip: ClipDefinition) throws {
+    guard
+      let media = clip.media,
+      let mediaURL = package.clipMediaURL(clipID: clip.id),
+      let cropRectPx = media.cropRectPx,
+      cropRectPx.count == 4,
+      let bytesPerRow = media.bytesPerRow,
+      let frameByteCount = media.frameByteCount
+    else {
+      throw PackageValidationError.missing("cropped RGBA media for \(clip.id)")
+    }
+    self.clip = clip
+    self.media = media
+    self.cropRectPx = cropRectPx
+    self.bytesPerRow = bytesPerRow
+    self.frameByteCount = frameByteCount
+    data = try NSData(contentsOf: mediaURL, options: [.mappedIfSafe])
+    guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
+      throw PackageValidationError.invalid("sRGB color space is unavailable")
+    }
+    self.colorSpace = colorSpace
+  }
+
+  func preload() throws {
+    try cache(range: 0..<min(Self.preloadFrameCount, clip.frames.count))
+  }
+
+  func purge() {
+    cachedFrames.removeAll(keepingCapacity: false)
+    cachedRange = nil
+  }
+
+  func frame(at frameIndex: Int) throws -> CachedPetFrame {
+    guard clip.frames.indices.contains(frameIndex) else {
+      throw PackageValidationError.invalid(
+        "cropped RGBA clip \(clip.id) requested invalid frame \(frameIndex)"
+      )
+    }
+    if cachedFrames[frameIndex] == nil {
+      if clip.type == "loop", data.length <= Self.fullLoopBudgetBytes {
+        try cache(range: clip.frames.indices)
+      } else {
+        let framesPerChunk = max(1, Self.chunkBudgetBytes / frameByteCount)
+        let chunkStart = frameIndex / framesPerChunk * framesPerChunk
+        let chunkEnd = min(clip.frames.count, chunkStart + framesPerChunk * 2)
+        try cache(range: chunkStart..<chunkEnd)
+      }
+    }
+    guard let frame = cachedFrames[frameIndex] else {
+      throw PackageValidationError.missing(
+        "cropped RGBA clip \(clip.id) frame \(frameIndex)"
+      )
+    }
+    return frame
+  }
+
+  private func cache(range: Range<Int>) throws {
+    guard !range.isEmpty else { return }
+    if cachedRange == range { return }
+    var replacement: [Int: CachedPetFrame] = [:]
+    replacement.reserveCapacity(range.count)
+    for frameIndex in range {
+      replacement[frameIndex] = try makeFrame(at: frameIndex)
+    }
+    cachedFrames = replacement
+    cachedRange = range
+  }
+
+  private func makeFrame(at frameIndex: Int) throws -> CachedPetFrame {
+    let frameOffset = frameIndex * frameByteCount
+    guard frameOffset >= 0, frameOffset + frameByteCount <= data.length else {
+      throw PackageValidationError.invalid(
+        "cropped RGBA clip \(clip.id) frame \(frameIndex) exceeds its media"
+      )
+    }
+    let context = RawFrameProviderContext(data: data)
+    let info = Unmanaged.passRetained(context).toOpaque()
+    let pointer = data.bytes.advanced(by: frameOffset)
+    guard let provider = CGDataProvider(
+      dataInfo: info,
+      data: pointer,
+      size: frameByteCount,
+      releaseData: { info, _, _ in
+        guard let info else { return }
+        Unmanaged<RawFrameProviderContext>.fromOpaque(info).release()
+      }
+    ) else {
+      Unmanaged<RawFrameProviderContext>.fromOpaque(info).release()
+      throw PackageValidationError.invalid(
+        "cropped RGBA clip \(clip.id) frame \(frameIndex) has no data provider"
+      )
+    }
+    guard let image = CGImage(
+      width: cropRectPx[2],
+      height: cropRectPx[3],
+      bitsPerComponent: 8,
+      bitsPerPixel: 32,
+      bytesPerRow: bytesPerRow,
+      space: colorSpace,
+      bitmapInfo: CGBitmapInfo(
+        rawValue: CGImageAlphaInfo.premultipliedLast.rawValue
+          | CGBitmapInfo.byteOrder32Big.rawValue
+      ),
+      provider: provider,
+      decode: nil,
+      shouldInterpolate: true,
+      intent: .defaultIntent
+    ) else {
+      throw PackageValidationError.invalid(
+        "cropped RGBA clip \(clip.id) frame \(frameIndex) could not create CGImage"
+      )
+    }
+    return CachedPetFrame(
+      cgImage: image,
+      cropRectPx: cropRectPx,
+      alphaSource: .raw(
+        data: data,
+        frameOffset: frameOffset,
+        cropRectPx: cropRectPx,
+        bytesPerRow: bytesPerRow
+      )
+    )
+  }
+}
+
+@MainActor
+final class HEVCAlphaClipFrameStore {
+  private let clip: ClipDefinition
+  private let media: ClipMedia
+  private let mediaURL: URL
+  private let expectedSize: NSSize
+  private let capacity: Int
+  private let lookAhead: Int
+  private let ciContext: CIContext
+  private var cachedFrames: [Int: CachedPetFrame] = [:]
+  private var insertionOrder: [Int] = []
+  private var reader: AVAssetReader?
+  private var output: AVAssetReaderTrackOutput?
+  private var nextFrameIndex = 0
+
+  init(
+    package: LoadedPetPackage,
+    clip: ClipDefinition,
+    capacity: Int = 24,
+    lookAhead: Int = 8
+  ) throws {
+    guard
+      let media = clip.media,
+      let mediaURL = package.clipMediaURL(clipID: clip.id)
+    else {
+      throw PackageValidationError.missing("HEVC Alpha media for \(clip.id)")
+    }
+    guard capacity > lookAhead * 2, lookAhead > 0 else {
+      throw PackageValidationError.invalid("invalid HEVC Alpha frame queue capacity")
+    }
+    self.clip = clip
+    self.media = media
+    self.mediaURL = mediaURL
+    expectedSize = NSSize(
+      width: package.manifest.art.canvasPx[0],
+      height: package.manifest.art.canvasPx[1]
+    )
+    self.capacity = capacity
+    self.lookAhead = lookAhead
+    ciContext = CIContext(options: [.cacheIntermediates: false])
+  }
+
+  func preload() throws {
+    try decodeRange(startFrame: 0, endFrame: min(lookAhead, clip.frames.count - 1))
+  }
+
+  func purge() {
+    reader?.cancelReading()
+    reader = nil
+    output = nil
+    cachedFrames.removeAll(keepingCapacity: false)
+    insertionOrder.removeAll(keepingCapacity: false)
+    ciContext.clearCaches()
+  }
+
+  func frame(at frameIndex: Int) throws -> CachedPetFrame {
+    guard clip.frames.indices.contains(frameIndex) else {
+      throw PackageValidationError.invalid(
+        "HEVC Alpha clip \(clip.id) requested invalid frame \(frameIndex)"
+      )
+    }
+    if cachedFrames[frameIndex] == nil {
+      try decodeRange(
+        startFrame: frameIndex,
+        endFrame: min(frameIndex + lookAhead, clip.frames.count - 1)
+      )
+    } else if nextFrameIndex >= frameIndex {
+      try decodeForwardIfPossible(
+        through: min(frameIndex + lookAhead, clip.frames.count - 1)
+      )
+    }
+    guard let result = cachedFrames[frameIndex] else {
+      throw PackageValidationError.missing(
+        "HEVC Alpha clip \(clip.id) frame \(frameIndex)"
+      )
+    }
+    if
+      clip.type == "loop",
+      frameIndex >= clip.frames.count - lookAhead,
+      (0...min(lookAhead, clip.frames.count - 1)).contains(where: {
+        cachedFrames[$0] == nil
+      })
+    {
+      try decodeRange(startFrame: 0, endFrame: min(lookAhead, clip.frames.count - 1))
+    }
+    return result
+  }
+
+  private func decodeRange(startFrame: Int, endFrame: Int) throws {
+    guard startFrame <= endFrame else { return }
+    if reader == nil || nextFrameIndex > startFrame || nextFrameIndex < startFrame - lookAhead {
+      try startReader(at: startFrame)
+    }
+    try decodeForwardIfPossible(through: endFrame)
+    if cachedFrames[startFrame] == nil {
+      try startReader(at: startFrame)
+      try decodeForwardIfPossible(through: endFrame)
+    }
+  }
+
+  private func decodeForwardIfPossible(through targetFrame: Int) throws {
+    guard nextFrameIndex <= targetFrame else { return }
+    while nextFrameIndex <= targetFrame {
+      guard let sample = output?.copyNextSampleBuffer() else {
+        let detail = reader?.error?.localizedDescription
+          ?? "reader ended at frame \(nextFrameIndex)"
+        throw PackageValidationError.invalid(
+          "HEVC Alpha clip \(clip.id) decode failed: \(detail)"
+        )
+      }
+      let actualTime = CMTimeGetSeconds(
+        CMSampleBufferGetPresentationTimeStamp(sample)
+      )
+      let expectedTime = Double(nextFrameIndex) / media.frameRate
+      guard abs(actualTime - expectedTime) < 0.000_001 else {
+        throw PackageValidationError.invalid(
+          "HEVC Alpha clip \(clip.id) frame \(nextFrameIndex) is off the declared time grid"
+        )
+      }
+      guard let pixelBuffer = CMSampleBufferGetImageBuffer(sample) else {
+        throw PackageValidationError.invalid(
+          "HEVC Alpha clip \(clip.id) frame \(nextFrameIndex) has no pixel buffer"
+        )
+      }
+      let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+      guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) else {
+        throw PackageValidationError.invalid(
+          "HEVC Alpha clip \(clip.id) frame \(nextFrameIndex) could not render"
+        )
+      }
+      guard
+        cgImage.width == Int(expectedSize.width),
+        cgImage.height == Int(expectedSize.height)
+      else {
+        throw PackageValidationError.invalid(
+          "HEVC Alpha clip \(clip.id) frame \(nextFrameIndex) has invalid dimensions"
+        )
+      }
+      let bitmap = NSBitmapImageRep(cgImage: cgImage)
+      store(
+        CachedPetFrame(
+          cgImage: cgImage,
+          cropRectPx: [0, 0, cgImage.width, cgImage.height],
+          alphaSource: .bitmap(bitmap)
+        ),
+        at: nextFrameIndex
+      )
+      nextFrameIndex += 1
+    }
+  }
+
+  private func startReader(at frameIndex: Int) throws {
+    reader?.cancelReading()
+    let asset = AVURLAsset(url: mediaURL)
+    guard let track = asset.tracks(withMediaType: .video).first else {
+      throw PackageValidationError.invalid(
+        "HEVC Alpha clip \(clip.id) has no video track"
+      )
+    }
+    guard track.hasMediaCharacteristic(.containsAlphaChannel) else {
+      throw PackageValidationError.invalid(
+        "HEVC Alpha clip \(clip.id) has no alpha channel"
+      )
+    }
+    let naturalSize = track.naturalSize
+    guard
+      Int(abs(naturalSize.width).rounded()) == Int(expectedSize.width),
+      Int(abs(naturalSize.height).rounded()) == Int(expectedSize.height)
+    else {
+      throw PackageValidationError.invalid(
+        "HEVC Alpha clip \(clip.id) dimensions do not match the package canvas"
+      )
+    }
+    let newReader = try AVAssetReader(asset: asset)
+    let newOutput = AVAssetReaderTrackOutput(
+      track: track,
+      outputSettings: [
+        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+      ]
+    )
+    newOutput.alwaysCopiesSampleData = false
+    guard newReader.canAdd(newOutput) else {
+      throw PackageValidationError.invalid(
+        "HEVC Alpha clip \(clip.id) cannot create a BGRA decoder"
+      )
+    }
+    newReader.add(newOutput)
+    newReader.timeRange = CMTimeRange(
+      start: CMTime(value: CMTimeValue(frameIndex), timescale: CMTimeScale(media.frameRate)),
+      duration: .positiveInfinity
+    )
+    guard newReader.startReading() else {
+      throw PackageValidationError.invalid(
+        "HEVC Alpha clip \(clip.id) failed to start decoding: "
+          + (newReader.error?.localizedDescription ?? "unknown AVAssetReader error")
+      )
+    }
+    reader = newReader
+    output = newOutput
+    nextFrameIndex = frameIndex
+  }
+
+  private func store(_ frame: CachedPetFrame, at frameIndex: Int) {
+    if cachedFrames[frameIndex] == nil {
+      insertionOrder.append(frameIndex)
+    }
+    cachedFrames[frameIndex] = frame
+    while insertionOrder.count > capacity {
+      cachedFrames.removeValue(forKey: insertionOrder.removeFirst())
+    }
+  }
+
+}
+
+@MainActor
 final class ClipImageCache {
   private let package: LoadedPetPackage
-  private let createMirroredImages: Bool
   private var frames: [String: [CachedPetFrame]] = [:]
+  private var hevcStores: [String: HEVCAlphaClipFrameStore] = [:]
+  private var croppedRGBAStores: [String: CroppedRGBAClipFrameStore] = [:]
 
-  init(package: LoadedPetPackage, createMirroredImages: Bool) {
+  init(package: LoadedPetPackage, createMirroredImages _: Bool) {
     self.package = package
-    self.createMirroredImages = createMirroredImages
   }
 
   func prepare(clipIDs: [String]) throws {
     let retained = Set(clipIDs)
     frames = frames.filter { retained.contains($0.key) }
-    for clipID in clipIDs where frames[clipID] == nil {
+    for (clipID, store) in hevcStores where !retained.contains(clipID) {
+      store.purge()
+    }
+    hevcStores = hevcStores.filter { retained.contains($0.key) }
+    for (clipID, store) in croppedRGBAStores where !retained.contains(clipID) {
+      store.purge()
+    }
+    croppedRGBAStores = croppedRGBAStores.filter { retained.contains($0.key) }
+    for clipID in clipIDs {
       guard let clip = package.clips[clipID] else {
         throw PackageValidationError.invalid("unknown clip \(clipID)")
       }
-      let loaded = try clip.frames.indices.map { frameIndex in
-        guard
-          let url = package.frameURL(clipID: clipID, frameIndex: frameIndex),
-          let data = try? Data(contentsOf: url),
-          let bitmap = NSBitmapImageRep(data: data)
-        else {
-          throw PackageValidationError.missing("\(clipID) frame \(frameIndex)")
+      if package.manifest.renderAssets.mode == "hevc-alpha-clips" {
+        if hevcStores[clipID] == nil {
+          let store = try HEVCAlphaClipFrameStore(
+            package: package,
+            clip: clip
+          )
+          try store.preload()
+          hevcStores[clipID] = store
+          print(
+            "petsgraph preloaded clip=\(clipID) frames=bounded source=hevc-alpha-clips"
+          )
         }
-        let image = NSImage(size: bitmap.size)
-        image.addRepresentation(bitmap)
-        image.cacheMode = .always
-        return CachedPetFrame(
-          image: image,
-          mirroredImage: createMirroredImages ? Self.makeMirroredImage(image) : nil,
-          bitmap: bitmap
+      } else if package.manifest.renderAssets.mode == "cropped-rgba-clips" {
+        if croppedRGBAStores[clipID] == nil {
+          let store = try CroppedRGBAClipFrameStore(package: package, clip: clip)
+          try store.preload()
+          croppedRGBAStores[clipID] = store
+          print(
+            "petsgraph preloaded clip=\(clipID) frames=bounded source=cropped-rgba-clips"
+          )
+        }
+      } else if frames[clipID] == nil {
+        let loaded = try loadPNGFrames(clipID: clipID, clip: clip)
+        frames[clipID] = loaded
+        print(
+          "petsgraph preloaded clip=\(clipID) frames=\(loaded.count) source=frames"
         )
       }
-      frames[clipID] = loaded
-      print("petsgraph preloaded clip=\(clipID) frames=\(loaded.count)")
     }
   }
 
-  func frame(clipID: String, frameIndex: Int) -> CachedPetFrame? {
+  func frame(clipID: String, frameIndex: Int) throws -> CachedPetFrame? {
+    if let store = croppedRGBAStores[clipID] {
+      return try store.frame(at: frameIndex)
+    }
+    if let store = hevcStores[clipID] {
+      return try store.frame(at: frameIndex)
+    }
     guard let clipFrames = frames[clipID], clipFrames.indices.contains(frameIndex) else {
       return nil
     }
     return clipFrames[frameIndex]
   }
 
-  private static func makeMirroredImage(_ source: NSImage) -> NSImage {
-    let mirrored = NSImage(size: source.size)
-    mirrored.lockFocus()
-    let transform = NSAffineTransform()
-    transform.translateX(by: source.size.width, yBy: 0)
-    transform.scaleX(by: -1, yBy: 1)
-    transform.concat()
-    source.draw(
-      in: NSRect(origin: .zero, size: source.size),
-      from: .zero,
-      operation: .copy,
-      fraction: 1
-    )
-    mirrored.unlockFocus()
-    mirrored.cacheMode = .always
-    return mirrored
+  private func loadPNGFrames(
+    clipID: String,
+    clip: ClipDefinition
+  ) throws -> [CachedPetFrame] {
+    try clip.frames.indices.map { frameIndex in
+        guard
+          let url = package.frameURL(clipID: clipID, frameIndex: frameIndex),
+          let data = try? Data(contentsOf: url),
+          let bitmap = NSBitmapImageRep(data: data),
+          let cgImage = bitmap.cgImage
+        else {
+          throw PackageValidationError.missing("\(clipID) frame \(frameIndex)")
+        }
+        return CachedPetFrame(
+          cgImage: cgImage,
+          cropRectPx: [0, 0, cgImage.width, cgImage.height],
+          alphaSource: .bitmap(bitmap)
+        )
+      }
   }
 }
 
 @MainActor
 final class PetWindowController {
+  private static let playbackFrameInterval = 1.0 / 24.0
+
   var onClipChanged: ((String) -> Void)?
 
   private let package: LoadedPetPackage
@@ -271,9 +786,6 @@ final class PetWindowController {
 
     imageView = PetImageView(frame: rootView.bounds)
     imageView.autoresizingMask = [.width, .height]
-    imageView.imageScaling = .scaleAxesIndependently
-    imageView.wantsLayer = true
-    imageView.layer?.backgroundColor = NSColor.clear.cgColor
     rootView.addSubview(imageView)
     imageCache = ClipImageCache(
       package: package,
@@ -382,7 +894,7 @@ final class PetWindowController {
         try renderBehavior(presentation)
       } else {
         try imageCache.prepare(clipIDs: staticTimeline.clipIDsNear(segmentIndex: 0))
-        renderStatic(staticTimeline.sample(at: 0))
+        try renderStatic(staticTimeline.sample(at: 0))
       }
       orderPanelsFront()
       if nativeLeftChainDemo {
@@ -393,12 +905,13 @@ final class PetWindowController {
         installDestinationClickMonitor()
       }
       let timer = Timer(
-        timeInterval: 1.0 / 120.0,
+        timeInterval: Self.playbackFrameInterval,
         target: self,
         selector: #selector(tick(_:)),
         userInfo: nil,
         repeats: true
       )
+      timer.tolerance = Self.playbackFrameInterval / 20.0
       RunLoop.main.add(timer, forMode: .common)
       self.timer = timer
     } catch {
@@ -427,7 +940,12 @@ final class PetWindowController {
       }
     } else {
       playbackStartUptime = now + startDelaySeconds
-      renderStatic(staticTimeline.sample(at: 0))
+      do {
+        try renderStatic(staticTimeline.sample(at: 0))
+      } catch {
+        failAndTerminate(error)
+        return
+      }
     }
     orderPanelsFront()
     print("petsgraph restarted")
@@ -507,21 +1025,20 @@ final class PetWindowController {
       }
     } else {
       let elapsed = max(0, now - playbackStartUptime)
-      renderStatic(staticTimeline.sample(at: elapsed))
+      do {
+        try renderStatic(staticTimeline.sample(at: elapsed))
+      } catch {
+        failAndTerminate(error)
+      }
     }
   }
 
-  private func renderStatic(_ sample: TimelineSample) {
+  private func renderStatic(_ sample: TimelineSample) throws {
     if sample.segmentIndex != currentSegmentIndex {
       currentSegmentIndex = sample.segmentIndex
-      do {
-        try imageCache.prepare(
-          clipIDs: staticTimeline.clipIDsNear(segmentIndex: sample.segmentIndex)
-        )
-      } catch {
-        failAndTerminate(error)
-        return
-      }
+      try imageCache.prepare(
+        clipIDs: staticTimeline.clipIDsNear(segmentIndex: sample.segmentIndex)
+      )
       onClipChanged?(sample.clipID)
       print(
         String(
@@ -533,7 +1050,7 @@ final class PetWindowController {
       )
     }
 
-    renderFrame(
+    try renderFrame(
       sample,
       x: startX + sample.rootMotionXPt * motionScale,
       mirrored: false
@@ -571,7 +1088,7 @@ final class PetWindowController {
       )
     }
 
-    renderFrame(
+    try renderFrame(
       sample,
       x: startX + presentation.totalRootMotionXPt * motionScale,
       mirrored: presentation.mirrored
@@ -582,8 +1099,17 @@ final class PetWindowController {
     _ sample: TimelineSample,
     x: Double,
     mirrored: Bool
-  ) {
-    guard let frame = imageCache.frame(
+  ) throws {
+    if
+      currentFrame != nil,
+      currentClipID == sample.clipID,
+      currentSourceFrameIndex == sample.sourceFrameIndex,
+      currentFrameIsMirrored == mirrored,
+      abs(calculatedPanelX - x) < 0.001
+    {
+      return
+    }
+    guard let frame = try imageCache.frame(
       clipID: sample.clipID,
       frameIndex: sample.sourceFrameIndex
     ) else {
@@ -594,10 +1120,12 @@ final class PetWindowController {
     currentFrameIsMirrored = mirrored
     currentClipID = sample.clipID
     currentSourceFrameIndex = sample.sourceFrameIndex
-    let displayedImage = mirrored ? (frame.mirroredImage ?? frame.image) : frame.image
-    if imageView.image !== displayedImage {
-      imageView.image = displayedImage
-    }
+    imageView.setFrameImage(
+      frame.cgImage,
+      cropRectPx: frame.cropRectPx,
+      canvasPx: package.manifest.art.canvasPx,
+      mirrored: mirrored
+    )
     calculatedPanelX = x
     if !isDraggingPet {
       let placement = PreviewHorizontalPlacement.resolve(
@@ -607,13 +1135,17 @@ final class PetWindowController {
         maximumX: screenFrame.maxX - screenMargin - panel.frame.width
       )
       manualOffsetX = placement.rebasedManualOffsetX
-      panel.setFrameOrigin(
-        NSPoint(
-          x: placement.originX,
-          y: windowY + manualOffsetY
-        )
+      let desiredOrigin = NSPoint(
+        x: placement.originX,
+        y: windowY + manualOffsetY
       )
-      positionEnvironmentProps()
+      if
+        abs(panel.frame.minX - desiredOrigin.x) >= 0.001
+          || abs(panel.frame.minY - desiredOrigin.y) >= 0.001
+      {
+        panel.setFrameOrigin(desiredOrigin)
+        positionEnvironmentProps()
+      }
       if placement.hitBoundary, !wasClampedAtHorizontalBoundary {
         print(
           String(
@@ -944,19 +1476,18 @@ final class PetWindowController {
       setPointerHit(false)
       return
     }
-    var pixelX = min(
-      frame.bitmap.pixelsWide - 1,
-      Int(normalizedX * Double(frame.bitmap.pixelsWide))
-    )
+    let canvasWidth = package.manifest.art.canvasPx[0]
+    let canvasHeight = package.manifest.art.canvasPx[1]
+    var pixelX = min(canvasWidth - 1, Int(normalizedX * Double(canvasWidth)))
     if currentFrameIsMirrored {
-      pixelX = frame.bitmap.pixelsWide - 1 - pixelX
+      pixelX = canvasWidth - 1 - pixelX
     }
     let unflippedPixelY = min(
-      frame.bitmap.pixelsHigh - 1,
-      Int(normalizedY * Double(frame.bitmap.pixelsHigh))
+      canvasHeight - 1,
+      Int(normalizedY * Double(canvasHeight))
     )
-    let pixelY = frame.bitmap.pixelsHigh - 1 - unflippedPixelY
-    let opaque = (frame.bitmap.colorAt(x: pixelX, y: pixelY)?.alphaComponent ?? 0) > 0.05
+    let pixelY = canvasHeight - 1 - unflippedPixelY
+    let opaque = frame.alpha(canvasX: pixelX, canvasY: pixelY) > 0.05
     let hitRegion = currentPetHitEllipse()
     let insidePetRegion = hitRegion.map { ellipseContains($0, x: pixelX, y: pixelY) } ?? true
     setPointerHit(opaque && insidePetRegion)

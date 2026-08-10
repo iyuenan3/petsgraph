@@ -240,6 +240,153 @@ final class PackageLoaderTests: XCTestCase {
     )
   }
 
+  func testLoadsHEVCAlphaPackageWithoutBundledPNGFrames() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.enableHEVCAlphaMedia()
+
+    let package = try PetPackageLoader().load(at: fixture.root)
+    XCTAssertEqual(package.manifest.schemaVersion, "0.3.0")
+    XCTAssertEqual(package.manifest.renderAssets.mode, "hevc-alpha-clips")
+    XCTAssertEqual(package.clips.count, 4)
+    for clip in package.clips.values {
+      XCTAssertEqual(clip.media?.frameCount, clip.frames.count)
+      XCTAssertEqual(clip.media?.frameRate, 24)
+      XCTAssertEqual(clip.media?.compiledFrameSequenceDigest.count, 64)
+      XCTAssertNil(package.frameURL(clipID: clip.id, frameIndex: 0))
+      XCTAssertEqual(package.clipMediaURL(clipID: clip.id)?.pathExtension, "mov")
+    }
+    XCTAssertFalse(
+      FileManager.default.fileExists(
+        atPath: fixture.root.appendingPathComponent("frames").path
+      )
+    )
+  }
+
+  func testMissingHEVCAlphaMediaIsRejected() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.enableHEVCAlphaMedia()
+    try FileManager.default.removeItem(at: fixture.firstMediaURL)
+
+    XCTAssertThrowsError(try PetPackageLoader().load(at: fixture.root))
+  }
+
+  func testModifiedHEVCAlphaMediaFailsIntegrity() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.enableHEVCAlphaMedia()
+    var data = try Data(contentsOf: fixture.firstMediaURL)
+    data.append(0x00)
+    try data.write(to: fixture.firstMediaURL)
+
+    assertIntegrityFailure(try PetPackageLoader().load(at: fixture.root))
+  }
+
+  func testHiddenHEVCAlphaMediaFailsIntegrity() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.enableHEVCAlphaMedia()
+    var media = fixture.firstMediaURL
+    var values = URLResourceValues()
+    values.isHidden = true
+    try media.setResourceValues(values)
+
+    assertIntegrityFailure(try PetPackageLoader().load(at: fixture.root))
+  }
+
+  func testHEVCAlphaMediaFrameCountMustMatchMetadataFrames() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.enableHEVCAlphaMedia()
+    try fixture.setFirstMediaFrameCount(999)
+
+    XCTAssertThrowsError(
+      try PetPackageLoader().load(at: fixture.root, verifyIntegrity: false)
+    ) { error in
+      XCTAssertTrue(String(describing: error).contains("invalid HEVC Alpha media contract"))
+    }
+  }
+
+  func testLoadsCroppedRGBAPackageWithoutBundledPNGFrames() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.enableCroppedRGBAMedia()
+
+    let package = try PetPackageLoader().load(at: fixture.root)
+    XCTAssertEqual(package.manifest.schemaVersion, "0.4.0")
+    XCTAssertEqual(package.manifest.renderAssets.mode, "cropped-rgba-clips")
+    XCTAssertEqual(package.clips.count, 4)
+    for clip in package.clips.values {
+      XCTAssertEqual(clip.media?.frameCount, clip.frames.count)
+      XCTAssertEqual(clip.media?.cropRectPx, [0, 0, 1, 1])
+      XCTAssertEqual(clip.media?.bytesPerRow, 4)
+      XCTAssertEqual(clip.media?.frameByteCount, 4)
+      XCTAssertNil(package.frameURL(clipID: clip.id, frameIndex: 0))
+      XCTAssertEqual(package.clipMediaURL(clipID: clip.id)?.pathExtension, "rgba")
+      XCTAssertTrue(clip.frames.allSatisfy { $0.src == clip.media?.src })
+    }
+    XCTAssertFalse(
+      FileManager.default.fileExists(
+        atPath: fixture.root.appendingPathComponent("frames").path
+      )
+    )
+  }
+
+  func testMissingCroppedRGBAMediaIsRejected() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.enableCroppedRGBAMedia()
+    try FileManager.default.removeItem(at: fixture.firstRawMediaURL)
+
+    XCTAssertThrowsError(try PetPackageLoader().load(at: fixture.root))
+  }
+
+  func testModifiedCroppedRGBAMediaFailsIntegrity() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.enableCroppedRGBAMedia()
+    var data = try Data(contentsOf: fixture.firstRawMediaURL)
+    data[0] ^= 0xFF
+    try data.write(to: fixture.firstRawMediaURL)
+
+    assertIntegrityFailure(try PetPackageLoader().load(at: fixture.root))
+  }
+
+  func testHiddenCroppedRGBAMediaFailsIntegrity() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.enableCroppedRGBAMedia()
+    var media = fixture.firstRawMediaURL
+    var values = URLResourceValues()
+    values.isHidden = true
+    try media.setResourceValues(values)
+
+    assertIntegrityFailure(try PetPackageLoader().load(at: fixture.root))
+  }
+
+  func testCroppedRGBAMediaByteCountMustMatchContract() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.enableCroppedRGBAMedia()
+    try fixture.setFirstRawFrameByteCount(8)
+
+    XCTAssertThrowsError(
+      try PetPackageLoader().load(at: fixture.root, verifyIntegrity: false)
+    ) { error in
+      XCTAssertTrue(String(describing: error).contains("invalid cropped RGBA media contract"))
+    }
+  }
+
+  func testCroppedRGBAMetadataDigestMustMatchIntegrityDigest() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.enableCroppedRGBAMedia()
+    try fixture.setFirstRawCompiledDigest(String(repeating: "c", count: 64))
+
+    assertIntegrityFailure(try PetPackageLoader().load(at: fixture.root))
+  }
+
   func testRejectsQuietSleepNodeWithoutDisplayName() throws {
     let fixture = try SleepPackageFixture(kind: .quietCompanion)
     addTeardownBlock { fixture.remove() }
@@ -330,6 +477,12 @@ private final class SleepPackageFixture: @unchecked Sendable {
   var environmentPropURL: URL {
     root.appendingPathComponent("props/pillow.png")
   }
+  var firstMediaURL: URL {
+    root.appendingPathComponent("media/prone-left-loop-v1.mov")
+  }
+  var firstRawMediaURL: URL {
+    root.appendingPathComponent("media/prone-left-loop-v1.rgba")
+  }
   private let kind: SleepFixtureKind
   private var writtenPaths = Set<String>()
 
@@ -401,6 +554,161 @@ private final class SleepPackageFixture: @unchecked Sendable {
       options: [.prettyPrinted, .sortedKeys]
     )
     try data.write(to: url)
+  }
+
+  func enableHEVCAlphaMedia() throws {
+    guard kind == .quietCompanion else {
+      throw PackageValidationError.invalid("HEVC fixture requires quiet companion")
+    }
+    let packageURL = root.appendingPathComponent("package.json")
+    var package = try JSONSerialization.jsonObject(
+      with: Data(contentsOf: packageURL)
+    ) as! [String: Any]
+    package["schemaVersion"] = "0.3.0"
+    var renderAssets = package["renderAssets"] as! [String: Any]
+    renderAssets["mode"] = "hevc-alpha-clips"
+    renderAssets["pixelFormat"] = "bgra8-premultiplied"
+    package["renderAssets"] = renderAssets
+    try writeJSON(package, to: "package.json")
+
+    let clipPaths = writtenPaths.filter { $0.hasPrefix("clips/") }.sorted()
+    for path in clipPaths {
+      let url = root.appendingPathComponent(path)
+      var clip = try JSONSerialization.jsonObject(
+        with: Data(contentsOf: url)
+      ) as! [String: Any]
+      let clipID = clip["id"] as! String
+      let frames = clip["frames"] as! [[String: Any]]
+      for frame in frames {
+        let framePath = frame["src"] as! String
+        try FileManager.default.removeItem(
+          at: root.appendingPathComponent(framePath)
+        )
+        writtenPaths.remove(framePath)
+      }
+      clip["schemaVersion"] = "0.3.0"
+      clip["provenance"] = [
+        "approvalStatus": "approved",
+        "sourceSequenceDigest": String(repeating: "a", count: 64),
+        "rootMotionStatus": "approved-zero-root-motion",
+        "normalization": "approved-frame-canvas",
+      ]
+      let mediaPath = "media/\(clipID).mov"
+      try writeData(Data([0x00, 0x00, 0x00, 0x00]), to: mediaPath)
+      clip["media"] = [
+        "type": "video",
+        "src": mediaPath,
+        "codec": "hevc-alpha",
+        "container": "quicktime",
+        "frameCount": frames.count,
+        "frameRate": 24,
+        "alphaMode": "premultiplied",
+        "colorSpace": "sRGB",
+        "sourceSequenceDigest": String(repeating: "a", count: 64),
+        "compiledFrameSequenceDigest": String(repeating: "b", count: 64),
+      ]
+      try writeJSON(clip, to: path)
+    }
+    try? FileManager.default.removeItem(at: root.appendingPathComponent("frames"))
+    try rewriteIntegrity(schemaVersion: "0.3.0")
+  }
+
+  func setFirstMediaFrameCount(_ count: Int) throws {
+    let url = root.appendingPathComponent("clips/prone-left-loop-v1.json")
+    var clip = try JSONSerialization.jsonObject(
+      with: Data(contentsOf: url)
+    ) as! [String: Any]
+    var media = clip["media"] as! [String: Any]
+    media["frameCount"] = count
+    clip["media"] = media
+    try writeJSON(clip, to: "clips/prone-left-loop-v1.json")
+  }
+
+  func enableCroppedRGBAMedia() throws {
+    guard kind == .quietCompanion else {
+      throw PackageValidationError.invalid("cropped RGBA fixture requires quiet companion")
+    }
+    let packageURL = root.appendingPathComponent("package.json")
+    var package = try JSONSerialization.jsonObject(
+      with: Data(contentsOf: packageURL)
+    ) as! [String: Any]
+    package["schemaVersion"] = "0.4.0"
+    var renderAssets = package["renderAssets"] as! [String: Any]
+    renderAssets["mode"] = "cropped-rgba-clips"
+    renderAssets["pixelFormat"] = "rgba8-premultiplied"
+    package["renderAssets"] = renderAssets
+    try writeJSON(package, to: "package.json")
+
+    let clipPaths = writtenPaths.filter { $0.hasPrefix("clips/") }.sorted()
+    for path in clipPaths {
+      let url = root.appendingPathComponent(path)
+      var clip = try JSONSerialization.jsonObject(
+        with: Data(contentsOf: url)
+      ) as! [String: Any]
+      let clipID = clip["id"] as! String
+      var frames = clip["frames"] as! [[String: Any]]
+      for frame in frames {
+        let framePath = frame["src"] as! String
+        try FileManager.default.removeItem(at: root.appendingPathComponent(framePath))
+        writtenPaths.remove(framePath)
+      }
+      let mediaPath = "media/\(clipID).rgba"
+      for index in frames.indices {
+        frames[index]["src"] = mediaPath
+      }
+      clip["frames"] = frames
+      clip["schemaVersion"] = "0.4.0"
+      clip["provenance"] = [
+        "approvalStatus": "approved",
+        "sourceSequenceDigest": String(repeating: "a", count: 64),
+        "rootMotionStatus": "approved-zero-root-motion",
+        "normalization": "approved-frame-canvas",
+      ]
+      let rawData = Data(repeating: 0xFF, count: frames.count * 4)
+      try writeData(rawData, to: mediaPath)
+      clip["media"] = [
+        "type": "raw-frames",
+        "src": mediaPath,
+        "codec": "raw-rgba8",
+        "container": "contiguous-frame-stream",
+        "frameCount": frames.count,
+        "frameRate": 24,
+        "alphaMode": "premultiplied-last",
+        "colorSpace": "sRGB",
+        "sourceSequenceDigest": String(repeating: "a", count: 64),
+        "compiledFrameSequenceDigest": SHA256.hash(data: rawData)
+          .map { String(format: "%02x", $0) }.joined(),
+        "cropRectPx": [0, 0, 1, 1],
+        "bytesPerRow": 4,
+        "frameByteCount": 4,
+      ]
+      try writeJSON(clip, to: path)
+    }
+    try? FileManager.default.removeItem(at: root.appendingPathComponent("frames"))
+    try rewriteIntegrity(schemaVersion: "0.4.0")
+  }
+
+  func setFirstRawFrameByteCount(_ count: Int) throws {
+    let url = root.appendingPathComponent("clips/prone-left-loop-v1.json")
+    var clip = try JSONSerialization.jsonObject(
+      with: Data(contentsOf: url)
+    ) as! [String: Any]
+    var media = clip["media"] as! [String: Any]
+    media["frameByteCount"] = count
+    clip["media"] = media
+    try writeJSON(clip, to: "clips/prone-left-loop-v1.json")
+  }
+
+  func setFirstRawCompiledDigest(_ digest: String) throws {
+    let url = root.appendingPathComponent("clips/prone-left-loop-v1.json")
+    var clip = try JSONSerialization.jsonObject(
+      with: Data(contentsOf: url)
+    ) as! [String: Any]
+    var media = clip["media"] as! [String: Any]
+    media["compiledFrameSequenceDigest"] = digest
+    clip["media"] = media
+    try writeJSON(clip, to: "clips/prone-left-loop-v1.json")
+    try rewriteIntegrity(schemaVersion: "0.4.0")
   }
 
   private func build() throws {
@@ -883,5 +1191,21 @@ private final class SleepPackageFixture: @unchecked Sendable {
     )
     try data.write(to: destination)
     writtenPaths.insert(relativePath)
+  }
+
+  private func rewriteIntegrity(schemaVersion: String) throws {
+    writtenPaths.remove("integrity.json")
+    let entries = try writtenPaths.sorted().map { path -> [String: Any] in
+      let data = try Data(contentsOf: root.appendingPathComponent(path))
+      return [
+        "path": path,
+        "bytes": data.count,
+        "sha256": SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(),
+      ]
+    }
+    try writeJSON(
+      ["schemaVersion": schemaVersion, "algorithm": "sha256", "files": entries],
+      to: "integrity.json"
+    )
   }
 }
