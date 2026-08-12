@@ -1,6 +1,6 @@
 # SPEC：petsgraph 宠物素材包 v0.4
 
-> 本契约是素材生成 Skill 与桌面运行时之间的边界。schema `0.2.0` 是 v0.3.1 PNG 回滚包；schema `0.3.0` 是 HEVC Alpha 对照实验；schema `0.4.0` 是 v0.4.0 正式固定 clip 裁剪预乘 RGBA 运行时。三者都由当前 Swift 加载器显式验证，旧工程包继续作为只读历史证据。
+> 本契约是人工定制制作侧与桌面运行时之间的数据边界。它统一坐标、完整性、动作图和播放语义，不规定所有宠物必须拥有相同姿势或图拓扑。schema `0.2.0` 是 v0.3.1 PNG 回滚包；schema `0.3.0` 是 HEVC Alpha 对照实验；schema `0.4.0` 是 v0.4.0 正式固定 clip 裁剪预乘 RGBA 运行时。三者都由当前 Swift 加载器显式验证，旧工程包继续作为只读历史证据。
 
 ## 1. 契约范围
 
@@ -75,7 +75,7 @@
 
 - `package.id`、`pet.id` 和版本号不可通过覆盖旧文件改变既有已批准包；新素材使用新版本。
 - `baseHeightPt` 是 root motion 和桌面显示的参考高度，不锁死用户最终显示大小。
-- 第一阶段只接受一个宠物、一个默认睡眠节点、一个动作图和一个行为配置。
+- 每个安装包只接受一个宠物、一个默认睡眠节点、一个动作图和一个行为配置。不同宠物的节点集合、场景和边数量可以完全不同。
 - `renderAssets.mode=frames` 使用 `rgba8-straight` PNG。`hevc-alpha-clips` 只保留为 schema `0.3.0` 对照实验。`cropped-rgba-clips` 使用 schema `0.4.0` 与 `rgba8-premultiplied`，必须从批准 PNG 包确定性编译。
 
 ## 4. 坐标与缩放
@@ -146,9 +146,9 @@
 - 每个正式节点可以提供面向用户的 `displayName`。安静陪伴包的所有自主 `dwell` 节点必须提供非空中文显示名，否则加载器拒绝安装。
 - 正式菜单、状态栏和普通反馈只使用 `displayName` 或受控中文回退文案，不能泄露节点 ID、clip ID 或边 ID。
 - `orientation` 第一阶段支持 `front`、`left`、`right`。
-- `scene` 首个 MVP 支持 `floor` 与 `pillow`。场景改变必须由显式边完成。
+- `scene` 是宠物包定义的视觉上下文。当前已实现 `floor` 与 `pillow`，飞流需要新增 `blanket`；场景改变必须由显式边完成。新增 scene 值必须同步加载器验证与菜单分组测试，不能只改素材清单。
 - `role` 支持 `dwell`、`gateway`、`interaction` 和 `cyclic`。`gateway` 与 `interaction` 必须设置 `autonomousEligible=false`。
-- 普通正面坐姿使用 `sit.front.floor`。枕头场景使用独立 `sit.front.pillow`，不能把没有枕头的坐姿当成同一节点。现有历史包中的 `sit.front` 作为 `sit.front.floor` 的兼容 ID，迁移必须通过带版本号新包完成。
+- 普通正面坐姿使用 `sit.front.floor`。道具场景使用独立场景坐姿，例如枕头的 `sit.front.pillow` 和毛毯的 `sit.front.blanket`，不能把没有道具的坐姿当成同一节点。现有历史包中的 `sit.front` 作为 `sit.front.floor` 的兼容 ID，迁移必须通过带版本号新包完成。
 - `props` 声明节点画面必须持续包含的道具。目标节点与入口 clip 的道具集合不兼容时拒绝切换。
 - 循环节点必须有 `loopClip`，稳定节点的循环必须能够无限停留。
 
@@ -177,10 +177,21 @@
     "parametersStatus": "runtime-review-pending",
     "avoidImmediateRepeat": true
   },
+  "randomWalk": {
+    "avoidCurrentNode": true,
+    "recentNodeWindow": 2,
+    "nodeWeights": {},
+    "sceneTransitionWeight": 0.1,
+    "activityCooldownSeconds": {}
+  },
   "scenePolicy": {
     "pillow": {
       "sticky": true,
       "gateway": "gateway.pillow.b"
+    },
+    "blanket": {
+      "sticky": true,
+      "interactionNode": "sit.front.blanket"
     }
   },
   "interactions": {
@@ -197,9 +208,11 @@
 约束：
 
 - `random-long-tail` 的具体时间参数必须经过真实时间行为验收后才能从 `runtime-review-pending` 升级。
+- 随机变化是动作图上的受约束随机游走，不是循环 clip 数组随机抽取。行为层先筛除当前节点、近期节点、冷却活动和不合法场景，再按宠物包权重选择目标，由图规划器生成路径。
+- `nodeWeights`、`sceneTransitionWeight`、`recentNodeWindow` 与活动冷却属于宠物级数据。运行时提供机制和验证，不提供一套强制适用于所有宠物的姿势概率。
 - 行为层只能选择 `autonomousEligible=true` 的节点。
 - `desktopClick=ignore` 表示运行时不得为了行为功能安装全桌面点击监听。
-- 点击目标按当前 `scene` 解析，不能从 `pillow` 硬切到 `floor` 坐姿。
+- 点击目标按当前 `scene` 解析，不能从 `pillow` 或 `blanket` 硬切到 `floor` 坐姿。
 - 拖动清除尚未开始的普通目标，保留用户放置的 x 与 y；松手后从兼容稳定姿态恢复。
 - 菜单指定睡姿只接受 `autonomousEligible=true` 的 `dwell` 节点。睡眠状态立即规划到目标，坐姿先返回当前场景睡眠后再规划目标。
 - 已经播放的有限过渡不能被菜单选择截断。过渡期间的新选择覆盖尚未开始的旧选择，只保留最后一个有效目标。
@@ -344,6 +357,37 @@
 - 网关与两个坐姿均设置 `autonomousEligible=false`。
 
 已经批准的站立、走路、跑步和左右过渡可以继续存在于同一素材事实库或工程包，但睡眠 MVP 的 `behavior.json` 不得请求它们。`↔` 仍表示两个分别生成、分别验收的有向边，不表示倒放。
+
+### 飞流定制图基线
+
+飞流不是李五百图的换皮版本。当前计划使用 10 个自主睡姿、1 个有限活动和 2 个场景坐姿：
+
+| 节点 | scene | role | 作用 |
+|---|---|---|---|
+| `sit.front.floor` | floor | interaction | 无道具场景点击坐姿 |
+| `rest.floor.loaf.front` | floor | dwell | 收爪趴睡，地面交互入口 |
+| `rest.floor.prone.right` | floor | dwell | 平趴睡，地面睡姿枢纽 |
+| `rest.floor.side-stretched.right` | floor | dwell | 侧身伸展睡 |
+| `rest.floor.tight-curled.right` | floor | dwell | 紧蜷睡 |
+| `rest.floor.semi-supine.right` | floor | dwell | 半仰睡 |
+| `rest.floor.full-supine.left` | floor | dwell | 仰躺睡 |
+| `sit.front.blanket` | blanket | interaction | 坐在毛毯上的点击坐姿和路径汇合 |
+| `rest.blanket.curled.right` | blanket | dwell | 毛毯蜷睡，毛毯睡姿枢纽 |
+| `rest.blanket.side-stretched.left` | blanket | dwell | 毛毯侧伸睡 |
+| `rest.blanket.prone.front` | blanket | dwell | 毛毯趴睡 |
+| `rest.blanket.full-supine.right` | blanket | dwell | 毛毯仰躺睡 |
+| `activity.blanket.knead.front` | blanket | cyclic | 毛毯踩奶有限活动，不属于睡姿随机池 |
+
+最低路径语义：
+
+- `sit.front.floor ↔ rest.floor.loaf.front ↔ rest.floor.prone.right` 是地面交互主干。
+- 平趴睡分别连接紧蜷睡、侧身伸展睡和半仰睡；半仰睡连接仰躺睡。
+- 地面平趴睡与 `sit.front.blanket` 使用两条独立场景进出边；`sit.front.blanket` 与毛毯蜷睡使用两条独立睡坐边。自主进入毛毯时可以短暂坐稳后入睡，退出时先在毛毯上坐稳再离开，任何反向都不能倒放。
+- 毛毯蜷睡分别连接毛毯侧伸睡、毛毯趴睡和毛毯仰躺睡。
+- 毛毯踩奶从毛毯蜷睡出发并返回毛毯蜷睡，由独立活动概率和冷却触发，不作为每次进入毛毯的必经动作。
+- 每个毛毯睡姿必须能到达 `sit.front.blanket`，并能从该坐姿返回毛毯睡眠。运行时可以经过毛毯蜷睡汇合，但点击后必须尽快出现可见醒来反应。
+- `sit.front.blanket`、`sit.front.floor` 和毛毯踩奶都不能进入普通自主睡姿抽签。两个坐姿可以作为合法路径中间节点；踩奶由独立活动概率和冷却控制。
+- 当前串行闭环只用于检查所有循环和接缝。正式行为在这张合法图上进行加权随机游走。
 
 ## 8. 生成母片与运行时片段
 

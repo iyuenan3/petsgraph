@@ -37,6 +37,8 @@ PetsGraph `0.4.0` 构建为 Apple 芯片专用 App、DMG 和 ZIP，当前内嵌�
 bash tools/test-swift.sh
 ```
 
+私有静态素材制作可以使用 Seedream 或 `gpt-image-2`。后者通过被 Git 忽略的 `.env.local` 提供 `GPT_IMAGE_API_KEY`、`GPT_IMAGE_MODEL`、`GPT_IMAGE_GENERATIONS_URL` 和 `GPT_IMAGE_EDITS_URL`。不得在命令回显、任务清单、AIREADME、宠物包或 Release 中写入变量值。静态 provider 只生成身份基准、姿态锚点、安全画布和视频端点参考，正式连续动作仍由 Seedance 生成并单独验收。
+
 私有素材包编译需要 Pillow，使用隔离环境，不修改 Homebrew 或系统 Python：
 
 ```bash

@@ -2,6 +2,15 @@
 
 > Append-only。记录版本与里程碑，决策理由见 `DECISIONS.md`。
 
+## v0.9.0-feiliu-custom-direction · 2026-08-12
+
+- Added: 飞流定制动作图加入毛毯场景正面坐姿 `sit.front.blanket`，作为毛毯点击目标、场景进出和路径汇合节点，不进入自主睡姿随机池。
+- Added: 制作侧登记 `gpt-image-2` 静态生成与编辑能力，只记录 `GPT_IMAGE_API_KEY`、`GPT_IMAGE_MODEL`、`GPT_IMAGE_GENERATIONS_URL` 和 `GPT_IMAGE_EDITS_URL` 变量名，不记录值。
+- Changed: 素材路线从面向任意用户的通用生成 Skill 收敛为 Maxwell 自有宠物与朋友明确委托宠物的人工定制。底层 provider、账本、抠图、完整性和打包工具继续复用，不要求姿势和动作图跨宠物一致。
+- Changed: 正式随机行为定义为合法动作图上的加权随机游走，使用长尾停留、近期姿势去重、场景粘性、节点权重和活动冷却。串行完整链只用于素材 QA，不作为正式轮播顺序。
+- Changed: 飞流采用地面与毛毯两个睡眠子图。平趴睡和毛毯蜷睡分别作为图枢纽，毛毯踩奶作为带冷却的偶发活动。
+- Review: 本次只更新产品、数据契约和制作边界，没有调用 provider、修改批准素材、接入飞流运行时或生成可安装包。飞流毛毯坐姿、剩余过渡、随机行为、完整桌面链仍需分别验收。
+
 ## v0.8.0-public-low-power · 2026-08-10
 
 - Added: 发布 PetsGraph App `0.4.0`，正式内嵌 schema `0.4.0`、`cropped-rgba-clips` 的李五百低功耗宠物包。正式包含 53 个 clip、6,866 帧、113 条完整性记录和 1.827 GB raw 媒体。

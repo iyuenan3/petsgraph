@@ -1,5 +1,5 @@
 # petsgraph · AIREADME
-> 面向真实宠物的单宠 macOS 安静桌面陪伴运行时与公开素材包体系 ｜ 生命周期: public-alpha
+> 为 Maxwell 自有宠物与朋友委托宠物定制的单宠 macOS 安静桌面陪伴项目 ｜ 生命周期: public-alpha
 > last-synced: 70cdb69 · 2026-08-10
 > phase: public-low-power-v0.4.0
 
@@ -7,15 +7,15 @@
 
 | 文件 | 状态 | 摘要 |
 |---|:---:|---|
-| CORE | ✅ | PetsGraph 通用运行时、李五百首发宠物包、阶段边界与质量红线 |
-| RELATIONS | ✅ | 生成服务、只读参考项目与未来消费方关系 |
-| SPEC | ✅ | PNG 事实源、HEVC 对照与正式固定裁剪 RGBA `0.4.0` 契约 |
-| ARCHITECTURE | ✅ | 通用 App、动作图、CALayer、raw mmap、有界预加载、单实例和公开发布边界 |
+| CORE | ✅ | PetsGraph 共享运行时、李五百正式包、飞流定制线与非通用化边界 |
+| RELATIONS | ✅ | Seedance、Seedream、gpt-image-2、只读参考项目与定制消费关系 |
+| SPEC | ✅ | PNG 事实源、固定裁剪 RGBA、随机动作图和场景坐姿契约 |
+| ARCHITECTURE | ✅ | 数据驱动 App、加权随机图、毛毯坐姿枢纽、CALayer、raw mmap 与单实例 |
 | DEPLOYMENT | ✅ | Apple 芯片 `0.4.0` 本机构建、Release 校验、性能测量与非公证边界 |
-| PRD | ✅ | 安静睡眠陪伴、朋友安装、指定睡姿、枕头核心场景和 PM 风险闸门 |
-| ROADMAP | ✅ | v0.4.0 朋友安装与长期资源反馈，下一阶段推进公证和通用素材 Skill |
-| CONVENTIONS | ✅ | App 与宠物命名、固定 raw crop、单实例、性能测量、Release 和验收约定 |
-| DECISIONS | ✅ | 追加固定 clip 裁剪预乘 RGBA、单实例和 v0.4.0 正式晋级决策 |
+| PRD | ✅ | 安静睡眠陪伴、图上随机换姿、飞流毛毯场景、朋友安装和人工定制边界 |
+| ROADMAP | ✅ | 飞流十睡姿动作图、毛毯坐姿枢纽、运行时接入与后续逐宠物定制 |
+| CONVENTIONS | ✅ | 场景坐姿、随机权重、静态与视频 provider 分工、固定 raw crop 和验收约定 |
+| DECISIONS | ✅ | 追加人工定制方向、飞流加权随机动作图、毛毯坐姿枢纽和 gpt-image-2 边界 |
 | MEMORY | ✅ | 素材、PNG 体积、HEVC 转换成本、Gatekeeper 重复实例和 macOS 打包事故 |
 | CHANGELOG | ✅ | `0.4.0` 低功耗正式版、`0.3.1` PNG 回滚版和既有素材里程碑 |
 
@@ -25,7 +25,7 @@
 - 设计或生成宠物素材包 → `SPEC.md` + `CONVENTIONS.md` + `DECISIONS.md`
 - 记录或复用已批准素材的生成方法 → `SPEC.md` 第 9.1 节 + `CONVENTIONS.md` + `DECISIONS.md`
 - 修改睡眠调度、动作图、播放器或桌面窗口 → `PRD.md` + `ARCHITECTURE.md` + `SPEC.md` + `DECISIONS.md`
-- 修改枕头场景、网关或点击坐姿 → `PRD.md` 第 4.5 节 + `SPEC.md` + `DECISIONS.md`
+- 修改枕头、毛毯等道具场景、网关或点击坐姿 → `PRD.md` + `SPEC.md` + `DECISIONS.md`
 - 讨论产品范围和验收 → `PRD.md` + `ROADMAP.md`
 - 安装、运行或发布 → `DEPLOYMENT.md` + `CHANGELOG.md`
 - 复盘失败 → `MEMORY.md`，重大取舍另追加到 `DECISIONS.md`
