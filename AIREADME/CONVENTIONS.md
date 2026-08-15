@@ -3,7 +3,7 @@
 ## 命名
 
 - 项目、包和文件路径使用小写英文 kebab-case。
-- 图节点使用层级点号，并显式保留场景语义：`rest.prone.left`、`sit.front.floor`、`sit.front.blanket`、`gateway.pillow.b`。
+- 图节点使用层级点号，并显式保留场景语义：`rest.prone.left`、`sit.front.floor`、`sit.front.cat-bed`、`gateway.pillow.b`。
 - 片段 ID 使用 `<action>-<direction>-<role>-v<n>`，例如 `walk-right-loop-v1`。
 - 方向始终写完整单词 `left`、`right`、`front`，不使用 `l`、`r` 等缩写。
 - 帧文件使用从 `0000` 开始的固定宽度序号。
@@ -27,7 +27,9 @@
 - root motion 存累计值；运行时按时间直接采样，不累加 delta。
 - 每个片段同时保存逐帧 `rootMotionPt` 和终点 `rootMotionEndPt`，循环换相位时按每帧相邻累计值恢复 delta，再从新入口重新累计。
 - 跨姿态切换使用单独有向边；同一稳定姿态上的有限活动可以自环。
-- 面向用户的坐姿按视觉场景区分，例如 `sit.front.floor`、`sit.front.pillow` 与 `sit.front.blanket`，不按即将移动的方向复制。历史 `sit.front` 兼容到普通场景，不代表可以丢掉场景道具。
+- 面向用户的坐姿按视觉场景区分，例如 `sit.front.floor`、`sit.front.pillow` 与 `sit.front.cat-bed`，不按即将移动的方向复制。历史 `sit.front` 兼容到普通场景，不代表可以丢掉场景道具。
+- 私有素材契约、评审 manifest 和正式包使用同一节点 ID。猫窝正面坐姿一律写作 `sit.front.cat-bed`，不得另建 `rest.cat-bed.sit-front` 等同义节点。
+- 倒放例外只适用于同一节点的低频偶发自环，并且必须人工验收完整正放加倒放结果、显式记录帧范围且保持不可中断。不同节点或场景之间的任何回程仍必须独立生成和验收。
 - 节点必须声明 `scene`、`role` 和 `autonomousEligible`。`gateway` 与 `interaction` 不能进入自主随机候选集。
 - 普通睡姿与枕头睡姿是两个场景。枕头只通过批准场景边出现和离开，场景内部节点必须保持道具集合、尺度和方向连续。
 - 靠枕 B 固定为 `gateway.pillow.b`，只短暂停留并播放已批准短循环，不作为随机睡姿。
