@@ -17,6 +17,104 @@ final class PetPanel: NSPanel {
   }
 }
 
+struct PetSquareViewport: Equatable {
+  let x: Double
+  let y: Double
+  let side: Double
+
+  static func make(for clip: ClipDefinition, canvasPx: [Int]) -> PetSquareViewport {
+    let bounds: CGRect
+    if
+      let crop = clip.media?.cropRectPx,
+      crop.count == 4,
+      crop[2] > 0,
+      crop[3] > 0
+    {
+      bounds = CGRect(
+        x: crop[0],
+        y: crop[1],
+        width: crop[2],
+        height: crop[3]
+      )
+    } else {
+      let frameBounds = clip.frames.compactMap { frame -> CGRect? in
+        guard
+          frame.contentBoundsPx.count == 4,
+          frame.contentBoundsPx[2] > 0,
+          frame.contentBoundsPx[3] > 0
+        else { return nil }
+        return CGRect(
+          x: frame.contentBoundsPx[0],
+          y: frame.contentBoundsPx[1],
+          width: frame.contentBoundsPx[2],
+          height: frame.contentBoundsPx[3]
+        )
+      }
+      bounds = frameBounds.dropFirst().reduce(frameBounds.first ?? CGRect(
+        x: 0,
+        y: 0,
+        width: canvasPx.first ?? 1,
+        height: canvasPx.count > 1 ? canvasPx[1] : 1
+      )) { $0.union($1) }.insetBy(dx: -4, dy: -4)
+    }
+    return enclosing(bounds)
+  }
+
+  static func enclosing(_ bounds: CGRect) -> PetSquareViewport {
+    let side = max(1, max(bounds.width, bounds.height))
+    return PetSquareViewport(
+      x: bounds.midX - side / 2,
+      y: bounds.midY - side / 2,
+      side: side
+    )
+  }
+
+  func panelFrame(
+    canvasOrigin: NSPoint,
+    canvasHeightPx: Double,
+    pixelScale: Double
+  ) -> NSRect {
+    NSRect(
+      x: canvasOrigin.x + x * pixelScale,
+      y: canvasOrigin.y + (canvasHeightPx - y - side) * pixelScale,
+      width: side * pixelScale,
+      height: side * pixelScale
+    )
+  }
+}
+
+struct PetVisibleContentBoundary {
+  static func horizontalAdjustment(
+    contentBoundsPx: [Double],
+    canvasOriginX: Double,
+    canvasWidthPx: Double,
+    pixelScale: Double,
+    screenFrame: NSRect,
+    margin: Double,
+    mirrored: Bool
+  ) -> Double {
+    guard
+      contentBoundsPx.count == 4,
+      contentBoundsPx[2] > 0,
+      pixelScale > 0
+    else { return 0 }
+    let sourceX = contentBoundsPx[0]
+    let sourceWidth = contentBoundsPx[2]
+    let displayX = mirrored
+      ? canvasWidthPx - sourceX - sourceWidth
+      : sourceX
+    let visibleMinX = canvasOriginX + displayX * pixelScale
+    let visibleMaxX = visibleMinX + sourceWidth * pixelScale
+    if visibleMinX < screenFrame.minX + margin {
+      return screenFrame.minX + margin - visibleMinX
+    }
+    if visibleMaxX > screenFrame.maxX - margin {
+      return screenFrame.maxX - margin - visibleMaxX
+    }
+    return 0
+  }
+}
+
 final class PetImageView: NSView {
   var onPetMouseDown: ((NSPoint) -> Void)?
   var onPetMouseDragged: ((NSPoint) -> Void)?
@@ -25,6 +123,7 @@ final class PetImageView: NSView {
   private let frameLayer = CALayer()
   private var cropRectPx = [0, 0, 1, 1]
   private var canvasPx = [1, 1]
+  private var viewportPx = PetSquareViewport(x: 0, y: 0, side: 1)
   private var mirrored = false
 
   override init(frame frameRect: NSRect) {
@@ -50,10 +149,12 @@ final class PetImageView: NSView {
     _ image: CGImage,
     cropRectPx: [Int],
     canvasPx: [Int],
+    viewportPx: PetSquareViewport,
     mirrored: Bool
   ) {
     self.cropRectPx = cropRectPx
     self.canvasPx = canvasPx
+    self.viewportPx = viewportPx
     self.mirrored = mirrored
     CATransaction.begin()
     CATransaction.setDisableActions(true)
@@ -74,17 +175,21 @@ final class PetImageView: NSView {
       CATransaction.setDisableActions(true)
     }
     let canvasWidth = CGFloat(canvasPx[0])
-    let canvasHeight = CGFloat(canvasPx[1])
     let sourceX = CGFloat(cropRectPx[0])
     let sourceY = CGFloat(cropRectPx[1])
     let sourceWidth = CGFloat(cropRectPx[2])
     let sourceHeight = CGFloat(cropRectPx[3])
     let displayX = mirrored ? canvasWidth - sourceX - sourceWidth : sourceX
+    let viewportX = mirrored
+      ? canvasWidth - CGFloat(viewportPx.x + viewportPx.side)
+      : CGFloat(viewportPx.x)
+    let viewportY = CGFloat(viewportPx.y)
+    let viewportSide = CGFloat(viewportPx.side)
     frameLayer.frame = CGRect(
-      x: displayX / canvasWidth * bounds.width,
-      y: (canvasHeight - sourceY - sourceHeight) / canvasHeight * bounds.height,
-      width: sourceWidth / canvasWidth * bounds.width,
-      height: sourceHeight / canvasHeight * bounds.height
+      x: (displayX - viewportX) / viewportSide * bounds.width,
+      y: (viewportY + viewportSide - sourceY - sourceHeight) / viewportSide * bounds.height,
+      width: sourceWidth / viewportSide * bounds.width,
+      height: sourceHeight / viewportSide * bounds.height
     )
     frameLayer.setAffineTransform(
       mirrored ? CGAffineTransform(scaleX: -1, y: 1) : .identity
@@ -645,6 +750,7 @@ final class PetWindowController {
   private static let playbackFrameInterval = 1.0 / 24.0
 
   var onClipChanged: ((String) -> Void)?
+  var onPositionChanged: ((NSPoint) -> Void)?
 
   private let package: LoadedPetPackage
   private let petDisplayName: String
@@ -654,11 +760,15 @@ final class PetWindowController {
   private let imageView: PetImageView
   private let imageCache: ClipImageCache
   private let startDelaySeconds: Double
-  private let displayHeightPt: Double
-  private let motionScale: Double
-  private let startX: Double
-  private let windowY: Double
-  private let groundFromWindowBottomPt: Double
+  private let canvasWidthPx: Double
+  private let canvasHeightPx: Double
+  private let viewportsByClipID: [String: PetSquareViewport]
+  private let maximumViewportSidePx: Double
+  private var displayHeightPt: Double
+  private var motionScale: Double
+  private var startX: Double
+  private var windowY: Double
+  private var groundFromWindowBottomPt: Double
   private let visibleFrame: NSRect
   private let screenFrame: NSRect
   private let screenMargin = 0.0
@@ -676,6 +786,7 @@ final class PetWindowController {
   private var currentGeneration = -1
   private var lastInteractionState: BehaviorInteractionState?
   private var currentFrame: CachedPetFrame?
+  private var activeViewport: PetSquareViewport
   private var currentFrameIsMirrored = false
   private var currentClipID: String?
   private var currentSourceFrameIndex: Int?
@@ -683,7 +794,7 @@ final class PetWindowController {
   private var manualOffsetX = 0.0
   private var manualOffsetY = 0.0
   private var dragStartMouse = NSPoint.zero
-  private var dragStartPanelOrigin = NSPoint.zero
+  private var dragStartCanvasOrigin = NSPoint.zero
   private var isDraggingPet = false
   private var didDragPet = false
   private var lastPointerHit = false
@@ -693,6 +804,8 @@ final class PetWindowController {
     package: LoadedPetPackage,
     requestedDisplayHeightPt: Double,
     startDelaySeconds: Double,
+    initialOrigin: NSPoint? = nil,
+    initialX: Double? = nil,
     engineeringBehaviorPreview: Bool = false,
     acceleratedBehavior: Bool = false,
     nativeLeftChainDemo: Bool = false,
@@ -718,20 +831,35 @@ final class PetWindowController {
     let baseHeight = package.manifest.art.baseHeightPt
     let canvasWidth = Double(package.manifest.art.canvasPx[0])
     let canvasHeight = Double(package.manifest.art.canvasPx[1])
-    let canvasAspect = canvasWidth / canvasHeight
-    let footprintFactor = canvasAspect + (
-      engineeringBehaviorPreview ? 0 : staticTimeline.finiteRootMotionXPt / baseHeight
+    canvasWidthPx = canvasWidth
+    canvasHeightPx = canvasHeight
+    let viewports = Dictionary(
+      uniqueKeysWithValues: package.clips.map { clipID, clip in
+        (clipID, PetSquareViewport.make(for: clip, canvasPx: package.manifest.art.canvasPx))
+      }
     )
-    let maximumHeight = (visible.width - 2 * screenMargin) / max(1, footprintFactor)
-    displayHeightPt = max(80, min(requestedDisplayHeightPt, maximumHeight))
+    viewportsByClipID = viewports
+    maximumViewportSidePx = viewports.values.map(\.side).max() ?? max(canvasWidth, canvasHeight)
+    guard
+      let defaultNode = package.graph.nodes.first(where: {
+        $0.id == package.manifest.art.defaultNode
+      }),
+      let defaultViewport = viewports[defaultNode.loopClip]
+    else {
+      throw PackageValidationError.invalid("default node has no square viewport")
+    }
+    activeViewport = defaultViewport
+    let maximumHeight = min(screen.frame.width, screen.frame.height)
+      * canvasHeight / maximumViewportSidePx
+    displayHeightPt = max(40, min(requestedDisplayHeightPt, maximumHeight))
     motionScale = displayHeightPt / baseHeight
     self.startDelaySeconds = startDelaySeconds
 
     let travel = engineeringBehaviorPreview
       ? 0
       : staticTimeline.finiteRootMotionXPt * motionScale
-    let displayWidthPt = displayHeightPt * canvasAspect
-    let footprint = displayWidthPt + travel
+    let pixelScale = displayHeightPt / canvasHeight
+    let footprint = defaultViewport.side * pixelScale + travel
     groundFromWindowBottomPt = (
       canvasHeight - package.manifest.art.groundYPx
     ) / canvasHeight * displayHeightPt
@@ -741,20 +869,53 @@ final class PetWindowController {
         groundFromWindowBottomPt: groundFromWindowBottomPt,
         margin: screenMargin
       )
-      startX = placement.x
+      startX = placement.x - defaultViewport.x * pixelScale
       windowY = placement.y
     } else {
       startX = max(visible.minX + screenMargin, visible.midX - footprint / 2)
       windowY = visible.minY + 5 - groundFromWindowBottomPt
     }
 
+    if let initialOrigin {
+      startX = initialOrigin.x
+      windowY = initialOrigin.y
+    } else if let initialX {
+      startX = initialX - defaultViewport.x * pixelScale
+    }
+
+    var initialCanvasOrigin = NSPoint(x: startX, y: windowY)
+    var initialPanelFrame = defaultViewport.panelFrame(
+      canvasOrigin: initialCanvasOrigin,
+      canvasHeightPx: canvasHeight,
+      pixelScale: pixelScale
+    )
+    if initialPanelFrame.minX < screen.frame.minX {
+      initialCanvasOrigin.x += screen.frame.minX - initialPanelFrame.minX
+    } else if initialPanelFrame.maxX > screen.frame.maxX {
+      initialCanvasOrigin.x -= initialPanelFrame.maxX - screen.frame.maxX
+    }
+    initialCanvasOrigin.y = max(
+      screen.frame.minY - groundFromWindowBottomPt,
+      initialCanvasOrigin.y
+    )
+    initialPanelFrame = defaultViewport.panelFrame(
+      canvasOrigin: initialCanvasOrigin,
+      canvasHeightPx: canvasHeight,
+      pixelScale: pixelScale
+    )
+    if initialPanelFrame.maxY > screen.frame.maxY {
+      initialCanvasOrigin.y -= initialPanelFrame.maxY - screen.frame.maxY
+      initialPanelFrame = defaultViewport.panelFrame(
+        canvasOrigin: initialCanvasOrigin,
+        canvasHeightPx: canvasHeight,
+        pixelScale: pixelScale
+      )
+    }
+    startX = initialCanvasOrigin.x
+    windowY = initialCanvasOrigin.y
+
     panel = PetPanel(
-      contentRect: NSRect(
-        x: startX,
-        y: windowY,
-        width: displayWidthPt,
-        height: displayHeightPt
-      ),
+      contentRect: initialPanelFrame,
       styleMask: [.borderless, .nonactivatingPanel],
       backing: .buffered,
       defer: false,
@@ -802,12 +963,7 @@ final class PetWindowController {
         continue
       }
       let propPanel = PetPanel(
-        contentRect: NSRect(
-          x: startX,
-          y: windowY,
-          width: displayWidthPt,
-          height: displayHeightPt
-        ),
+        contentRect: initialPanelFrame,
         styleMask: [.borderless, .nonactivatingPanel],
         backing: .buffered,
         defer: false,
@@ -880,30 +1036,30 @@ final class PetWindowController {
     )
   }
 
-  func start() {
-    do {
-      let startUptime = ProcessInfo.processInfo.systemUptime + startDelaySeconds
-      playbackStartUptime = startUptime
-      if let behaviorSession {
-        behaviorSession.start(at: startUptime)
-        let presentation = try behaviorSession.update(
-          at: startUptime,
-          motionScale: motionScale,
-          currentPetCenterX: panel.frame.midX
-        )
-        try renderBehavior(presentation)
-      } else {
-        try imageCache.prepare(clipIDs: staticTimeline.clipIDsNear(segmentIndex: 0))
-        try renderStatic(staticTimeline.sample(at: 0))
-      }
-      orderPanelsFront()
-      if nativeLeftChainDemo {
-        try startNativeLeftChainDemo(at: startUptime)
-      } else if quietSceneRoundTripDemo {
-        try behaviorSession?.startQuietSceneRoundTripDemo(at: startUptime)
-      } else if engineeringBehaviorPreview, !quietCompanion {
-        installDestinationClickMonitor()
-      }
+  func start(scheduleTimer: Bool = true) throws {
+    let startUptime = ProcessInfo.processInfo.systemUptime + startDelaySeconds
+    playbackStartUptime = startUptime
+    if let behaviorSession {
+      behaviorSession.start(at: startUptime)
+      let presentation = try behaviorSession.update(
+        at: startUptime,
+        motionScale: motionScale,
+        currentPetCenterX: panel.frame.midX
+      )
+      try renderBehavior(presentation)
+    } else {
+      try imageCache.prepare(clipIDs: staticTimeline.clipIDsNear(segmentIndex: 0))
+      try renderStatic(staticTimeline.sample(at: 0))
+    }
+    orderPanelsFront()
+    if nativeLeftChainDemo {
+      try startNativeLeftChainDemo(at: startUptime)
+    } else if quietSceneRoundTripDemo {
+      try behaviorSession?.startQuietSceneRoundTripDemo(at: startUptime)
+    } else if engineeringBehaviorPreview, !quietCompanion {
+      installDestinationClickMonitor()
+    }
+    if scheduleTimer {
       let timer = Timer(
         timeInterval: Self.playbackFrameInterval,
         target: self,
@@ -914,10 +1070,104 @@ final class PetWindowController {
       timer.tolerance = Self.playbackFrameInterval / 20.0
       RunLoop.main.add(timer, forMode: .common)
       self.timer = timer
-    } catch {
-      fputs("petsgraph: \(error)\n", stderr)
-      NSApplication.shared.terminate(nil)
     }
+  }
+
+  var windowFrame: NSRect { panel.frame }
+
+  var persistentOrigin: NSPoint {
+    NSPoint(
+      x: calculatedPanelX + manualOffsetX,
+      y: windowY + manualOffsetY
+    )
+  }
+
+  private var currentPetCenterScreenX: Double {
+    guard
+      let currentClipID,
+      let currentSourceFrameIndex,
+      let clip = package.clips[currentClipID],
+      clip.frames.indices.contains(currentSourceFrameIndex)
+    else { return panel.frame.midX }
+    let anchorX = clip.frames[currentSourceFrameIndex].anchorsPx.ground.first
+      ?? canvasWidthPx / 2
+    let displayX = currentFrameIsMirrored ? canvasWidthPx - anchorX : anchorX
+    return persistentOrigin.x + displayX * displayHeightPt / canvasHeightPx
+  }
+
+  func setDisplayHeight(_ requestedHeightPt: Double) {
+    let maximumHeight = min(screenFrame.width, screenFrame.height)
+      * canvasHeightPx / maximumViewportSidePx
+    let newHeight = max(40, min(requestedHeightPt, maximumHeight))
+    guard abs(newHeight - displayHeightPt) >= 0.001 else { return }
+
+    let frameDefinition: ClipFrame? = {
+      guard
+        let currentClipID,
+        let currentSourceFrameIndex,
+        let clip = package.clips[currentClipID],
+        clip.frames.indices.contains(currentSourceFrameIndex)
+      else { return nil }
+      return clip.frames[currentSourceFrameIndex]
+    }()
+    let oldPixelScale = displayHeightPt / canvasHeightPx
+    let oldCanvasOrigin = persistentOrigin
+    let anchorX = frameDefinition?.anchorsPx.ground.first ?? canvasWidthPx / 2
+    let anchorY = frameDefinition?.anchorsPx.ground.dropFirst().first
+      ?? package.manifest.art.groundYPx
+    let anchorScreenX = oldCanvasOrigin.x + anchorX * oldPixelScale
+    let anchorScreenY = oldCanvasOrigin.y + (canvasHeightPx - anchorY) * oldPixelScale
+
+    displayHeightPt = newHeight
+    motionScale = displayHeightPt / package.manifest.art.baseHeightPt
+    groundFromWindowBottomPt = (
+      canvasHeightPx - package.manifest.art.groundYPx
+    ) / canvasHeightPx * displayHeightPt
+    let newPixelScale = displayHeightPt / canvasHeightPx
+    var newCanvasOrigin = NSPoint(
+      x: anchorScreenX - anchorX * newPixelScale,
+      y: anchorScreenY - (canvasHeightPx - anchorY) * newPixelScale
+    )
+    var newPanelFrame = activeViewport.panelFrame(
+      canvasOrigin: newCanvasOrigin,
+      canvasHeightPx: canvasHeightPx,
+      pixelScale: newPixelScale
+    )
+    if newPanelFrame.minX < screenFrame.minX {
+      newCanvasOrigin.x += screenFrame.minX - newPanelFrame.minX
+    } else if newPanelFrame.maxX > screenFrame.maxX {
+      newCanvasOrigin.x -= newPanelFrame.maxX - screenFrame.maxX
+    }
+    newCanvasOrigin.y = max(
+      screenFrame.minY - groundFromWindowBottomPt,
+      newCanvasOrigin.y
+    )
+    newPanelFrame = activeViewport.panelFrame(
+      canvasOrigin: newCanvasOrigin,
+      canvasHeightPx: canvasHeightPx,
+      pixelScale: newPixelScale
+    )
+    if newPanelFrame.maxY > screenFrame.maxY {
+      newCanvasOrigin.y -= newPanelFrame.maxY - screenFrame.maxY
+      newPanelFrame = activeViewport.panelFrame(
+        canvasOrigin: newCanvasOrigin,
+        canvasHeightPx: canvasHeightPx,
+        pixelScale: newPixelScale
+      )
+    }
+    panel.setFrame(
+      newPanelFrame,
+      display: true
+    )
+    startX = newCanvasOrigin.x
+    windowY = newCanvasOrigin.y
+    calculatedPanelX = newCanvasOrigin.x
+    manualOffsetX = 0
+    manualOffsetY = 0
+    currentFrame = nil
+    positionEnvironmentProps()
+    orderPanelsFront()
+    onPositionChanged?(newCanvasOrigin)
   }
 
   func restart() {
@@ -931,7 +1181,7 @@ final class PetWindowController {
           behaviorSession.update(
             at: now,
             motionScale: motionScale,
-            currentPetCenterX: panel.frame.midX
+            currentPetCenterX: currentPetCenterScreenX
           )
         )
       } catch {
@@ -1009,14 +1259,17 @@ final class PetWindowController {
   }
 
   @objc private func tick(_ timer: Timer) {
-    let now = ProcessInfo.processInfo.systemUptime
+    advance(at: ProcessInfo.processInfo.systemUptime)
+  }
+
+  func advance(at now: TimeInterval) {
     if let behaviorSession {
       do {
         try renderBehavior(
           behaviorSession.update(
             at: now,
             motionScale: motionScale,
-            currentPetCenterX: panel.frame.midX
+            currentPetCenterX: currentPetCenterScreenX
           )
         )
         updateMousePassthrough()
@@ -1115,47 +1368,82 @@ final class PetWindowController {
     ) else {
       return
     }
+    guard
+      let clipDefinition = package.clips[sample.clipID],
+      clipDefinition.frames.indices.contains(sample.sourceFrameIndex)
+    else {
+      throw PackageValidationError.invalid(
+        "clip \(sample.clipID) has no frame contract for \(sample.sourceFrameIndex)"
+      )
+    }
+    let frameDefinition = clipDefinition.frames[sample.sourceFrameIndex]
     let clipChanged = currentClipID != sample.clipID
+    let viewport = viewportsByClipID[sample.clipID] ?? activeViewport
     currentFrame = frame
     currentFrameIsMirrored = mirrored
     currentClipID = sample.clipID
     currentSourceFrameIndex = sample.sourceFrameIndex
+    activeViewport = viewport
+    calculatedPanelX = x
+    if !isDraggingPet {
+      let pixelScale = displayHeightPt / canvasHeightPx
+      let authoredPresentationOffsetPx = frameDefinition.presentationOffsetPx?.first ?? 0
+      let presentationOffsetPt = authoredPresentationOffsetPx * pixelScale
+      var canvasOrigin = NSPoint(
+        x: x + manualOffsetX + (mirrored ? -presentationOffsetPt : presentationOffsetPt),
+        y: windowY + manualOffsetY
+      )
+      var desiredFrame = viewport.panelFrame(
+        canvasOrigin: canvasOrigin,
+        canvasHeightPx: canvasHeightPx,
+        pixelScale: pixelScale
+      )
+      let boundaryAdjustment = PetVisibleContentBoundary.horizontalAdjustment(
+        contentBoundsPx: frameDefinition.contentBoundsPx,
+        canvasOriginX: canvasOrigin.x,
+        canvasWidthPx: canvasWidthPx,
+        pixelScale: pixelScale,
+        screenFrame: screenFrame,
+        margin: screenMargin,
+        mirrored: mirrored
+      )
+      if boundaryAdjustment != 0 {
+        if abs(presentationOffsetPt) < 0.000_001 {
+          manualOffsetX += boundaryAdjustment
+        }
+        canvasOrigin.x += boundaryAdjustment
+        desiredFrame = viewport.panelFrame(
+          canvasOrigin: canvasOrigin,
+          canvasHeightPx: canvasHeightPx,
+          pixelScale: pixelScale
+        )
+      }
+      if
+        abs(panel.frame.minX - desiredFrame.minX) >= 0.001
+          || abs(panel.frame.minY - desiredFrame.minY) >= 0.001
+          || abs(panel.frame.width - desiredFrame.width) >= 0.001
+      {
+        panel.setFrame(desiredFrame, display: true)
+        positionEnvironmentProps()
+      }
+      let hitBoundary = boundaryAdjustment != 0
+      if hitBoundary, !wasClampedAtHorizontalBoundary {
+        print(
+          String(
+            format: "petsgraph movement clamped-and-rebased boundary-x=%.1f",
+            desiredFrame.minX
+          )
+        )
+      }
+      wasClampedAtHorizontalBoundary = hitBoundary
+    }
     imageView.setFrameImage(
       frame.cgImage,
       cropRectPx: frame.cropRectPx,
       canvasPx: package.manifest.art.canvasPx,
+      viewportPx: viewport,
       mirrored: mirrored
     )
-    calculatedPanelX = x
-    if !isDraggingPet {
-      let placement = PreviewHorizontalPlacement.resolve(
-        calculatedX: x,
-        manualOffsetX: manualOffsetX,
-        minimumX: screenFrame.minX + screenMargin,
-        maximumX: screenFrame.maxX - screenMargin - panel.frame.width
-      )
-      manualOffsetX = placement.rebasedManualOffsetX
-      let desiredOrigin = NSPoint(
-        x: placement.originX,
-        y: windowY + manualOffsetY
-      )
-      if
-        abs(panel.frame.minX - desiredOrigin.x) >= 0.001
-          || abs(panel.frame.minY - desiredOrigin.y) >= 0.001
-      {
-        panel.setFrameOrigin(desiredOrigin)
-        positionEnvironmentProps()
-      }
-      if placement.hitBoundary, !wasClampedAtHorizontalBoundary {
-        print(
-          String(
-            format: "petsgraph movement clamped-and-rebased boundary-x=%.1f",
-            placement.originX
-          )
-        )
-      }
-      wasClampedAtHorizontalBoundary = placement.hitBoundary
-    }
     if clipChanged {
       updateEnvironmentPropVisibility(for: sample.clipID)
     }
@@ -1205,7 +1493,7 @@ final class PetWindowController {
     do {
       let result = try behaviorSession.requestDestination(
         targetX: point.x,
-        currentPetCenterX: panel.frame.midX,
+        currentPetCenterX: currentPetCenterScreenX,
         at: ProcessInfo.processInfo.systemUptime,
         motionScale: motionScale
       )
@@ -1231,7 +1519,7 @@ final class PetWindowController {
   private func beginPetDrag(at point: NSPoint) {
     behaviorSession?.handleDragStarted()
     dragStartMouse = point
-    dragStartPanelOrigin = panel.frame.origin
+    dragStartCanvasOrigin = persistentOrigin
     isDraggingPet = true
     didDragPet = false
     panel.ignoresMouseEvents = false
@@ -1251,23 +1539,44 @@ final class PetWindowController {
     if hypot(deltaX, deltaY) >= 4 {
       didDragPet = true
     }
-    let proposedX = dragStartPanelOrigin.x + deltaX
-    let proposedY = dragStartPanelOrigin.y + deltaY
-    let clampedX = min(
-      screenFrame.maxX - screenMargin - panel.frame.width,
-      max(screenFrame.minX + screenMargin, proposedX)
+    var canvasOrigin = NSPoint(
+      x: dragStartCanvasOrigin.x + deltaX,
+      y: dragStartCanvasOrigin.y + deltaY
     )
-    let clampedY = min(
-      screenFrame.maxY - screenMargin - panel.frame.height,
-      max(
-        screenFrame.minY - groundFromWindowBottomPt + screenMargin,
-        proposedY
+    let pixelScale = displayHeightPt / canvasHeightPx
+    var proposedFrame = activeViewport.panelFrame(
+      canvasOrigin: canvasOrigin,
+      canvasHeightPx: canvasHeightPx,
+      pixelScale: pixelScale
+    )
+    if proposedFrame.minX < screenFrame.minX + screenMargin {
+      canvasOrigin.x += screenFrame.minX + screenMargin - proposedFrame.minX
+    } else if proposedFrame.maxX > screenFrame.maxX - screenMargin {
+      canvasOrigin.x += screenFrame.maxX - screenMargin - proposedFrame.maxX
+    }
+    canvasOrigin.y = max(
+      screenFrame.minY - groundFromWindowBottomPt + screenMargin,
+      canvasOrigin.y
+    )
+    proposedFrame = activeViewport.panelFrame(
+      canvasOrigin: canvasOrigin,
+      canvasHeightPx: canvasHeightPx,
+      pixelScale: pixelScale
+    )
+    if proposedFrame.maxY > screenFrame.maxY - screenMargin {
+      canvasOrigin.y -= proposedFrame.maxY - (screenFrame.maxY - screenMargin)
+      proposedFrame = activeViewport.panelFrame(
+        canvasOrigin: canvasOrigin,
+        canvasHeightPx: canvasHeightPx,
+        pixelScale: pixelScale
       )
-    )
-    panel.setFrameOrigin(NSPoint(x: clampedX, y: clampedY))
+    }
+    manualOffsetX = canvasOrigin.x - calculatedPanelX
+    manualOffsetY = canvasOrigin.y - windowY
+    panel.setFrame(proposedFrame, display: true)
     positionEnvironmentProps(
-      floorOriginX: clampedX - (calculatedPanelX - startX),
-      floorOriginY: clampedY
+      floorOriginX: canvasOrigin.x,
+      floorOriginY: canvasOrigin.y
     )
   }
 
@@ -1275,8 +1584,6 @@ final class PetWindowController {
     guard isDraggingPet else { return }
     continuePetDrag(to: point)
     isDraggingPet = false
-    manualOffsetX = panel.frame.minX - calculatedPanelX
-    manualOffsetY = panel.frame.minY - windowY
     if didDragPet {
       print(
         String(
@@ -1285,6 +1592,7 @@ final class PetWindowController {
           panel.frame.minY
         )
       )
+      onPositionChanged?(persistentOrigin)
     } else {
       print("petsgraph pointer-click")
       showClickFeedback(at: point)
@@ -1426,9 +1734,28 @@ final class PetWindowController {
 
   private func showCommandFeedback(_ text: String) {
     guard let layer = rootView.layer else { return }
+    let font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+    let measuredWidth = ceil(
+      (text as NSString).size(withAttributes: [.font: font]).width
+    )
+    let badgeWidth = min(
+      max(0, rootView.bounds.width - 10),
+      max(120, min(240, measuredWidth + 24))
+    )
+    let contentFrame = currentContentFrameInPanel()
+    let preferredCenterX = contentFrame?.midX ?? rootView.bounds.midX
+    let badgeX = min(
+      max(5, preferredCenterX - badgeWidth / 2),
+      max(5, rootView.bounds.width - badgeWidth - 5)
+    )
+    let preferredY = (contentFrame?.maxY ?? rootView.bounds.maxY) + 6
+    let badgeY = min(
+      max(5, preferredY),
+      max(5, rootView.bounds.height - 29)
+    )
     let badge = CATextLayer()
     badge.string = text
-    badge.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+    badge.font = font
     badge.fontSize = 13
     badge.alignmentMode = .center
     badge.foregroundColor = NSColor.white.cgColor
@@ -1436,9 +1763,9 @@ final class PetWindowController {
     badge.cornerRadius = 10
     badge.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
     badge.frame = CGRect(
-      x: 5,
-      y: rootView.bounds.height - 31,
-      width: rootView.bounds.width - 10,
+      x: badgeX,
+      y: badgeY,
+      width: badgeWidth,
       height: 24
     )
     layer.addSublayer(badge)
@@ -1478,19 +1805,44 @@ final class PetWindowController {
     }
     let canvasWidth = package.manifest.art.canvasPx[0]
     let canvasHeight = package.manifest.art.canvasPx[1]
-    var pixelX = min(canvasWidth - 1, Int(normalizedX * Double(canvasWidth)))
+    var sourceX = activeViewport.x + normalizedX * activeViewport.side
     if currentFrameIsMirrored {
-      pixelX = canvasWidth - 1 - pixelX
+      sourceX = Double(canvasWidth) - sourceX
     }
-    let unflippedPixelY = min(
-      canvasHeight - 1,
-      Int(normalizedY * Double(canvasHeight))
-    )
-    let pixelY = canvasHeight - 1 - unflippedPixelY
+    let sourceY = activeViewport.y + (1 - normalizedY) * activeViewport.side
+    let pixelX = Int(floor(sourceX))
+    let pixelY = Int(floor(sourceY))
+    guard
+      pixelX >= 0,
+      pixelY >= 0,
+      pixelX < canvasWidth,
+      pixelY < canvasHeight
+    else {
+      setPointerHit(false)
+      return
+    }
     let opaque = frame.alpha(canvasX: pixelX, canvasY: pixelY) > 0.05
     let hitRegion = currentPetHitEllipse()
     let insidePetRegion = hitRegion.map { ellipseContains($0, x: pixelX, y: pixelY) } ?? true
     setPointerHit(opaque && insidePetRegion)
+  }
+
+  private func currentContentFrameInPanel() -> CGRect? {
+    guard
+      let currentClipID,
+      let currentSourceFrameIndex,
+      let clip = package.clips[currentClipID],
+      clip.frames.indices.contains(currentSourceFrameIndex)
+    else { return nil }
+    let bounds = clip.frames[currentSourceFrameIndex].contentBoundsPx
+    guard bounds.count == 4, activeViewport.side > 0 else { return nil }
+    let scale = rootView.bounds.width / activeViewport.side
+    return CGRect(
+      x: (bounds[0] - activeViewport.x) * scale,
+      y: (activeViewport.y + activeViewport.side - bounds[1] - bounds[3]) * scale,
+      width: bounds[2] * scale,
+      height: bounds[3] * scale
+    )
   }
 
   private func currentPetHitEllipse() -> [Double]? {
@@ -1618,7 +1970,7 @@ final class PetWindowController {
         behaviorSession.update(
           at: now,
           motionScale: motionScale,
-          currentPetCenterX: panel.frame.midX
+          currentPetCenterX: currentPetCenterScreenX
         )
       )
       orderPanelsFront()

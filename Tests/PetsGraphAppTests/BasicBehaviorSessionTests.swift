@@ -4,6 +4,95 @@ import XCTest
 @testable import PetsGraphCore
 
 final class BasicBehaviorSessionTests: XCTestCase {
+  func testSquareViewportTightlyEnclosesWideAndTallContent() {
+    let wide = PetSquareViewport.enclosing(
+      CGRect(x: 226, y: 103, width: 206, height: 75)
+    )
+    XCTAssertEqual(wide.side, 206)
+    XCTAssertEqual(wide.x, 226)
+    XCTAssertEqual(wide.y, 37.5)
+    let frame = wide.panelFrame(
+      canvasOrigin: NSPoint(x: -226, y: -41),
+      canvasHeightPx: 224,
+      pixelScale: 1
+    )
+    XCTAssertEqual(frame.width, frame.height)
+    XCTAssertEqual(frame.minX, 0)
+
+    let tall = PetSquareViewport.enclosing(
+      CGRect(x: 277, y: 33, width: 149, height: 181)
+    )
+    XCTAssertEqual(tall.side, 181)
+    XCTAssertEqual(tall.x, 261)
+    XCTAssertEqual(tall.y, 33)
+  }
+
+  func testWideSquareViewportDoesNotMovePetWhenVisibleContentIsOnScreen() {
+    let adjustment = PetVisibleContentBoundary.horizontalAdjustment(
+      contentBoundsPx: [231, 109, 194, 64],
+      canvasOriginX: -180,
+      canvasWidthPx: 656,
+      pixelScale: 1,
+      screenFrame: CGRect(x: 0, y: 0, width: 1_440, height: 900),
+      margin: 0,
+      mirrored: false
+    )
+
+    XCTAssertEqual(adjustment, 0)
+  }
+
+  func testVisibleContentBoundaryClampsActualPetInsteadOfTransparentViewport() {
+    let adjustment = PetVisibleContentBoundary.horizontalAdjustment(
+      contentBoundsPx: [100, 40, 200, 100],
+      canvasOriginX: -120,
+      canvasWidthPx: 656,
+      pixelScale: 1,
+      screenFrame: CGRect(x: 0, y: 0, width: 1_440, height: 900),
+      margin: 4,
+      mirrored: false
+    )
+
+    XCTAssertEqual(adjustment, 24)
+  }
+
+  func testMultiPetFirstInstallLoadsEveryAvailablePet() {
+    XCTAssertEqual(
+      MultiPetRuntimePolicy.initialLoadedPetIDs(
+        available: ["wubai", "feiliu"],
+        saved: nil
+      ),
+      ["wubai", "feiliu"]
+    )
+  }
+
+  func testMultiPetSavedSelectionAndGlobalScaleAreRestored() {
+    XCTAssertEqual(
+      MultiPetRuntimePolicy.initialLoadedPetIDs(
+        available: ["wubai", "feiliu"],
+        saved: ["feiliu", "removed-pet"]
+      ),
+      ["feiliu"]
+    )
+    XCTAssertEqual(MultiPetRuntimePolicy.normalizedScale(1.75), 1.75)
+    XCTAssertEqual(MultiPetRuntimePolicy.normalizedScale(1.1), 1.0)
+  }
+
+  func testStartupRowPlacesTheNextPetAfterThePriorWindow() {
+    XCTAssertEqual(MultiPetRuntimePolicy.nextStartupX(existingMaxX: 240), 252)
+    XCTAssertNil(MultiPetRuntimePolicy.nextStartupX(existingMaxX: nil))
+  }
+
+  func testStartupOrderAndScaleTitlesMatchTheMenuContract() {
+    XCTAssertEqual(
+      MultiPetRuntimePolicy.orderedPetIDs(["future-pet", "feiliu", "wubai"]),
+      ["wubai", "feiliu", "future-pet"]
+    )
+    XCTAssertEqual(
+      MultiPetRuntimePolicy.allowedScales.map(MultiPetRuntimePolicy.scaleTitle),
+      ["0.5×", "0.75×", "1.0×", "1.25×", "1.5×", "1.75×", "2.0×"]
+    )
+  }
+
   func testSingleInstanceLockRejectsSecondOwnerUntilReleased() throws {
     let path = FileManager.default.temporaryDirectory
       .appendingPathComponent("petsgraph-instance-lock-\(UUID().uuidString)")
@@ -158,8 +247,8 @@ final class BasicBehaviorSessionTests: XCTestCase {
     XCTAssertEqual(catalog.statusTitle(forClipID: "prone-to-sit"), "正在起身")
     XCTAssertFalse(catalog.statusTitle(forClipID: "prone-loop").contains("prone-loop"))
     XCTAssertEqual(
-      QuietCompanionMenuCatalog.petMenuTitle(displayName: "李五百"),
-      "当前宠物：李五百"
+      QuietCompanionMenuCatalog.petMenuTitle(displayName: "五百"),
+      "当前宠物：五百"
     )
     XCTAssertEqual(
       QuietCompanionMenuCatalog.petMenuTitle(displayName: "另一只宠物"),

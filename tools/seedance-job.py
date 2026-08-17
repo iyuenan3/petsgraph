@@ -125,8 +125,10 @@ def upload_temporary_video(
 
 
 def cleanup_temporary_inputs(env: dict[str, str], marker: dict[str, object]) -> None:
-    storage = storage_configuration(env)
     temporary = marker.get("temporaryInputs") or []
+    if not temporary:
+        return
+    storage = storage_configuration(env)
     for item in temporary:
         if item.get("cleanup") == "deleted-and-verified":
             continue

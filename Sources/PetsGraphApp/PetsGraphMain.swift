@@ -23,7 +23,7 @@ final class SingleInstanceLock {
 }
 
 struct AppConfiguration {
-  let packageURL: URL
+  let packageURLs: [URL]
   let displayHeightPt: Double?
   let startDelaySeconds: Double
   let verifyIntegrity: Bool
@@ -54,30 +54,49 @@ struct PetsGraphMain {
         instanceLock = lock
       }
       let started = ProcessInfo.processInfo.systemUptime
-      let package = try PetPackageLoader().load(
-        at: configuration.packageURL,
-        verifyIntegrity: configuration.verifyIntegrity
-      )
+      let packages = try configuration.packageURLs.map {
+        try PetPackageLoader().load(
+          at: $0,
+          verifyIntegrity: configuration.verifyIntegrity
+        )
+      }
+      guard Set(packages.map { $0.manifest.pet.id }).count == packages.count else {
+        throw PackageValidationError.invalid("bundled packages must have unique pet IDs")
+      }
       let loadDuration = ProcessInfo.processInfo.systemUptime - started
       print(
-        "petsgraph package=\(package.manifest.package.id) "
-          + "clips=\(package.clips.count) verified=\(configuration.verifyIntegrity) "
+        "petsgraph packages=\(packages.map { $0.manifest.package.id }.joined(separator: ",")) "
+          + "clips=\(packages.reduce(0) { $0 + $1.clips.count }) "
+          + "verified=\(configuration.verifyIntegrity) "
           + String(format: "load=%.3fs", loadDuration)
       )
       if configuration.validateOnly {
-        if package.behavior?.profile == "quiet-sleep-companion" {
-          try validateQuietCompanionBehavior(package)
-        } else if configuration.engineeringBehaviorPreview {
-          try validateEngineeringBehavior(package)
+        for package in packages {
+          if package.behavior?.profile == "quiet-sleep-companion" {
+            try validateQuietCompanionBehavior(package)
+          } else if configuration.engineeringBehaviorPreview {
+            try validateEngineeringBehavior(package)
+          }
         }
         print("petsgraph validation passed")
         return
       }
       if configuration.validateMedia {
-        try validateRuntimeMedia(package)
+        for package in packages {
+          try validateRuntimeMedia(package)
+        }
         return
       }
+      guard !packages.isEmpty else {
+        throw PackageValidationError.missing("at least one pet package")
+      }
+      if configuration.engineeringBehaviorPreview, packages.count != 1 {
+        throw PackageValidationError.invalid(
+          "engineering preview accepts exactly one pet package"
+        )
+      }
       if configuration.engineeringBehaviorPreview {
+        let package = packages[0]
         let nativeLeft = package.graph.nodes.contains {
           $0.id == "gait.walk.left.strict-side-low-tail"
         }
@@ -87,13 +106,13 @@ struct PetsGraphMain {
             + "; this package remains non-installable until human desktop review"
         )
       }
-      if package.behavior?.profile == "quiet-sleep-companion" {
+      if packages.allSatisfy({ $0.behavior?.profile == "quiet-sleep-companion" }) {
         print("petsgraph quiet-sleep-companion enabled; desktop clicks and locomotion are disabled")
       }
 
       let application = NSApplication.shared
       let delegate = AppDelegate(
-        package: package,
+        packages: packages,
         configuration: configuration
       )
       application.delegate = delegate
@@ -258,11 +277,8 @@ struct PetsGraphMain {
             "same-scene quiet path \(source) to \(target) cannot move the window"
           )
         }
-        if !sameScene, plan.movementDirection == nil {
-          throw PackageValidationError.invalid(
-            "cross-scene quiet path \(source) to \(target) needs approved window motion"
-          )
-        }
+        // Cross-scene motion may be authored entirely inside the fixed canvas.
+        // Root motion is only required when the desktop window itself must move.
         sleepPaths += 1
       }
     }
@@ -317,7 +333,7 @@ struct PetsGraphMain {
   private static func parseArguments(_ arguments: [String]) throws -> AppConfiguration {
     if arguments.contains("--help") || arguments.contains("-h") {
       print(
-        "Usage: petsgraph <package.petsgraph-pet> "
+        "Usage: petsgraph [package.petsgraph-pet ...] "
           + "[--display-height <points, defaults to package baseHeightPt>] "
           + "[--start-delay <seconds>] "
           + "[--no-integrity] [--validate-only] [--validate-media] "
@@ -326,20 +342,30 @@ struct PetsGraphMain {
       )
       exit(0)
     }
-    let packagePath: String
-    let firstOptionIndex: Int
-    if let supplied = arguments.first, !supplied.hasPrefix("--") {
-      packagePath = supplied
-      firstOptionIndex = 1
-    } else if let bundled = Bundle.main.url(
+    let explicitPackagePaths = arguments.prefix { !$0.hasPrefix("--") }
+    let firstOptionIndex = explicitPackagePaths.count
+    let packageURLs: [URL]
+    if !explicitPackagePaths.isEmpty {
+      packageURLs = explicitPackagePaths.map {
+        URL(fileURLWithPath: $0, isDirectory: true)
+      }
+    } else if let petsDirectory = Bundle.main.resourceURL?.appendingPathComponent(
+      "Pets",
+      isDirectory: true
+    ), let bundled = try? FileManager.default.contentsOfDirectory(
+      at: petsDirectory,
+      includingPropertiesForKeys: nil,
+      options: [.skipsHiddenFiles]
+    ).filter({ $0.pathExtension == "petsgraph-pet" }), !bundled.isEmpty {
+      packageURLs = bundled.sorted { $0.lastPathComponent < $1.lastPathComponent }
+    } else if let legacy = Bundle.main.url(
       forResource: "DefaultPet",
       withExtension: "petsgraph-pet"
     ) {
-      packagePath = bundled.path
-      firstOptionIndex = 0
+      packageURLs = [legacy]
     } else {
       throw PackageValidationError.invalid(
-        "a .petsgraph-pet directory is required, or DefaultPet.petsgraph-pet must be bundled"
+        "a .petsgraph-pet directory is required, or Resources/Pets must contain packages"
       )
     }
 
@@ -360,10 +386,10 @@ struct PetsGraphMain {
         guard
           index < arguments.count,
           let value = Double(arguments[index]),
-          value >= 80,
-          value <= 320
+          value >= 40,
+          value <= 640
         else {
-          throw PackageValidationError.invalid("display height must be between 80 and 320 points")
+          throw PackageValidationError.invalid("display height must be between 40 and 640 points")
         }
         displayHeight = value
       case "--start-delay":
@@ -423,7 +449,7 @@ struct PetsGraphMain {
     }
 
     return AppConfiguration(
-      packageURL: URL(fileURLWithPath: packagePath, isDirectory: true),
+      packageURLs: packageURLs,
       displayHeightPt: displayHeight,
       startDelaySeconds: startDelay,
       verifyIntegrity: verifyIntegrity,
@@ -438,7 +464,7 @@ struct PetsGraphMain {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class LegacySinglePetAppDelegate: NSObject, NSApplicationDelegate {
   private let package: LoadedPetPackage
   private let configuration: AppConfiguration
   private let menuCatalog: QuietCompanionMenuCatalog
@@ -470,7 +496,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       }
       petController = controller
       makeStatusItem()
-      controller.start()
+      try controller.start()
     } catch {
       fputs("petsgraph: \(error)\n", stderr)
       NSApplication.shared.terminate(nil)

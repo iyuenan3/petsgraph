@@ -211,7 +211,9 @@ final class PackageLoaderTests: XCTestCase {
       [35.625, 0]
     )
     XCTAssertEqual(package.manifest.renderAssets.environmentProps?.first?.hitTest, "passthrough")
-    XCTAssertEqual(package.manifest.renderAssets.environmentProps?.first?.scenes, ["floor"])
+    XCTAssertEqual(package.manifest.renderAssets.environmentProps?.first?.scenes, ["cat-bed"])
+    XCTAssertEqual(package.manifest.scenes?.map(\.id), ["cat-bed"])
+    XCTAssertEqual(package.manifest.scenes?.first?.displayName, "猫窝")
     XCTAssertEqual(package.environmentPropURL(id: "pillow")?.lastPathComponent, "pillow.png")
     XCTAssertEqual(package.graph.nodes.first(where: { $0.id == "rest.prone.left" })?.role, "dwell")
     XCTAssertEqual(package.graph.nodes.first(where: { $0.id == "sit.front.floor" })?.role, "interaction")
@@ -236,7 +238,7 @@ final class PackageLoaderTests: XCTestCase {
     )
     XCTAssertEqual(
       package.manifest.renderAssets.environmentProps?.first?.scenes,
-      ["floor"]
+      ["cat-bed"]
     )
   }
 
@@ -331,6 +333,21 @@ final class PackageLoaderTests: XCTestCase {
         atPath: fixture.root.appendingPathComponent("frames").path
       )
     )
+  }
+
+  func testCroppedRGBAPackagePreservesPerClipAuthoredFrameRate() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.enableCroppedRGBAMedia()
+    try fixture.setAllRawMediaFrameRates(12)
+
+    let package = try PetPackageLoader().load(at: fixture.root)
+    for clip in package.clips.values {
+      XCTAssertEqual(clip.media?.frameRate, 12)
+      XCTAssertTrue(
+        clip.frames.allSatisfy { abs($0.durationMs - 1_000.0 / 12.0) < 0.001 }
+      )
+    }
   }
 
   func testMissingCroppedRGBAMediaIsRejected() throws {
@@ -440,6 +457,39 @@ final class PackageLoaderTests: XCTestCase {
     }
   }
 
+  func testLoadsHorizontalPresentationOffsetWithoutRootMotion() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.setFirstPresentationOffset(
+      clipID: "prone-left-to-sit-front-v1",
+      offset: [12, 0]
+    )
+
+    let package = try PetPackageLoader().load(
+      at: fixture.root,
+      verifyIntegrity: false
+    )
+    let clip = try XCTUnwrap(package.clips["prone-left-to-sit-front-v1"])
+    XCTAssertEqual(clip.frames.first?.presentationOffsetPx, [12, 0])
+    XCTAssertEqual(clip.rootMotionEndPt, [0, 0])
+    XCTAssertTrue(clip.frames.allSatisfy { $0.rootMotionPt == [0, 0] })
+  }
+
+  func testRejectsVerticalPresentationOffset() throws {
+    let fixture = try SleepPackageFixture(kind: .quietCompanion)
+    addTeardownBlock { fixture.remove() }
+    try fixture.setFirstPresentationOffset(
+      clipID: "prone-left-to-sit-front-v1",
+      offset: [0, 1]
+    )
+
+    XCTAssertThrowsError(
+      try PetPackageLoader().load(at: fixture.root, verifyIntegrity: false)
+    ) { error in
+      XCTAssertTrue(String(describing: error).contains("vertical presentation offset"))
+    }
+  }
+
   func testRejectsQuietNodeLoopRootMotion() throws {
     let fixture = try SleepPackageFixture(kind: .quietCompanion)
     addTeardownBlock { fixture.remove() }
@@ -525,6 +575,19 @@ private final class SleepPackageFixture: @unchecked Sendable {
     var value = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
     value["rootMotionEndPt"] = [x, 0]
     let data = try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys])
+    try data.write(to: url)
+  }
+
+  func setFirstPresentationOffset(clipID: String, offset: [Double]) throws {
+    let url = root.appendingPathComponent("clips/\(clipID).json")
+    var value = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+    var frames = value["frames"] as! [[String: Any]]
+    frames[0]["presentationOffsetPx"] = offset
+    value["frames"] = frames
+    let data = try JSONSerialization.data(
+      withJSONObject: value,
+      options: [.prettyPrinted, .sortedKeys]
+    )
     try data.write(to: url)
   }
 
@@ -697,6 +760,25 @@ private final class SleepPackageFixture: @unchecked Sendable {
     media["frameByteCount"] = count
     clip["media"] = media
     try writeJSON(clip, to: "clips/prone-left-loop-v1.json")
+  }
+
+  func setAllRawMediaFrameRates(_ frameRate: Double) throws {
+    for path in writtenPaths.filter({ $0.hasPrefix("clips/") }).sorted() {
+      let url = root.appendingPathComponent(path)
+      var clip = try JSONSerialization.jsonObject(
+        with: Data(contentsOf: url)
+      ) as! [String: Any]
+      var media = clip["media"] as! [String: Any]
+      media["frameRate"] = frameRate
+      clip["media"] = media
+      var frames = clip["frames"] as! [[String: Any]]
+      for index in frames.indices {
+        frames[index]["durationMs"] = 1_000.0 / frameRate
+      }
+      clip["frames"] = frames
+      try writeJSON(clip, to: path)
+    }
+    try rewriteIntegrity(schemaVersion: "0.4.0")
   }
 
   func setFirstRawCompiledDigest(_ digest: String) throws {
@@ -951,7 +1033,7 @@ private final class SleepPackageFixture: @unchecked Sendable {
         "src": "props/pillow.png",
         "offsetFromFloorOriginPt": [35.625, 0],
         "visibility": "node-scenes",
-        "scenes": ["floor"],
+        "scenes": ["cat-bed"],
         "layer": "behind-pet",
         "hitTest": "passthrough",
       ]]
@@ -985,6 +1067,11 @@ private final class SleepPackageFixture: @unchecked Sendable {
     ]
     if kind == .quietCompanion {
       packageManifest["behavior"] = "behavior.json"
+      packageManifest["scenes"] = [[
+        "id": "cat-bed",
+        "displayName": "猫窝",
+        "order": 0,
+      ]]
     }
     try writeJSON(packageManifest, to: "package.json")
     try writeJSON(
@@ -1020,7 +1107,7 @@ private final class SleepPackageFixture: @unchecked Sendable {
           "sameSceneProbability": 0.9,
           ],
           "scenePolicy": [
-            "floor": [
+            "cat-bed": [
               "sticky": true,
               "minimumDwellSeconds": 300,
               "exitCooldownSeconds": 300,
@@ -1098,7 +1185,7 @@ private final class SleepPackageFixture: @unchecked Sendable {
       "grounded": true,
       "stability": "stable",
       "loopClip": loop,
-      "scene": "floor",
+      "scene": "cat-bed",
       "role": role,
       "autonomousEligible": autonomous,
       "props": [],

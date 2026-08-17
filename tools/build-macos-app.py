@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a versioned PetsGraph .app with one bundled default pet package."""
+"""Build a versioned Apple-silicon PetsGraph app with bundled pet packages."""
 
 from __future__ import annotations
 
@@ -16,12 +16,19 @@ ROOT = Path(__file__).resolve().parents[1]
 SIGNING_DETRITUS_XATTRS = {
     "com.apple.FinderInfo",
     "com.apple.ResourceFork",
+    "com.apple.quarantine",
 }
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--package", type=Path, required=True)
+    parser.add_argument(
+        "--package",
+        type=Path,
+        action="append",
+        required=True,
+        help="repeat once for every bundled .petsgraph-pet package",
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--build-number", default="1")
@@ -68,11 +75,28 @@ def assert_no_signing_detritus(root: Path) -> None:
         )
 
 
+def clone_or_copytree(source: Path, destination: Path) -> None:
+    """Prefer an APFS clone so local review apps do not duplicate pet media."""
+    copy_environment = os.environ.copy()
+    copy_environment["COPYFILE_DISABLE"] = "1"
+    cloned = subprocess.run(
+        ["/bin/cp", "-cR", str(source), str(destination)],
+        check=False,
+        env=copy_environment,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    if cloned.returncode != 0:
+        shutil.copytree(source, destination, copy_function=shutil.copyfile)
+
+
 def main() -> None:
     args = parse_args()
-    package = within_repo(args.package, strict=True)
-    if not package.is_dir() or package.suffix != ".petsgraph-pet":
-        raise ValueError("--package must be a .petsgraph-pet directory")
+    packages = [within_repo(value, strict=True) for value in args.package]
+    if any(not package.is_dir() or package.suffix != ".petsgraph-pet" for package in packages):
+        raise ValueError("every --package must be a .petsgraph-pet directory")
+    if len({package.name for package in packages}) != len(packages):
+        raise ValueError("bundled pet package directory names must be unique")
     output = within_repo(args.output, strict=False)
     if output.exists():
         raise FileExistsError(f"refusing to overwrite existing app: {output}")
@@ -123,8 +147,16 @@ def main() -> None:
     binary = Path(bin_path) / "petsgraph"
     if not binary.is_file():
         raise FileNotFoundError(f"release executable not found: {binary}")
+    architecture = subprocess.run(
+        ["/usr/bin/file", str(binary)],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    if "arm64" not in architecture:
+        raise ValueError("release executable is not Apple silicon arm64")
     subprocess.run(
-        [str(binary), str(package), "--validate-only"],
+        [str(binary), *[str(package) for package in packages], "--validate-only"],
         cwd=ROOT,
         env=environment,
         check=True,
@@ -140,7 +172,10 @@ def main() -> None:
         destination_binary = macos / "petsgraph"
         shutil.copy2(binary, destination_binary)
         destination_binary.chmod(0o755)
-        shutil.copytree(package, resources / "DefaultPet.petsgraph-pet")
+        pets = resources / "Pets"
+        pets.mkdir()
+        for package in packages:
+            clone_or_copytree(package, pets / package.name)
         info = {
             "CFBundleDevelopmentRegion": "zh_CN",
             "CFBundleDisplayName": app_name,

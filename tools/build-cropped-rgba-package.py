@@ -20,7 +20,6 @@ from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = "0.4.0"
-FRAME_RATE = 24.0
 PADDING_PX = 4
 
 
@@ -30,6 +29,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--padding", type=int, default=PADDING_PX)
+    parser.add_argument(
+        "--base-height-pt",
+        type=float,
+        help=(
+            "candidate-only presentation height override; changes package display "
+            "metadata without changing source frames"
+        ),
+    )
     parser.add_argument(
         "--release-approved",
         action="store_true",
@@ -205,6 +212,12 @@ def required_clip_ids(graph: dict[str, Any]) -> set[str]:
 
 def main() -> None:
     args = parse_args()
+    if args.base_height_pt is not None and args.base_height_pt <= 0:
+        raise ValueError("--base-height-pt must be positive")
+    if args.release_approved and args.base_height_pt is not None:
+        raise ValueError(
+            "a presentation height override requires fresh runtime review before release approval"
+        )
     if args.padding < 0:
         raise ValueError("--padding must be non-negative")
     source = within_repo(args.source_package, strict=True)
@@ -299,6 +312,15 @@ def main() -> None:
             ]
             if not frame_paths:
                 raise ValueError(f"clip {clip_id} has no frames")
+            frame_durations = [float(frame["durationMs"]) for frame in frames]
+            if (
+                min(frame_durations) <= 0
+                or max(frame_durations) - min(frame_durations) > 0.001
+            ):
+                raise ValueError(
+                    f"clip {clip_id} must use one fixed authored frame duration"
+                )
+            frame_rate = 1_000.0 / frame_durations[0]
             if [path.name for path in frame_paths] != [
                 f"{index:04d}.png" for index in range(len(frame_paths))
             ]:
@@ -331,7 +353,7 @@ def main() -> None:
                 "codec": "raw-rgba8",
                 "container": "contiguous-frame-stream",
                 "frameCount": len(frames),
-                "frameRate": FRAME_RATE,
+                "frameRate": frame_rate,
                 "alphaMode": "premultiplied-last",
                 "colorSpace": "sRGB",
                 "sourceSequenceDigest": source_digest,
@@ -345,6 +367,7 @@ def main() -> None:
                 {
                     "id": clip_id,
                     "frames": len(frames),
+                    "authoredFrameRate": frame_rate,
                     "cropRectPx": list(crop),
                     "pngBytes": sum(path.stat().st_size for path in frame_paths),
                     "rgbaBytes": media_path.stat().st_size,
@@ -360,6 +383,8 @@ def main() -> None:
         ).strftime("%Y-%m-%dT%H:%M:%S%z")
         manifest["renderAssets"]["mode"] = "cropped-rgba-clips"
         manifest["renderAssets"]["pixelFormat"] = "rgba8-premultiplied"
+        if args.base_height_pt is not None:
+            manifest["art"]["baseHeightPt"] = args.base_height_pt
         manifest["sourceAssets"] = "source-assets.json"
         write_json(temporary / "package.json", manifest)
 
@@ -375,11 +400,12 @@ def main() -> None:
             },
             "derivation": {
                 "format": "raw-rgba8-premultiplied-last",
-                "frameRate": FRAME_RATE,
+                "frameRate": "per-clip authored rate from immutable frame timing",
                 "frameOrder": "unchanged",
                 "spatialTransform": "one fixed alpha-union crop per clip",
                 "cropPaddingPx": args.padding,
                 "temporalTransform": "none",
+                "presentationBaseHeightPt": manifest["art"]["baseHeightPt"],
             },
             "clips": summaries,
             "verifiedSourceIntegrityEntries": len(source_integrity.get("files", [])),

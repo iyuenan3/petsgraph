@@ -27,7 +27,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--version", required=True)
     parser.add_argument("--app-name", default="PetsGraph")
-    parser.add_argument("--preview", type=Path)
     return parser.parse_args()
 
 
@@ -58,32 +57,66 @@ def safe_package_child(package: Path, relative: str) -> Path:
 
 
 def read_embedded_pet_metadata(app: Path, expected_version: str) -> dict[str, object]:
-    package = app / "Contents" / "Resources" / "DefaultPet.petsgraph-pet"
-    package_json = (
-        package / "package.json"
+    pets_root = app / "Contents" / "Resources" / "Pets"
+    if not pets_root.is_dir():
+        raise ValueError("release app must contain Contents/Resources/Pets")
+    packages = sorted(
+        path for path in pets_root.iterdir()
+        if path.is_dir() and path.suffix == ".petsgraph-pet" and not path.name.startswith(".")
     )
-    payload = json.loads(package_json.read_text(encoding="utf-8"))
-    name = str(payload.get("pet", {}).get("displayName", "")).strip()
-    if not name:
-        raise ValueError("embedded default pet needs a displayName")
-    package_version = str(payload.get("package", {}).get("version", ""))
-    if package_version != expected_version:
-        raise ValueError(
-            "embedded package version does not match release version: "
-            f"{package_version} != {expected_version}"
-        )
-    review_path = safe_package_child(package, str(payload.get("reviewIndex", "")))
-    review = json.loads(review_path.read_text(encoding="utf-8"))
-    if review.get("runtimeChainStatus") != "runtime-chain-approved":
-        raise ValueError("embedded package is not runtime-chain-approved")
-    if review.get("installable") is not True:
-        raise ValueError("embedded package is not installable")
+    if not packages:
+        raise ValueError("release app must contain at least one pet package")
+
+    embedded: list[dict[str, object]] = []
+    pet_ids: set[str] = set()
+    schema_versions: set[str] = set()
+    render_modes: set[str] = set()
+    for package in packages:
+        payload = json.loads((package / "package.json").read_text(encoding="utf-8"))
+        pet = payload.get("pet", {})
+        identity = str(pet.get("id", "")).strip()
+        name = str(pet.get("displayName", "")).strip()
+        if not identity or not name:
+            raise ValueError(f"embedded package {package.name} needs pet id and displayName")
+        if identity in pet_ids:
+            raise ValueError(f"duplicate embedded pet id: {identity}")
+        pet_ids.add(identity)
+
+        package_identity = payload.get("package", {})
+        package_version = str(package_identity.get("version", ""))
+        if package_version != expected_version:
+            raise ValueError(
+                f"embedded package {package.name} version does not match release version: "
+                f"{package_version} != {expected_version}"
+            )
+        review_path = safe_package_child(package, str(payload.get("reviewIndex", "")))
+        review = json.loads(review_path.read_text(encoding="utf-8"))
+        if review.get("runtimeChainStatus") != "runtime-chain-approved":
+            raise ValueError(f"embedded package {package.name} is not runtime-chain-approved")
+        if review.get("installable") is not True:
+            raise ValueError(f"embedded package {package.name} is not installable")
+        if review.get("remainingRuntimeGates"):
+            raise ValueError(f"embedded package {package.name} still has runtime gates")
+
+        schema_version = str(payload.get("schemaVersion", ""))
+        render_mode = str(payload.get("renderAssets", {}).get("mode", ""))
+        schema_versions.add(schema_version)
+        render_modes.add(render_mode)
+        embedded.append({
+            "id": identity,
+            "displayName": name,
+            "packageId": str(package_identity.get("id", "")),
+            "packageVersion": package_version,
+            "schemaVersion": schema_version,
+            "renderMode": render_mode,
+        })
+
     return {
-        "embeddedPet": name,
-        "packageSchemaVersion": str(payload.get("schemaVersion", "")),
-        "renderMode": str(payload.get("renderAssets", {}).get("mode", "")),
-        "runtimeChainStatus": str(review.get("runtimeChainStatus", "")),
-        "installable": bool(review.get("installable")),
+        "embeddedPets": embedded,
+        "packageSchemaVersions": sorted(schema_versions),
+        "renderModes": sorted(render_modes),
+        "runtimeChainStatus": "runtime-chain-approved",
+        "installable": True,
     }
 
 
@@ -124,7 +157,6 @@ def assert_no_signing_detritus(root: Path) -> None:
 def main() -> None:
     args = parse_args()
     app = within_repo(args.app, strict=True)
-    preview = within_repo(args.preview, strict=True) if args.preview else None
     output = within_repo(args.output, strict=False)
     app_name = args.app_name.strip()
 
@@ -176,23 +208,12 @@ def main() -> None:
             check=True,
         )
         package_metadata = read_embedded_pet_metadata(sanitized_app, args.version)
-        pet_name = str(package_metadata["embeddedPet"])
-        prefix = f"PetsGraph-v{args.version}-macOS-arm64"
-        app_zip = build_output / f"{prefix}.zip"
-        dmg = build_output / f"{prefix}.dmg"
-
-        subprocess.run(
-            [
-                "/usr/bin/ditto",
-                "-c",
-                "-k",
-                "--sequesterRsrc",
-                "--keepParent",
-                str(sanitized_app),
-                str(app_zip),
-            ],
-            check=True,
+        pet_names = "、".join(
+            str(pet["displayName"])
+            for pet in package_metadata["embeddedPets"]
         )
+        prefix = f"PetsGraph-v{args.version}-macOS-arm64"
+        dmg = build_output / f"{prefix}.dmg"
 
         dmg_stage = Path(tempfile.mkdtemp(prefix="petsgraph-release-dmg-"))
         try:
@@ -210,7 +231,7 @@ def main() -> None:
 3. 如果系统仍然阻止运行，请到“系统设置 > 隐私与安全性”，确认打开 {app_name}。
 4. App 启动后，点击菜单栏里的爪印，可以指定宠物睡姿或退出。
 
-当前内置宠物：{pet_name}。
+当前内置宠物：{pet_names}。
 以后安装其他宠物包时，App 名称仍保持 {app_name}。
 
 支持 macOS 14 及以上版本，仅支持 Apple 芯片 Mac。
@@ -240,27 +261,13 @@ def main() -> None:
         finally:
             shutil.rmtree(dmg_stage, ignore_errors=True)
 
-        artifacts: list[tuple[Path, str]] = [
-            (dmg, "installer-dmg"),
-            (app_zip, "app-zip"),
-        ]
-        if preview is not None:
-            preview_output = build_output / f"Wubai-Sleep-Postures-v{args.version}.png"
-            shutil.copy2(preview, preview_output)
-            artifacts.append((preview_output, "preview-image"))
-
-        subprocess.run(["/usr/bin/unzip", "-tq", str(app_zip)], check=True)
+        artifacts: list[tuple[Path, str]] = [(dmg, "installer-dmg")]
         subprocess.run(["/usr/bin/hdiutil", "verify", str(dmg)], check=True)
 
         entries = [artifact_entry(path, kind) for path, kind in artifacts]
-        checksums = build_output / "SHA256SUMS.txt"
-        checksums.write_text(
-            "".join(f"{entry['sha256']}  {entry['file']}\n" for entry in entries),
-            encoding="utf-8",
-        )
-        entries.append(artifact_entry(checksums, "checksums"))
         metadata = {
             "schema": 1,
+            "tag": f"v{args.version}",
             "version": args.version,
             "platform": "macos-arm64",
             "minimumSystemVersion": "14.0",

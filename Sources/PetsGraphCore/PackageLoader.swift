@@ -104,7 +104,8 @@ public struct PetPackageLoader: Sendable {
       requiresSceneContract: Self.schemaMinor(manifest.schemaVersion) >= 2,
       declaredEnvironmentPropIDs: Set(
         manifest.renderAssets.environmentProps?.map(\.id) ?? []
-      )
+      ),
+      declaredSceneIDs: manifest.scenes.map { Set($0.map(\.id)) }
     )
     try validateBehavior(behavior, manifest: manifest, graph: graph)
     try validateDemo(demo, clips: clips)
@@ -194,6 +195,20 @@ public struct PetPackageLoader: Sendable {
       manifest.art.coordinateOrigin == "top-left"
     else {
       throw PackageValidationError.invalid("invalid art coordinate contract")
+    }
+    if let scenes = manifest.scenes {
+      guard
+        !scenes.isEmpty,
+        Set(scenes.map(\.id)).count == scenes.count,
+        Set(scenes.map(\.order)).count == scenes.count,
+        scenes.allSatisfy({
+          !$0.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !$0.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && $0.order >= 0
+        })
+      else {
+        throw PackageValidationError.invalid("invalid scene catalog")
+      }
     }
   }
 
@@ -287,12 +302,19 @@ public struct PetPackageLoader: Sendable {
         frame.collision.screenBoundsPx.count == 4,
         (frame.petBoundsPx?.count ?? 4) == 4,
         (frame.collision.petHitEllipsePx?.count ?? 4) == 4,
-        (frame.propBoundsPx?.values.allSatisfy({ $0.count == 4 }) ?? true)
+        (frame.propBoundsPx?.values.allSatisfy({ $0.count == 4 }) ?? true),
+        (frame.presentationOffsetPx?.count ?? 2) == 2,
+        (frame.presentationOffsetPx?.allSatisfy(\.isFinite) ?? true)
       else {
         throw PackageValidationError.invalid("clip \(clip.id) frame \(index) has invalid timing or root motion")
       }
       guard abs(frame.rootMotionPt[1]) < 0.000_001 else {
         throw PackageValidationError.invalid("clip \(clip.id) moves vertically in phase 0")
+      }
+      guard abs(frame.presentationOffsetPx?[1] ?? 0) < 0.000_001 else {
+        throw PackageValidationError.invalid(
+          "clip \(clip.id) frame \(index) has vertical presentation offset"
+        )
       }
       if clip.facing == "right" {
         guard frame.rootMotionPt[0] + 0.000_001 >= previousX else {
@@ -415,7 +437,7 @@ public struct PetPackageLoader: Sendable {
       media.codec == "raw-rgba8",
       media.container == "contiguous-frame-stream",
       media.frameCount == clip.frames.count,
-      abs(media.frameRate - 24) < 0.000_001,
+      media.frameRate > 0,
       media.alphaMode == "premultiplied-last",
       media.colorSpace == "sRGB",
       bytesPerRow == crop[2] * 4,
@@ -464,7 +486,8 @@ public struct PetPackageLoader: Sendable {
     clips: [String: ClipDefinition],
     defaultNode: String,
     requiresSceneContract: Bool,
-    declaredEnvironmentPropIDs: Set<String>
+    declaredEnvironmentPropIDs: Set<String>,
+    declaredSceneIDs: Set<String>?
   ) throws {
     let nodeIDs = Set(graph.nodes.map(\.id))
     guard nodeIDs.count == graph.nodes.count else {
@@ -493,7 +516,7 @@ public struct PetPackageLoader: Sendable {
       if requiresSceneContract {
         guard
           let scene = node.scene,
-          ["floor", "pillow"].contains(scene),
+          !scene.isEmpty,
           let role = node.role,
           ["dwell", "gateway", "interaction", "cyclic"].contains(role),
           node.autonomousEligible != nil,
@@ -576,6 +599,14 @@ public struct PetPackageLoader: Sendable {
       }
     }
     if requiresSceneContract {
+      let graphScenes = Set(graph.nodes.compactMap(\.scene))
+      if let declaredSceneIDs {
+        guard declaredSceneIDs == graphScenes else {
+          throw PackageValidationError.invalid(
+            "scene catalog must exactly match graph scenes"
+          )
+        }
+      }
       try validateSceneReachability(graph)
     }
   }
@@ -643,8 +674,14 @@ public struct PetPackageLoader: Sendable {
         )
       }
     }
+    let graphScenes = Set(graph.nodes.compactMap(\.scene))
+    guard Set(behavior.scenePolicy.keys) == graphScenes else {
+      throw PackageValidationError.invalid(
+        "behavior scene policies must exactly match graph scenes"
+      )
+    }
     for (scene, policy) in behavior.scenePolicy {
-      guard ["floor", "pillow"].contains(scene) else {
+      guard graphScenes.contains(scene) else {
         throw PackageValidationError.invalid("unknown behavior scene \(scene)")
       }
       if let gateway = policy.gateway {

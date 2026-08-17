@@ -438,7 +438,7 @@ def main() -> None:
         },
         "pet": {
             "id": "wubai",
-            "displayName": "李五百",
+            "displayName": "五百",
             "species": "cat",
             "identityStyle": "faithful-real-pet",
         },

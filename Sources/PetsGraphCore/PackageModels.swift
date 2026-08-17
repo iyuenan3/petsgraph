@@ -8,6 +8,7 @@ public struct PetPackageManifest: Codable, Sendable {
   public let renderAssets: RenderAssets
   public let graph: String
   public let behavior: String?
+  public let scenes: [SceneDefinition]?
   public let reviewIndex: String
   public let integrity: String
 
@@ -19,6 +20,7 @@ public struct PetPackageManifest: Codable, Sendable {
     renderAssets: RenderAssets,
     graph: String,
     behavior: String? = nil,
+    scenes: [SceneDefinition]? = nil,
     reviewIndex: String,
     integrity: String
   ) {
@@ -29,8 +31,21 @@ public struct PetPackageManifest: Codable, Sendable {
     self.renderAssets = renderAssets
     self.graph = graph
     self.behavior = behavior
+    self.scenes = scenes
     self.reviewIndex = reviewIndex
     self.integrity = integrity
+  }
+}
+
+public struct SceneDefinition: Codable, Sendable {
+  public let id: String
+  public let displayName: String
+  public let order: Int
+
+  public init(id: String, displayName: String, order: Int) {
+    self.id = id
+    self.displayName = displayName
+    self.order = order
   }
 }
 
@@ -295,6 +310,7 @@ public struct ClipFrame: Codable, Sendable {
   public let anchorsPx: FrameAnchors
   public let collision: FrameCollision
   public let rootMotionPt: [Double]
+  public let presentationOffsetPx: [Double]?
 
   public init(
     src: String,
@@ -304,7 +320,8 @@ public struct ClipFrame: Codable, Sendable {
     propBoundsPx: [String: [Double]]? = nil,
     anchorsPx: FrameAnchors,
     collision: FrameCollision,
-    rootMotionPt: [Double]
+    rootMotionPt: [Double],
+    presentationOffsetPx: [Double]? = nil
   ) {
     self.src = src
     self.durationMs = durationMs
@@ -314,6 +331,7 @@ public struct ClipFrame: Codable, Sendable {
     self.anchorsPx = anchorsPx
     self.collision = collision
     self.rootMotionPt = rootMotionPt
+    self.presentationOffsetPx = presentationOffsetPx
   }
 }
 
