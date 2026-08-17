@@ -64,6 +64,10 @@
     "mode": "frames",
     "pixelFormat": "rgba8-straight"
   },
+  "scenes": [
+    {"id": "floor", "displayName": "地面", "order": 0},
+    {"id": "cat-bed", "displayName": "猫窝", "order": 1}
+  ],
   "graph": "graph.json",
   "behavior": "behavior.json",
   "reviewIndex": "reviews/index.json",
@@ -76,6 +80,7 @@
 - `package.id`、`pet.id` 和版本号不可通过覆盖旧文件改变既有已批准包；新素材使用新版本。
 - `baseHeightPt` 是 root motion 和桌面显示的参考高度，不锁死用户最终显示大小。
 - 每个安装包只接受一个宠物、一个默认睡眠节点、一个动作图和一个行为配置。不同宠物的节点集合、场景和边数量可以完全不同。
+- `scenes` 是可选的场景目录。新包应声明每个 scene 的稳定 ID、中文名称和唯一非负顺序，并且目录 ID 集合必须与动作图节点实际使用的 scene 集合完全一致。历史包可以缺省，由运行时提供兼容显示名。
 - `renderAssets.mode=frames` 使用 `rgba8-straight` PNG。`hevc-alpha-clips` 只保留为 schema `0.3.0` 对照实验。`cropped-rgba-clips` 使用 schema `0.4.0` 与 `rgba8-premultiplied`，必须从批准 PNG 包确定性编译。
 
 ## 4. 坐标与缩放
@@ -146,7 +151,7 @@
 - 每个正式节点可以提供面向用户的 `displayName`。安静陪伴包的所有自主 `dwell` 节点必须提供非空中文显示名，否则加载器拒绝安装。
 - 正式菜单、状态栏和普通反馈只使用 `displayName` 或受控中文回退文案，不能泄露节点 ID、clip ID 或边 ID。
 - `orientation` 第一阶段支持 `front`、`left`、`right`。
-- `scene` 是宠物包定义的视觉上下文。当前已实现 `floor` 与 `pillow`，飞流需要新增 `cat-bed`；场景改变必须由显式边完成。新增 scene 值必须同步加载器验证与菜单分组测试，不能只改素材清单。
+- `scene` 是宠物包定义的视觉上下文。场景改变必须由显式边完成。加载器不得用 `floor`、`pillow`、`cat-bed` 等固定白名单限制新宠物，菜单按 `package.json.scenes` 动态分组。新包的 scene 目录、图节点和 `behavior.scenePolicy` 必须精确一致。
 - `role` 支持 `dwell`、`gateway`、`interaction` 和 `cyclic`。`gateway` 与 `interaction` 必须设置 `autonomousEligible=false`。
 - 普通正面坐姿使用 `sit.front.floor`。道具场景使用独立场景坐姿，例如枕头的 `sit.front.pillow` 和猫窝的 `sit.front.cat-bed`，不能把没有道具的坐姿当成同一节点。现有历史包中的 `sit.front` 作为 `sit.front.floor` 的兼容 ID，迁移必须通过带版本号新包完成。
 - `props` 声明节点画面必须持续包含的道具。目标节点与入口 clip 的道具集合不兼容时拒绝切换。
@@ -293,7 +298,7 @@
     "codec": "raw-rgba8",
     "container": "contiguous-frame-stream",
     "frameCount": 236,
-    "frameRate": 24,
+    "frameRate": 12,
     "alphaMode": "premultiplied-last",
     "colorSpace": "sRGB",
     "sourceSequenceDigest": "<approved-source-digest>",
@@ -308,6 +313,7 @@
 约束：
 
 - `cropRectPx` 是该 clip 全部批准帧 alpha 包围盒的并集再增加固定透明边距。所有帧共享同一矩形，不得逐帧重新定位或缩放。
+- `frameRate` 是该 clip 自己的批准播放速度，必须为正数，并与所有帧的固定 `durationMs` 一致。运行时不能把全包强制改成 24 FPS。一个包可以同时包含 12、16.2、18 和 24 FPS 等不同 clip。
 - 裁剪只改变媒体存储窗口。帧锚点、碰撞区、道具区、root motion 和窗口布局继续使用包级完整画布坐标。
 - 每帧按 RGBA 字节顺序存储，RGB 已按 alpha 预乘，帧序必须与批准配方完全一致。默认不得插帧、倒放、交叉淡化或修改时间顺序；人工批准的同节点偶发自环可以按配方追加批准源帧的精确倒序副本，但不得修改单帧内容或把该例外扩展到普通图边。
 - `bytesPerRow = cropWidth × 4`，`frameByteCount = bytesPerRow × cropHeight`，文件字节数严格等于 `frameCount × frameByteCount`。
@@ -315,7 +321,7 @@
 - 运行时用只读内存映射与 Core Graphics 直接寻址。小循环可以在预算内预建全部图像，长过渡按固定 crop 分块预建并有界释放。
 - schema `0.4.0` 通过机械与性能验证不等于自动获得安装批准。编译器默认保持 `cropped-rgba-awaiting-human-runtime-review` 与 `installable=false`。只有源 PNG 包已是 `runtime-chain-approved`、明确获得版本发布授权并使用显式 `--release-approved` 构建时，才可把新版本写成 `runtime-chain-approved`、`installable=true`，且发布工作流必须再次核对该状态。
 
-## 7. 李五百睡觉陪伴 MVP 必备能力
+## 7. 五百睡觉陪伴 MVP 必备能力
 
 合规 MVP 包必须提供：
 
@@ -362,7 +368,7 @@
 
 ### 飞流定制图基线
 
-飞流不是李五百图的换皮版本。当前素材动作图已经人工确认，使用 9 个自主睡姿和 2 个场景坐姿，其中 5 个无道具睡姿、4 个猫窝睡姿：
+飞流不是五百图的换皮版本。当前素材动作图已经人工确认，使用 9 个自主睡姿和 2 个场景坐姿，其中 5 个无道具睡姿、4 个猫窝睡姿：
 
 | 节点 | scene | role | 作用 |
 |---|---|---|---|
@@ -418,14 +424,33 @@ sit.front.floor ↔ rest.floor.prone.right
 
 精抠整链状态为 `human-approved-selective-fine-matte-graph-tour`。12 条地面素材使用选择性精抠，19 条已干净素材逐字节复用；所有 clip 继续使用粗抠整链批准的唯一固定变换，未改变帧序和批准速度。该状态不是 `runtime-chain-approved`，也不能据此设置 `installable=true`。
 
-## 8. 生成母片与运行时片段
+当前飞流低功耗正式包从上述精抠事实源确定性编译，包含 31 个 clip 与 5,147 帧，制作坐标为 656×224，`baseHeightPt=181.125`，`groundYPx=183`。它只校准包级桌面显示基准，不修改任何素材帧、固定变换、帧序或批准速度。它已经通过结构、图可达性、媒体长度、哈希、逐帧可读校验和真实桌面运行时验收，状态为 `runtime-chain-approved` 与 `installable=true`。
+
+桌面透明窗口不直接采用制作坐标的宽高比。每条 clip 从固定媒体 alpha 并集裁剪或整段 `contentBoundsPx` 并集计算一个固定正方形视口。视口边长取整段最大宽高，中心与整段边界中心一致；同一 clip 内所有帧共用一个视口，不逐帧跟踪、不改变素材缩放。切换 clip 时，窗口根据统一制作坐标换算新正方形视口，保持原始像素在桌面上的绝对位置连续。跨场景宽动作允许临时使用更大的正方形窗口，不能为了缩小窗口裁掉动作。
+水平屏幕边界限制使用当帧 `contentBoundsPx`，不使用透明正方形视口的外框。只有真实可见内容即将离开屏幕时才能平移逻辑制作画布原点，不得因为透明留白在 clip 切换时制造额外位移。行为规划使用当帧 ground anchor 的桌面 x 坐标，不使用可能远离宠物的宽视口中心。
+
+## 8. App 级多宠宿主契约
+
+`.petsgraph-pet` 继续是一包一宠。多宠由 App 宿主组合，不把两只宠物、两个时钟或两个窗口塞进同一个包：
+
+- App 可以从命令行接收多个连续宠物包路径，也可以从 `Contents/Resources/Pets/` 自动发现全部内嵌包。
+- 同一进程内 `package.id` 的目录名和 `pet.id` 必须唯一。重复宠物 ID 必须在创建菜单或窗口前拒绝，不能覆盖已加载实例。
+- 首次安装没有持久化选择时默认装载全部宠物。之后持久化所选宠物 ID 集合；被移除的旧宠物 ID 在恢复时过滤掉。
+- 每只宠物拥有独立行为会话、当前节点、随机目标、停留截止时间、点击命令和窗口位置。共享 scheduler 只推进渲染，不共享行为状态。
+- 当前默认横排顺序为五百、飞流、其他宠物按 ID。第一只放在物理屏幕左下角，后一只从前一只窗口右边加 12 pt 开始。默认布局不重叠，用户拖动后允许重叠。
+- 全局显示倍率只允许 `0.5`、`0.75`、`1.0`、`1.25`、`1.5`、`1.75`、`2.0`。每只宠物的实际显示高度为自己的 `baseHeightPt × globalScale`，因此不抹平宠物包已经校准的相对体型。
+- 缩放必须保持当前帧 ground anchor 的屏幕坐标，不重启行为、不切换 clip、不逐帧重采样素材。窗口超出屏幕时允许只为留在屏幕内进行一次位置限制。
+- 卸载宠物立即关闭其窗口和道具窗口，释放控制器与媒体缓存。重新装载从该包 `art.defaultNode` 开始，不恢复卸载前的动作中间态。
+- 每只宠物菜单按自身 scene 目录和自主 `dwell` 节点生成中文睡姿。未装载宠物的姿态菜单保留但禁用。
+
+## 9. 生成母片与运行时片段
 
 - 一个生成任务可以产出一条较长的连续母片，再确定性切出多个运行时片段。
 - 例如一条 `趴卧→侧躺→稳定呼吸→返回趴卧` 母片可以切出出站边、稳定循环和独立回程边。
 - 切分只允许选择连续直接帧、统一画布、重定位、抠图和编码，不允许交叉淡化、光流、RIFE 或自动补间。
 - 每个切出的运行时片段仍需独立机械检查；涉及图边时还要验收首尾接缝和完整链。
 
-## 9. 验收契约
+## 10. 验收契约
 
 `reviews/index.json` 记录每个动作、图边和整链的状态，不依赖文档口头描述。
 
@@ -457,7 +482,7 @@ sit.front.floor ↔ rest.floor.prone.right
 - 默认启动没有安装全桌面点击 monitor，也不要求辅助功能权限。
 - 用户放置的 y 在随机睡姿、点击和枕头场景内部切换中保持不变。
 
-### 9.1 已批准素材的生产履历
+### 10.1 已批准素材的生产履历
 
 每个进入 `human-action-approved` 或 `human-edge-approved` 的动作或图边，都必须在私有制作工作区保存独立的 `approved-recipe.json`。每只宠物还必须维护 `approved-assets.json`，逐项索引当前已批准版本及其履历路径。生产履历是跨猫狗复用生成方法的依据，不是运行时安装包内容。
 
@@ -479,7 +504,7 @@ PNG 序列摘要固定按文件名字典序处理。每帧依次写入 UTF-8 文
 
 生产履历禁止保存密钥、访问令牌、签名 URL、临时下载地址和未脱敏日志。原始私密照片可以只留在受控工作区，履历只记录本地角色、相对路径、哈希和来源说明。若历史素材缺少某项信息，必须显式记录为不可恢复的已知限制，不能用推测值补齐；新素材不得带着此类缺口进入批准状态。
 
-## 10. 完整性与安全
+## 11. 完整性与安全
 
 - `integrity.json` 对所有运行时文件保存 SHA-256、字节数和媒体类型。
 - 导入时拒绝绝对路径、`..` 越界、符号链接逃逸、未知 schema 主版本和哈希不匹配。
@@ -489,7 +514,7 @@ PNG 序列摘要固定按文件名字典序处理。每帧依次写入 UTF-8 文
 - `behavior.json` 只能引用图中存在的场景、网关和交互目标。无法满足点击往返或把非自主节点加入候选集时拒绝安装。
 - 枕头节点缺少宠物命中区域、道具区域或联合屏幕边界时，只能进入显式工程预览，不能成为正式 MVP 包。
 
-## 11. 版本与兼容
+## 12. 版本与兼容
 
 - `schemaVersion` 使用语义化版本。
 - `0.1.0` 包是走跑与睡眠工程预览契约。`0.2.0` 已加入必需的 `behavior.json`、节点职责、场景和猫道具命中字段，并由加载器、编译器和回归测试执行。
@@ -497,6 +522,7 @@ PNG 序列摘要固定按文件名字典序处理。每帧依次写入 UTF-8 文
 - App 名称、Bundle ID 与宠物包身份是不同契约。运行时使用 `PetsGraph` 与 `com.maxwell.petsgraph`；当前宠物名称来自 `package.json.pet.displayName`，不能写死在通用菜单或反馈中。
 - `0.3.1` 继续使用 schema `0.2.0`，帧与 `0.3.0` 完全一致。版本变化只涉及 App 品牌分层、动态宠物名称和发布载体。
 - `0.4.0` 使用 schema `0.4.0` 与 `cropped-rgba-clips`。它从 `0.3.1` 已批准 PNG 包确定性编译，帧序、时间、完整画布坐标、动作图、锚点、碰撞区与 root motion 保持不变；PNG 继续作为制作事实源和回滚基线。
+- v0.5.10 App 继续读取 schema `0.2.0` 至 `0.4.0` 的单宠包，同时在宿主层组合多个包。多宠装载、持久化和全局显示倍率不改变单包 schema；公开内嵌的五百与飞流 `0.5.10` 包都已获得可安装批准。
 - 同一主版本新增未知字段时，旧运行时应忽略未知字段并读取已知部分。
 - 未知主版本必须拒绝，并给出可读错误。
 - 任何改变坐标、root motion、图语义或验收要求的变更都视为潜在破坏性变更，必须追加 ADR 并升级 schema。

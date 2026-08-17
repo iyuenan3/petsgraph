@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "tag": "v0.5.10",
+  "version": "0.5.10",
+  "platform": "macos-arm64",
+  "minimumSystemVersion": "14.0",
+  "embeddedPets": [
+    {
+      "id": "feiliu",
+      "displayName": "飞流",
+      "packageId": "feiliu-quiet-companion",
+      "packageVersion": "0.5.10",
+      "schemaVersion": "0.4.0",
+      "renderMode": "cropped-rgba-clips"
+    },
+    {
+      "id": "wubai",
+      "displayName": "五百",
+      "packageId": "wubai-quiet-companion",
+      "packageVersion": "0.5.10",
+      "schemaVersion": "0.4.0",
+      "renderMode": "cropped-rgba-clips"
+    }
+  ],
+  "packageSchemaVersions": [
+    "0.4.0"
+  ],
+  "renderModes": [
+    "cropped-rgba-clips"
+  ],
+  "runtimeChainStatus": "runtime-chain-approved",
+  "installable": true,
+  "artifacts": [
+    {
+      "kind": "installer-dmg",
+      "file": "PetsGraph-v0.5.10-macOS-arm64.dmg",
+      "bytes": 856000287,
+      "sha256": "460395f97c46899eea13947fa8606fc9271f6a02e1171cb3281d98a37cf2bca6"
+    }
+  ]
+}
