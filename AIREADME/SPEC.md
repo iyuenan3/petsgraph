@@ -362,7 +362,7 @@
 
 ### 飞流定制图基线
 
-飞流不是李五百图的换皮版本。当前首版流程已经人工确认，使用 8 个自主睡姿和 2 个场景坐姿，其中 4 个无道具睡姿、4 个猫窝睡姿：
+飞流不是李五百图的换皮版本。当前素材动作图已经人工确认，使用 9 个自主睡姿和 2 个场景坐姿，其中 5 个无道具睡姿、4 个猫窝睡姿：
 
 | 节点 | scene | role | 作用 |
 |---|---|---|---|
@@ -370,6 +370,7 @@
 | `rest.floor.prone.right` | floor | dwell | 平趴睡，地面睡姿枢纽 |
 | `rest.floor.side-stretched.right` | floor | dwell | 侧身伸展睡 |
 | `rest.floor.tight-curled.right` | floor | dwell | 紧蜷睡 |
+| `rest.floor.semi-supine.right` | floor | dwell | 半仰睡，连接平趴睡与仰躺睡 |
 | `rest.floor.full-supine.right` | floor | dwell | 仰躺睡 |
 | `sit.front.cat-bed` | cat-bed | interaction | 坐在猫窝里的点击坐姿，只与猫窝蜷睡往返 |
 | `rest.cat-bed.curled` | cat-bed | dwell | 猫窝蜷睡，猫窝睡姿枢纽 |
@@ -380,7 +381,7 @@
 最低路径语义：
 
 - `sit.front.floor ↔ rest.floor.prone.right` 是地面点击交互主干。旧稿中的 `rest.floor.loaf.front` 不进入飞流首版动作图。
-- 平趴睡分别连接紧蜷睡、侧身伸展睡和仰躺睡。旧稿中的 `rest.floor.semi-supine.right` 不进入飞流首版动作图。
+- 平趴睡分别连接紧蜷睡、侧身伸展睡和半仰睡。仰躺睡只经半仰睡往返，不与平趴睡直接相连。
 - 地面平趴睡与猫窝蜷睡使用两条独立场景进出边。场景切换不经过 `sit.front.cat-bed`。
 - `sit.front.cat-bed` 只承担猫窝场景的点击坐姿，与猫窝蜷睡使用两条独立睡坐边；任何反向都不能倒放。
 - 猫窝蜷睡分别连接猫窝自然趴睡、猫窝侧伸睡和猫窝舒展露腹睡。
@@ -390,6 +391,32 @@
 - 静态端点对齐只批准进入视频制作。循环、过渡、抠图、接缝、动作图与真实运行时仍要分别验收。
 - 已有毛毯与毛毯踩奶素材完整保留为历史制作资产，不进入飞流首版猫窝图。未来若恢复踩奶，需要以猫窝场景重新设计和独立批准。
 - 当前串行闭环只用于检查所有循环和接缝。正式行为在这张合法图上进行加权随机游走。
+
+当前图关系：
+
+```text
+sit.front.floor ↔ rest.floor.prone.right
+                       ↔ rest.floor.side-stretched.right
+                       ↔ rest.floor.tight-curled.right
+                       ↔ rest.floor.semi-supine.right ↔ rest.floor.full-supine.right
+                       ↔ rest.cat-bed.curled ↔ sit.front.cat-bed
+                                               ↔ rest.cat-bed.prone
+                                               ↔ rest.cat-bed.side-stretched
+                                               ↔ rest.cat-bed.stretch-open-belly
+```
+
+其中每个 `↔` 都代表两条独立有向边。当前最小素材集合为 11 个节点循环或稳定 hold，加 20 条有向过渡，共 31 个唯一素材。`sit.front.floor` 当前使用已批准静态端点作为稳定 hold，不得用旧的收爪趴睡路径或其他坐姿视频替代。
+
+当前批准播放速度：
+
+| 素材范围 | 批准播放速度 |
+|---|---:|
+| 平趴睡、侧身伸展睡、紧蜷睡循环 | 12 FPS |
+| 半仰睡、仰躺睡、全部猫窝循环和普通过渡 | 24 FPS |
+| 平趴睡进入猫窝蜷睡 | 18 FPS |
+| 猫窝蜷睡返回平趴睡 | 16.2 FPS |
+
+精抠整链状态为 `human-approved-selective-fine-matte-graph-tour`。12 条地面素材使用选择性精抠，19 条已干净素材逐字节复用；所有 clip 继续使用粗抠整链批准的唯一固定变换，未改变帧序和批准速度。该状态不是 `runtime-chain-approved`，也不能据此设置 `installable=true`。
 
 ## 8. 生成母片与运行时片段
 
