@@ -1,6 +1,6 @@
 # petsgraph · AIREADME
 > 为 Maxwell 自有宠物与朋友委托宠物定制的多宠安静桌面陪伴项目 ｜ 生命周期: public-alpha
-> last-synced: d1b3a4e · 2026-08-18
+> last-synced: 99b3fa2 · 2026-08-18
 > phase: public-macos-v0.5.10-and-windows-v0.6.0
 
 ## 状态

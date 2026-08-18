@@ -125,7 +125,7 @@ DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
 
 GitHub 推送到 `codex/windows-win11-x64`、`main` 或相关 Pull Request 时，`.github/workflows/windows.yml` 在 `windows-2025` 上重新执行锁定还原、测试、WPF 编译、代码运行 ZIP、AMD64 PE 和 ZIP 结构检查。该 artifact 不含私有宠物媒体，仅保留 7 天。内容提交 `2b539a6` 对应运行 `32114691048`，全部步骤通过。
 
-`.github/workflows/windows-release-verify.yml` 只验证已上传到草稿 Release 的 Windows ZIP，它不创建标签、不上传附件、不发布草稿。流程检出精确标签，要求草稿附件集合与清单严格一致，再核对字节数、SHA-256、版本、AMD64 PE、双包数量和运行时完整性。发布所有者已授权对 v0.6.0 触发该流程。
+`.github/workflows/windows-release-verify.yml` 只验证已上传到草稿 Release 的 Windows ZIP，它不创建标签、不上传附件、不发布草稿。GitHub 会对只有 `contents: read` 的工作流 token 隐藏草稿 Release，因此该工作流经发布所有者明确授权使用 `contents: write`，但步骤只允许 `gh release view` 与 `gh release download`。流程从默认分支读取当前工作流定义，再检出精确标签，要求草稿附件集合与清单严格一致，并核对字节数、SHA-256、版本、AMD64 PE、双包数量和运行时完整性。
 
 ## macOS GitHub 公开发布流程
 
@@ -145,7 +145,7 @@ GitHub 推送到 `codex/windows-win11-x64`、`main` 或相关 Pull Request 时�
 2. 提交 README、`docs/releases/v0.6.0.md`、`release/manifests/v0.6.0.json` 和 Windows 草稿验证工作流，再以该内容提交为锚点更新 AIREADME。
 3. 在最终文档提交上创建带注释标签 `v0.6.0`，推送当前发布分支与标签。
 4. 使用 `docs/releases/v0.6.0.md` 创建草稿 Release，精确只上传清单指定的 Windows ZIP。
-5. 手动触发 `.github/workflows/windows-release-verify.yml`，输入标签 `v0.6.0`。
+5. 从默认分支手动触发 `.github/workflows/windows-release-verify.yml`，输入标签 `v0.6.0`。工作流定义来自默认分支，校验对象由 checkout 显式固定到不可移动的发布标签。
 6. Windows Runner 检出精确标签，从草稿 Release 下载冻结 ZIP，并按仓库清单完成全部复验。只有该运行成功后，才能把草稿发布为最新版。
 7. 发布后回读 Release，确认不是草稿、不是预发布、附件数量严格为一，名称、字节数、摘要、标签提交和工作流运行均与冻结基线一致。
 

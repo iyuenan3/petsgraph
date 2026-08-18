@@ -10,6 +10,7 @@
 - Changed: 用户明确授权清理 `dist/` 中约 34 GB 的旧 macOS 候选 App 和 4 份废弃 Windows ZIP，当前只保留冻结的 v0.6.0 正式 ZIP。历史正式发布继续由 Git 标签、GitHub Release、仓库清单和批准包保留。
 - Review: 7 项 MSTest、WPF 解决方案 0 警告 0 错误、两个包 84 个 clip 与 12,013 帧完整性、本机交叉编译、AMD64 PE、488 个 ZIP 条目和 GitHub Windows Runner 通过。冻结 ZIP 为 `913953281` 字节，SHA-256 为 `90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`。
 - Review: 朋友已在真实 Windows 11 x64 电脑上完成使用验收，最终反馈为没有问题，发布所有者明确授权发布 v0.6.0。该反馈没有附带分项时长或 DPI 测试日志，因此不补写未留证的量化结论。
+- Fixed: 修复 Windows 草稿 Release 验证工作流无法读取草稿附件的问题。GitHub 对 `contents: read` 工作流 token 返回 `release not found`，经发布所有者明确授权后改为 `contents: write`；工作流仍只执行 Release 查看和下载，不包含发布、删除、覆盖或上传命令。
 
 ## Unreleased · 2026-08-18
 

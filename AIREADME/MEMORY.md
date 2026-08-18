@@ -172,3 +172,9 @@
 - 现象: GitHub 托管 Windows Runner 可以成功还原 .NET 10 锁定依赖、运行单元测试、编译 WPF、发布 self-contained x64 ZIP，并验证 AMD64 PE 和压缩包结构。这些检查全部通过时，仍没有人看到透明宠物窗口的真实桌面行为。
 - 根因: 托管 Runner 的交互桌面不是目标朋友的 Windows 11 环境，CI 也没有覆盖多 DPI、鼠标穿透、托盘 Shell、锁屏恢复、多显示器和长时动画观察。
 - 结论/避免: 证据始终分为本机静态/交叉编译、GitHub Windows CI、真实媒体 ZIP 校验和 Windows 11 真机 GUI 四层。只有最后一层用户明确通过后，才能把透明、DPI、托盘、拖动和长时运行写成已验收。
+
+## `contents: read` 工作流 token 看不到草稿 Release · 2026-08-18
+
+- 现象: v0.6.0 标签、清单和草稿附件均已存在，本机回读附件为 `uploaded` 且字节数、SHA-256 正确。Windows Release 复验运行 `32125109434` 检出标签和解析清单成功，但在 `gh release view v0.6.0` 返回 `release not found`，因此没有进入 ZIP 下载和内容校验。
+- 根因: GitHub 对只有 `contents: read` 的 `GITHUB_TOKEN` 隐藏草稿 Release。草稿对本机已登录维护者可见，不代表同仓库工作流的只读 token 也可见。
+- 结论/避免: 需要读取草稿附件的工作流经发布所有者明确授权后使用 `contents: write`，同时把命令边界固定为 `gh release view` 与 `gh release download`，不包含创建、编辑、上传、删除或发布操作。工作流定义从默认分支运行，并在步骤内显式检出不可移动的目标标签。遇到 `release not found` 时先核对 token 权限和草稿状态，不重新上传已经远端校验正确的大附件。
