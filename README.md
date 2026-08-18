@@ -4,7 +4,7 @@
 
 PetsGraph 是一个面向真实宠物的开源桌面陪伴运行时。当前提供 Apple 芯片 macOS 版和 Windows 11 x64 版，内置五百和飞流，让它们在你的桌面上安静睡觉、翻身，并偶尔换一个舒服的姿势。
 
-[下载 Windows 11 x64 便携包](https://github.com/iyuenan3/petsgraph/releases/download/v0.6.0/PetsGraph-v0.6.0-Windows-x64.zip) · [查看 v0.6.0 发布说明](https://github.com/iyuenan3/petsgraph/releases/tag/v0.6.0) · [下载 Apple 芯片 Mac 安装包](https://github.com/iyuenan3/petsgraph/releases/download/v0.5.10/PetsGraph-v0.5.10-macOS-arm64.dmg)
+[下载 Windows 11 x64 便携包](https://github.com/iyuenan3/petsgraph/releases/download/v0.6.0/PetsGraph-v0.6.0-Windows-x64.zip) · [下载 Apple 芯片 Mac 安装包](https://github.com/iyuenan3/petsgraph/releases/download/v0.6.0/PetsGraph-v0.6.0-macOS-arm64.dmg) · [查看 v0.6.0 发布说明](https://github.com/iyuenan3/petsgraph/releases/tag/v0.6.0)
 
 ## Windows 11 x64 便携版
 
@@ -25,11 +25,13 @@ Windows 版本采用 .NET 10 和 WPF，只提供免安装便携 ZIP，不制作 
 
 ### Apple 芯片 macOS
 
-macOS 版本需要 Apple 芯片和 macOS 14 或更高版本，继续使用 v0.5.10。
+macOS 版本需要 Apple 芯片和 macOS 14 或更高版本。v0.6.0 使用新的双猫相伴 Logo，继续内嵌已经验收的五百与飞流 `0.5.10` 宠物包。
 
-1. 下载并打开 DMG。
+1. 下载并打开 [`PetsGraph-v0.6.0-macOS-arm64.dmg`](https://github.com/iyuenan3/petsgraph/releases/download/v0.6.0/PetsGraph-v0.6.0-macOS-arm64.dmg)。
 2. 把 `PetsGraph.app` 拖入 `Applications`。
 3. 第一次启动时，如果 macOS 阻止打开，请在 Finder 中右键 App 并选择「打开」。也可以前往「系统设置 > 隐私与安全性」确认打开。
+
+如需核对完整性，DMG 的 SHA-256 应为 `04c6f30e35d7dd8b5b096d0051aad628987d59b8245d84060cf704f02709b159`。
 
 当前 App 使用 ad-hoc 签名，没有 Developer ID 签名和 Apple 公证，所以首次打开会出现安全提示。应用不需要联网，不上传照片，不连接素材生成服务，也不收集遥测数据。
 
@@ -109,7 +111,7 @@ PetsGraph 不再追求“上传任意宠物照片，就自动生成一套通用�
 
 v0.5.10 内置两个宠物包，共 84 个逐帧动作片段和 12,013 个运行时帧。获批透明素材继续作为制作事实源保留，不会被修改或删除；公开 App 使用由它们确定性编译的固定裁剪预乘 RGBA 副本。
 
-解压后的 v0.5.10 App 约 2.42 GiB，用存储空间换取更低的长期运行开销。DMG 经过无损压缩后约 816 MiB。Release 只提供一个 DMG，不上传 ZIP，也不重复上传独立 `.petsgraph-pet`。
+解压后的 App 约 2.4 GiB，用存储空间换取更低的长期运行开销。v0.6.0 macOS DMG 为 `857640594` 字节，约 818 MiB。Release 不上传 App ZIP，也不重复上传独立 `.petsgraph-pet`。
 
 Windows v0.6.0 ZIP 为 `913953281` 字节，约 872 MiB。它除了相同的双宠运行时媒体，还包含自包含 .NET 10 运行文件，因此用户不需要另行安装 .NET。
 
@@ -119,7 +121,7 @@ Windows v0.6.0 ZIP 为 `913953281` 字节，约 872 MiB。它除了相同的双�
 
 - 两个宠物包共 84 个逐帧动作片段和 12,013 帧。
 - 五百包含 14 个姿态节点和 39 条有向边；飞流包含 11 个姿态节点和 20 条有向边。
-- v0.5.10 通过 67 项 XCTest，覆盖多宠装载、独立行为、缩放、低功耗媒体完整性、异常隐藏和单实例保护。
+- v0.6.0 macOS App 通过 67 项 XCTest，DMG 通过只读挂载、arm64、Bundle 版本、Logo 哈希、ad-hoc 签名、双宠包和运行时完整性校验。
 - 两个包均为 schema `0.4.0`、`cropped-rgba-clips`、`runtime-chain-approved` 和 `installable=true`。
 - 五百与飞流的获批源素材继续作为制作事实源保留，公开 App 只内嵌确定性编译的低功耗副本。
 - Windows v0.6.0 通过 7 项 MSTest、WPF 编译、AMD64 PE、ZIP、双宠完整性和 GitHub Windows Runner 校验，真实 Windows 11 x64 使用验收反馈为没有问题。
@@ -136,9 +138,9 @@ Windows v0.6.0 ZIP 为 `913953281` 字节，约 872 MiB。它除了相同的双�
 - `tools/build-prototype-package.py`：把固定 PNG 事实源编译为版本化宠物包。
 - `tools/build-cropped-rgba-package.py`：从获批 PNG 包生成固定 clip 裁剪的低功耗运行时副本。
 - `tools/build-macos-app.py`：把已校验宠物包嵌入通用 PetsGraph App。
-- `tools/build-release-artifacts.py`：原子生成并校验仅包含一个安装 DMG 的发布附件。
-- `.github/workflows/release.yml`：校验标签、测试、精确附件集合、哈希、Bundle 身份和 arm64 架构，再发布草稿 Release。
-- `.github/workflows/windows-release-verify.yml`：在 Windows Runner 上按固定清单校验草稿 Release 的唯一 ZIP、字节数、SHA-256、版本、AMD64 PE 和双宠完整性。
+- `tools/build-release-artifacts.py`：原子生成并校验 macOS 安装 DMG，App 版本和已批准宠物包版本分别记录。
+- `.github/workflows/release.yml`：使用只读权限复验公开 Release 的不可移动标签、双平台精确附件集合、哈希、Bundle 身份、Logo 和 arm64 架构。
+- `.github/workflows/windows-release-verify.yml`：在 Windows Runner 上按双平台清单校验草稿 Release 的 Windows ZIP、字节数、SHA-256、版本、AMD64 PE 和双宠完整性。
 - [`AIREADME/CORE.md`](AIREADME/CORE.md)：产品身份、范围和红线。
 - [`AIREADME/SPEC.md`](AIREADME/SPEC.md)：宠物包、动作图、场景和交互契约。
 - [`AIREADME/DEPLOYMENT.md`](AIREADME/DEPLOYMENT.md)：构建、安装、发布和回滚方式。

@@ -1,12 +1,28 @@
 {
-  "schema": 1,
+  "schema": 2,
   "tag": "v0.6.0",
   "version": "0.6.0",
-  "platform": "windows-11-x64",
-  "architecture": "x64",
-  "runtime": "net10.0-windows",
-  "distribution": "portable-zip",
-  "signed": false,
+  "sourceTagCommit": "ce4570cef6f47fe75b32df40c1476b0657a1d999",
+  "platforms": [
+    {
+      "id": "windows-11-x64",
+      "architecture": "x64",
+      "runtime": "net10.0-windows",
+      "distribution": "portable-zip",
+      "signed": false
+    },
+    {
+      "id": "macos-arm64",
+      "architecture": "arm64",
+      "minimumSystemVersion": "14.0",
+      "distribution": "installer-dmg",
+      "signing": "ad-hoc",
+      "notarized": false
+    }
+  ],
+  "branding": {
+    "macosIcnsSha256": "8b976a2ebe6badbcd6709201a03dc5900ed45c7bad01d4a210fde8cdbf38c24d"
+  },
   "embeddedPets": [
     {
       "id": "feiliu",
@@ -36,9 +52,17 @@
   "artifacts": [
     {
       "kind": "portable-zip",
+      "platform": "windows-11-x64",
       "file": "PetsGraph-v0.6.0-Windows-x64.zip",
       "bytes": 913953281,
       "sha256": "90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015"
+    },
+    {
+      "kind": "installer-dmg",
+      "platform": "macos-arm64",
+      "file": "PetsGraph-v0.6.0-macOS-arm64.dmg",
+      "bytes": 857640594,
+      "sha256": "04c6f30e35d7dd8b5b096d0051aad628987d59b8245d84060cf704f02709b159"
     }
   ]
 }

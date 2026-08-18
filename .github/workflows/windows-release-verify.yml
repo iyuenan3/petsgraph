@@ -32,52 +32,59 @@ jobs:
             throw "Expected a semantic version tag such as v0.6.0"
           }
 
-      - name: Check out the tagged source
+      - name: Check out the release contract
         uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ inputs.tag }}
           fetch-depth: 0
 
       - name: Verify tag and release manifest
         shell: pwsh
         run: |
           $tagCommit = (git rev-list -n 1 $env:RELEASE_TAG).Trim()
-          $headCommit = (git rev-parse HEAD).Trim()
-          if ($tagCommit -ne $headCommit) { throw "Tag does not resolve to checked-out commit" }
+          git merge-base --is-ancestor $tagCommit HEAD
+          if ($LASTEXITCODE -ne 0) { throw "Tag is not an ancestor of the release contract" }
 
           $manifestPath = "release/manifests/$env:RELEASE_TAG.json"
           if (-not (Test-Path $manifestPath)) { throw "Release manifest missing: $manifestPath" }
           $manifest = Get-Content -Raw $manifestPath | ConvertFrom-Json
           $artifacts = @($manifest.artifacts)
           $embeddedPets = @($manifest.embeddedPets)
+          $platforms = @($manifest.platforms | Where-Object { $_.id -eq "windows-11-x64" })
+          $zipArtifacts = @($artifacts | Where-Object { $_.platform -eq "windows-11-x64" -and $_.kind -eq "portable-zip" })
 
           if ($manifest.tag -ne $env:RELEASE_TAG) { throw "Manifest tag mismatch" }
-          if ($manifest.platform -ne "windows-11-x64") { throw "Expected windows-11-x64 platform" }
-          if ($manifest.runtime -ne "net10.0-windows") { throw "Expected net10.0-windows runtime" }
-          if ($manifest.distribution -ne "portable-zip") { throw "Expected portable-zip distribution" }
-          if ($manifest.signed -ne $false) { throw "Expected unsigned Windows release" }
+          if ($manifest.schema -ne 2) { throw "Expected dual-platform manifest schema 2" }
+          if ($manifest.sourceTagCommit -ne $tagCommit) { throw "Source tag commit mismatch" }
+          if ($platforms.Count -ne 1) { throw "Expected one windows-11-x64 platform" }
+          if ($platforms[0].runtime -ne "net10.0-windows") { throw "Expected net10.0-windows runtime" }
+          if ($platforms[0].distribution -ne "portable-zip") { throw "Expected portable-zip distribution" }
+          if ($platforms[0].signed -ne $false) { throw "Expected unsigned Windows release" }
           if ($manifest.runtimeChainStatus -ne "runtime-chain-approved") { throw "Runtime chain is not approved" }
           if ($manifest.installable -ne $true) { throw "Release is not installable" }
           if ($embeddedPets.Count -ne 2) { throw "Expected exactly two embedded pets" }
-          if ($artifacts.Count -ne 1 -or $artifacts[0].kind -ne "portable-zip") {
+          if ($zipArtifacts.Count -ne 1) {
             throw "Expected exactly one portable ZIP artifact"
           }
+
+          git diff --quiet $tagCommit HEAD -- global.json windows
+          if ($LASTEXITCODE -ne 0) { throw "Windows release source changed after the immutable tag" }
 
       - name: Download exact ZIP from draft release
         shell: pwsh
         run: |
           $manifest = Get-Content -Raw "release/manifests/$env:RELEASE_TAG.json" | ConvertFrom-Json
-          $asset = $manifest.artifacts[0].file
+          $asset = @($manifest.artifacts | Where-Object { $_.platform -eq "windows-11-x64" -and $_.kind -eq "portable-zip" })[0].file
           $isDraft = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isDraft --jq .isDraft
           if ($LASTEXITCODE -ne 0 -or $isDraft -ne "true") { throw "Release must still be a draft" }
 
+          $declaredAssets = @($manifest.artifacts.file | Sort-Object)
           $actualAssets = @(gh release view $env:RELEASE_TAG `
             --repo $env:GITHUB_REPOSITORY `
             --json assets `
-            --jq '.assets[].name')
+            --jq '.assets[].name' | Sort-Object)
           if ($LASTEXITCODE -ne 0) { throw "Failed to read draft release assets" }
-          if ($actualAssets.Count -ne 1 -or $actualAssets[0] -ne $asset) {
-            throw "Draft release must contain only $asset"
+          if (@(Compare-Object $declaredAssets $actualAssets).Count -ne 0) {
+            throw "Draft release asset set does not match the manifest"
           }
 
           New-Item -ItemType Directory -Path "$env:RUNNER_TEMP/release-download" | Out-Null
@@ -91,7 +98,7 @@ jobs:
         shell: pwsh
         run: |
           $manifest = Get-Content -Raw "release/manifests/$env:RELEASE_TAG.json" | ConvertFrom-Json
-          $artifact = $manifest.artifacts[0]
+          $artifact = @($manifest.artifacts | Where-Object { $_.platform -eq "windows-11-x64" -and $_.kind -eq "portable-zip" })[0]
           $zip = Join-Path "$env:RUNNER_TEMP/release-download" $artifact.file
           $actualBytes = (Get-Item $zip).Length
           $actualHash = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLowerInvariant()

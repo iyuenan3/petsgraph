@@ -1,23 +1,24 @@
-name: Publish verified release
+name: Verify macOS release DMG
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Semantic version tag whose draft release should be verified and published
+        description: Semantic version tag whose public macOS DMG should be verified
         required: true
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: petsgraph-release-${{ inputs.tag }}
+  group: petsgraph-macos-release-${{ inputs.tag }}
   cancel-in-progress: false
 
 jobs:
-  verify-and-publish:
+  verify-macos-dmg:
     runs-on: macos-15
+    timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ inputs.tag }}
@@ -26,45 +27,51 @@ jobs:
         shell: bash
         run: |
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Expected a semantic version tag such as v0.3.0"
+            echo "Expected a semantic version tag such as v0.6.0"
             exit 1
           fi
 
-      - name: Check out the tagged source
+      - name: Check out the release contract
         uses: actions/checkout@v7.0.1
         with:
-          ref: ${{ inputs.tag }}
           fetch-depth: 0
 
-      - name: Verify tag and release manifest
+      - name: Verify immutable tag and dual-platform manifest
         shell: bash
         run: |
           tag_commit="$(git rev-list -n 1 "$RELEASE_TAG")"
-          head_commit="$(git rev-parse HEAD)"
-          test "$tag_commit" = "$head_commit"
+          git merge-base --is-ancestor "$tag_commit" HEAD
           test -f "release/manifests/$RELEASE_TAG.json"
-          jq -e --arg tag "$RELEASE_TAG" '
-            .tag == $tag
-            and .platform == "macos-arm64"
+          jq -e --arg tag "$RELEASE_TAG" --arg commit "$tag_commit" '
+            .schema == 2
+            and .tag == $tag
+            and .sourceTagCommit == $commit
+            and ([.platforms[].id] | sort) == ["macos-arm64", "windows-11-x64"]
+            and (.platforms | any(.id == "macos-arm64" and .architecture == "arm64" and .minimumSystemVersion == "14.0" and .distribution == "installer-dmg" and .signing == "ad-hoc" and .notarized == false))
+            and (.platforms | any(.id == "windows-11-x64" and .architecture == "x64" and .runtime == "net10.0-windows" and .distribution == "portable-zip" and .signed == false))
             and .packageSchemaVersions == ["0.4.0"]
             and .renderModes == ["cropped-rgba-clips"]
             and .runtimeChainStatus == "runtime-chain-approved"
             and .installable == true
-            and (.embeddedPets | length >= 1)
+            and (.embeddedPets | length == 2)
             and (([.embeddedPets[].id] | unique | length) == (.embeddedPets | length))
-            and (([.artifacts[].kind] | sort) == ["installer-dmg"])
+            and (([.artifacts[].kind] | sort) == ["installer-dmg", "portable-zip"])
+            and (([.artifacts[].platform] | sort) == ["macos-arm64", "windows-11-x64"])
             and all(.artifacts[]; (.file | endswith(".petsgraph-pet.zip") | not))
-          ' \
-            "release/manifests/$RELEASE_TAG.json" >/dev/null
+          ' "release/manifests/$RELEASE_TAG.json" >/dev/null
+
+          git diff --quiet "$tag_commit" HEAD -- \
+            Package.swift Package.resolved Sources Tests assets/app-icon tools/build-macos-app.py \
+            global.json windows
 
       - name: Run the full Swift test baseline
         run: bash tools/test-swift.sh
 
-      - name: Confirm the release is still a draft
+      - name: Confirm the release is public
         shell: bash
         run: |
           is_draft="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
-          test "$is_draft" = "true"
+          test "$is_draft" = "false"
           jq -r '.artifacts[].file' "release/manifests/$RELEASE_TAG.json" | sort > declared-assets.txt
           gh release view "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
@@ -101,11 +108,11 @@ jobs:
       - name: Verify the public DMG and Apple Silicon app
         shell: bash
         run: |
+          manifest="release/manifests/$RELEASE_TAG.json"
           dmg="$(jq -er '
-            [.artifacts[] | select(.kind == "installer-dmg")]
+            [.artifacts[] | select(.platform == "macos-arm64" and .kind == "installer-dmg")]
             | if length == 1 then .[0].file else error("expected exactly one DMG") end
-          ' \
-            "release/manifests/$RELEASE_TAG.json")"
+          ' "$manifest")"
           hdiutil verify "release-download/$dmg"
           mount_point="$(mktemp -d)"
           trap 'hdiutil detach "$mount_point" >/dev/null 2>&1 || true; rm -rf "$mount_point"' EXIT
@@ -113,25 +120,42 @@ jobs:
           app_count="$(find "$mount_point" -maxdepth 1 -type d -name '*.app' | wc -l | tr -d ' ')"
           test "$app_count" = "1"
           app_path="$(find "$mount_point" -maxdepth 1 -type d -name '*.app' -print -quit)"
-          binary_path="$app_path/Contents/MacOS/petsgraph"
+          binary_path="$app_path/Contents/MacOS/PetsGraph"
           info_path="$app_path/Contents/Info.plist"
           pets_path="$app_path/Contents/Resources/Pets"
+          icon_path="$app_path/Contents/Resources/PetsGraph.icns"
           test "$(lipo -archs "$binary_path")" = "arm64"
           test "$(plutil -extract CFBundleDisplayName raw -o - "$info_path")" = "PetsGraph"
           test "$(plutil -extract CFBundleName raw -o - "$info_path")" = "PetsGraph"
           test "$(plutil -extract CFBundleIdentifier raw -o - "$info_path")" = "com.maxwell.petsgraph"
           test "$(plutil -extract CFBundleShortVersionString raw -o - "$info_path")" = "${RELEASE_TAG#v}"
+          test "$(plutil -extract CFBundleIconFile raw -o - "$info_path")" = "PetsGraph"
           test "$(plutil -extract LSMinimumSystemVersion raw -o - "$info_path")" = "14.0"
+          test "$(shasum -a 256 "$icon_path" | awk '{print $1}')" = "$(jq -r '.branding.macosIcnsSha256' "$manifest")"
           package_paths=()
           while IFS= read -r package_path; do
             package_paths+=("$package_path")
           done < <(find "$pets_path" -maxdepth 1 -type d -name '*.petsgraph-pet' | sort)
-          test "${#package_paths[@]}" = "$(jq '.embeddedPets | length' "release/manifests/$RELEASE_TAG.json")"
+          test "${#package_paths[@]}" = "$(jq '.embeddedPets | length' "$manifest")"
           for package_path in "${package_paths[@]}"; do
             review_path="$(jq -er '.reviewIndex' "$package_path/package.json")"
-            jq -e --arg version "${RELEASE_TAG#v}" '
+            pet_id="$(jq -er '.pet.id' "$package_path/package.json")"
+            package_id="$(jq -er '.package.id' "$package_path/package.json")"
+            package_version="$(jq -er '.package.version' "$package_path/package.json")"
+            jq -e \
+              --arg pet_id "$pet_id" \
+              --arg package_id "$package_id" \
+              --arg package_version "$package_version" '
+                any(.embeddedPets[];
+                  .id == $pet_id
+                  and .packageId == $package_id
+                  and .packageVersion == $package_version
+                  and .schemaVersion == "0.4.0"
+                  and .renderMode == "cropped-rgba-clips"
+                )
+              ' "$manifest" >/dev/null
+            jq -e '
               .schemaVersion == "0.4.0"
-              and .package.version == $version
               and .renderAssets.mode == "cropped-rgba-clips"
               and (.pet.displayName | length > 0)
             ' "$package_path/package.json" >/dev/null
@@ -144,21 +168,13 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$app_path"
           "$binary_path" "${package_paths[@]}" --validate-only
 
-      - name: Publish the verified release
-        shell: bash
-        run: |
-          gh release edit "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --draft=false \
-            --latest
-
       - name: Write job summary
         shell: bash
         run: |
           {
-            echo "## Published $RELEASE_TAG"
+            echo "## Verified $RELEASE_TAG macOS DMG"
             echo
-            echo "All declared artifacts matched their pinned byte counts and SHA-256 digests."
+            echo "Both declared artifacts matched their pinned byte counts and SHA-256 digests."
             echo
-            gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url --jq '.url'
+            echo "The public release was verified without write permission."
           } >> "$GITHUB_STEP_SUMMARY"

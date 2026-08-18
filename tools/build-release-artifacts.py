@@ -56,7 +56,7 @@ def safe_package_child(package: Path, relative: str) -> Path:
     return result
 
 
-def read_embedded_pet_metadata(app: Path, expected_version: str) -> dict[str, object]:
+def read_embedded_pet_metadata(app: Path) -> dict[str, object]:
     pets_root = app / "Contents" / "Resources" / "Pets"
     if not pets_root.is_dir():
         raise ValueError("release app must contain Contents/Resources/Pets")
@@ -84,11 +84,8 @@ def read_embedded_pet_metadata(app: Path, expected_version: str) -> dict[str, ob
 
         package_identity = payload.get("package", {})
         package_version = str(package_identity.get("version", ""))
-        if package_version != expected_version:
-            raise ValueError(
-                f"embedded package {package.name} version does not match release version: "
-                f"{package_version} != {expected_version}"
-            )
+        if not package_version:
+            raise ValueError(f"embedded package {package.name} needs a package version")
         review_path = safe_package_child(package, str(payload.get("reviewIndex", "")))
         review = json.loads(review_path.read_text(encoding="utf-8"))
         if review.get("runtimeChainStatus") != "runtime-chain-approved":
@@ -207,7 +204,7 @@ def main() -> None:
             ],
             check=True,
         )
-        package_metadata = read_embedded_pet_metadata(sanitized_app, args.version)
+        package_metadata = read_embedded_pet_metadata(sanitized_app)
         pet_names = "、".join(
             str(pet["displayName"])
             for pet in package_metadata["embeddedPets"]
