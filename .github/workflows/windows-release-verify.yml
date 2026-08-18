@@ -9,7 +9,9 @@ on:
         type: string
 
 permissions:
-  contents: read
+  # GitHub hides draft releases from GITHUB_TOKEN unless contents has write access.
+  # Every step below remains read-only; publishing stays outside this workflow.
+  contents: write
 
 concurrency:
   group: petsgraph-windows-release-${{ inputs.tag }}
