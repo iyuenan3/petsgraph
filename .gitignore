@@ -1,6 +1,8 @@
 .DS_Store
 .build/
 dist/
+.cache/
+.venv-*/
 __pycache__/
 *.pyc
 .env
@@ -9,3 +11,12 @@ __pycache__/
 
 # Private pet references, provider job records, and unapproved generations.
 workspaces/
+
+# Generated image candidates and transient iconset intermediates.
+assets/app-icon/candidates/
+assets/app-icon/qa/
+assets/app-icon/macos/PetsGraph.iconset/
+
+# .NET build outputs.
+**/bin/
+**/obj/

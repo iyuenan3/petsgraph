@@ -1,0 +1,82 @@
+name: Verify Windows release ZIP
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Semantic version tag whose draft Windows ZIP should be verified
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: petsgraph-windows-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  verify-windows-zip:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Validate tag input
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') {
+            throw "Expected a semantic version tag such as v0.6.0"
+          }
+
+      - name: Download Windows ZIP from draft release
+        shell: pwsh
+        run: |
+          $asset = "PetsGraph-$env:RELEASE_TAG-Windows-x64.zip"
+          $isDraft = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isDraft --jq .isDraft
+          if ($LASTEXITCODE -ne 0 -or $isDraft -ne "true") { throw "Release must still be a draft" }
+          New-Item -ItemType Directory -Path "$env:RUNNER_TEMP/release-download" | Out-Null
+          gh release download $env:RELEASE_TAG `
+            --repo $env:GITHUB_REPOSITORY `
+            --pattern $asset `
+            --dir "$env:RUNNER_TEMP/release-download"
+          if ($LASTEXITCODE -ne 0) { throw "Failed to download $asset" }
+
+      - name: Verify ZIP, x64 PE, package count, and runtime integrity
+        shell: pwsh
+        run: |
+          $asset = "PetsGraph-$env:RELEASE_TAG-Windows-x64.zip"
+          $zip = Join-Path "$env:RUNNER_TEMP/release-download" $asset
+          $extract = Join-Path $env:RUNNER_TEMP "petsgraph-release-verify"
+          Expand-Archive -Path $zip -DestinationPath $extract
+          $root = Join-Path $extract "PetsGraph"
+          $exe = Join-Path $root "PetsGraph.exe"
+          if (-not (Test-Path $exe)) { throw "PetsGraph.exe missing" }
+          $packages = @(Get-ChildItem -Path (Join-Path $root "Pets") -Directory -Filter "*.petsgraph-pet")
+          if ($packages.Count -lt 2) { throw "Expected at least two embedded pet packages" }
+
+          $stream = [System.IO.File]::OpenRead($exe)
+          try {
+            $reader = [System.IO.BinaryReader]::new($stream)
+            $stream.Position = 0x3c
+            $peOffset = $reader.ReadInt32()
+            $stream.Position = $peOffset
+            if ($reader.ReadUInt32() -ne 0x00004550) { throw "Invalid PE signature" }
+            if ($reader.ReadUInt16() -ne 0x8664) { throw "Expected AMD64 PE machine" }
+          }
+          finally {
+            $stream.Dispose()
+          }
+
+          $process = Start-Process $exe `
+            -ArgumentList "--validate-only", "--verify-integrity", "--pets-dir", ('"' + (Join-Path $root "Pets") + '"') `
+            -Wait `
+            -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "PetsGraph runtime validation failed with exit code $($process.ExitCode)"
+          }
+
+          $hash = Get-FileHash -Path $zip -Algorithm SHA256
+          "Windows ZIP SHA-256: $($hash.Hash.ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "Embedded pets: $($packages.Count)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append

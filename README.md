@@ -1,8 +1,18 @@
 # PetsGraph
 
-PetsGraph 是一个面向真实宠物的开源 macOS 桌面陪伴运行时。当前公开版内置五百和飞流，让它们在你的桌面上安静睡觉、翻身，并偶尔换一个舒服的姿势。
+<img src="assets/app-icon/petsgraph-logo.png" alt="PetsGraph 双猫相伴图标" width="128" height="128">
+
+PetsGraph 是一个面向真实宠物的开源桌面陪伴运行时。当前公开版支持 Apple 芯片 Mac，内置五百和飞流，让它们在你的桌面上安静睡觉、翻身，并偶尔换一个舒服的姿势。Windows 11 x64 版本正在适配中。
 
 [下载 Apple 芯片 Mac 安装包](https://github.com/iyuenan3/petsgraph/releases/download/v0.5.10/PetsGraph-v0.5.10-macOS-arm64.dmg) · [查看 v0.5.10 发布说明](https://github.com/iyuenan3/petsgraph/releases/tag/v0.5.10)
+
+## Windows 11 x64 内部版
+
+Windows 版本采用 .NET 10 和 WPF，只提供免安装便携 ZIP，不制作 MSIX，也不做代码签名。它复用与 macOS 相同的 `schema 0.4.0` 双宠包、动作图、随机睡姿和完整性契约，并在 Windows 侧把预乘 RGBA 帧转换为 WPF 使用的 PBGRA32。
+
+仓库已经包含 Windows 核心、WPF 主程序、测试、便携包脚本和 GitHub Windows Runner 工作流。交叉编译、双宠包真实加载、完整 SHA-256 校验和 x64 PE 校验可以在 macOS 开发机完成。透明窗口、逐像素点击穿透、拖动、多显示器 DPI 和系统托盘仍必须在真实 Windows 11 x64 电脑上做人工验收，不能用 CI 编译结果代替。
+
+内部包解压后直接运行 `PetsGraph.exe`，程序和 `Pets` 文件夹必须保持在同一目录。具体说明见 [`windows/README-Windows.md`](windows/README-Windows.md)。
 
 ## 安装
 
@@ -108,6 +118,9 @@ v0.5.10 内置两个宠物包，共 84 个逐帧动作片段和 12,013 个运行
 
 - `Sources/PetsGraphCore/`：宠物包校验、动作图、时间轴与 root motion。
 - `Sources/PetsGraphApp/`：AppKit 透明窗口、逐帧渲染、菜单和桌面交互。
+- `windows/src/PetsGraph.Core/`：跨平台 C# 包校验、行为图、时间轴和 RGBA 转换。
+- `windows/src/PetsGraph.App/`：Win11 x64 WPF 透明窗口、托盘菜单和桌面交互。
+- `windows/scripts/`：Windows 自包含运行时和便携 ZIP 打包脚本。
 - `tools/build-prototype-package.py`：把固定 PNG 事实源编译为版本化宠物包。
 - `tools/build-cropped-rgba-package.py`：从获批 PNG 包生成固定 clip 裁剪的低功耗运行时副本。
 - `tools/build-macos-app.py`：把已校验宠物包嵌入通用 PetsGraph App。
@@ -123,6 +136,19 @@ v0.5.10 内置两个宠物包，共 84 个逐帧动作片段和 12,013 个运行
 
 ```bash
 bash tools/test-swift.sh
+```
+
+运行 .NET 测试和 Windows 交叉编译：
+
+```bash
+DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet test windows/tests/PetsGraph.Core.Tests/PetsGraph.Core.Tests.csproj -c Release
+DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet build windows/PetsGraph.slnx -c Release
+```
+
+生成完整 Windows 便携包时，通过 `PETSGRAPH_PETS_DIR` 指向已批准的双宠包目录：
+
+```bash
+PETSGRAPH_PETS_DIR=/path/to/Pets bash windows/scripts/build-portable.sh
 ```
 
 本地生产构建、校验和发布流程见 [`AIREADME/DEPLOYMENT.md`](AIREADME/DEPLOYMENT.md)。私有制作侧可以使用 Seedance 生成连续动作视频，并使用 Seedream 或 `gpt-image-2` 制作静态身份和姿态参考。所有凭据只保存在被 Git 忽略的本机配置中，不会进入桌面运行时、宠物包或 Release。

@@ -1,0 +1,86 @@
+name: Windows x64 build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - codex/windows-win11-x64
+    paths:
+      - "windows/**"
+      - "assets/app-icon/**"
+      - "global.json"
+      - ".github/workflows/windows.yml"
+  pull_request:
+    paths:
+      - "windows/**"
+      - "assets/app-icon/**"
+      - "global.json"
+      - ".github/workflows/windows.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: petsgraph-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: windows/**/packages.lock.json
+
+      - name: Restore locked dependencies
+        run: dotnet restore windows/PetsGraph.slnx --locked-mode
+
+      - name: Test core and package contract
+        run: dotnet test windows/tests/PetsGraph.Core.Tests/PetsGraph.Core.Tests.csproj --configuration Release --no-restore
+
+      - name: Build WPF application
+        run: dotnet build windows/src/PetsGraph.App/PetsGraph.App.csproj --configuration Release --no-restore
+
+      - name: Publish portable x64 runtime ZIP
+        shell: pwsh
+        run: windows/scripts/build-portable.ps1 -Version 0.6.0 -OutputDirectory $env:RUNNER_TEMP
+
+      - name: Verify x64 PE and ZIP contents
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP "PetsGraph-v0.6.0-Windows-x64-runtime.zip"
+          $extract = Join-Path $env:RUNNER_TEMP "petsgraph-verify"
+          Expand-Archive -Path $zip -DestinationPath $extract
+          $exe = Join-Path $extract "PetsGraph/PetsGraph.exe"
+          if (-not (Test-Path $exe)) { throw "PetsGraph.exe missing from runtime ZIP" }
+          $stream = [System.IO.File]::OpenRead($exe)
+          try {
+            $reader = [System.IO.BinaryReader]::new($stream)
+            $stream.Position = 0x3c
+            $peOffset = $reader.ReadInt32()
+            $stream.Position = $peOffset
+            if ($reader.ReadUInt32() -ne 0x00004550) { throw "Invalid PE signature" }
+            if ($reader.ReadUInt16() -ne 0x8664) { throw "Expected AMD64 PE machine" }
+          }
+          finally {
+            $stream.Dispose()
+          }
+          if (Get-ChildItem -Path (Join-Path $extract "PetsGraph") -Directory -Filter "Pets") {
+            throw "Code-only CI artifact must not contain private pet packages"
+          }
+
+      - name: Upload code-only runtime artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PetsGraph-v0.6.0-Windows-x64-runtime
+          path: ${{ runner.temp }}/PetsGraph-v0.6.0-Windows-x64-runtime.zip
+          if-no-files-found: error
+          retention-days: 7

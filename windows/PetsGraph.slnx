@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="src/PetsGraph.Core/PetsGraph.Core.csproj" />
+  <Project Path="src/PetsGraph.App/PetsGraph.App.csproj" />
+  <Project Path="src/PetsGraph.Validator/PetsGraph.Validator.csproj" />
+  <Project Path="tests/PetsGraph.Core.Tests/PetsGraph.Core.Tests.csproj" />
+</Solution>

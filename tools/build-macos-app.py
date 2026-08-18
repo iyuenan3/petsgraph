@@ -13,6 +13,7 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
+APP_ICON = ROOT / "assets" / "app-icon" / "macos" / "PetsGraph.icns"
 SIGNING_DETRITUS_XATTRS = {
     "com.apple.FinderInfo",
     "com.apple.ResourceFork",
@@ -110,6 +111,10 @@ def main() -> None:
     if not app_name or "/" in app_name or ":" in app_name:
         raise ValueError("--app-name must be a non-empty macOS file-safe name")
     output.parent.mkdir(parents=True, exist_ok=True)
+    if not APP_ICON.is_file():
+        raise FileNotFoundError(
+            "missing macOS app icon; run tools/generate-app-icons.sh first"
+        )
 
     environment = os.environ.copy()
     environment.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
@@ -169,6 +174,7 @@ def main() -> None:
         resources = contents / "Resources"
         macos.mkdir(parents=True)
         resources.mkdir(parents=True)
+        shutil.copy2(APP_ICON, resources / APP_ICON.name)
         destination_binary = macos / "petsgraph"
         shutil.copy2(binary, destination_binary)
         destination_binary.chmod(0o755)
@@ -182,6 +188,7 @@ def main() -> None:
             "CFBundleExecutable": "petsgraph",
             "CFBundleIdentifier": args.bundle_identifier,
             "CFBundleInfoDictionaryVersion": "6.0",
+            "CFBundleIconFile": "PetsGraph",
             "CFBundleName": app_name,
             "CFBundlePackageType": "APPL",
             "CFBundleShortVersionString": args.version,
