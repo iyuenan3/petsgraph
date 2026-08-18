@@ -1,8 +1,8 @@
 # ROADMAP：petsgraph
 
-## Now（macOS v0.5.10 与 Windows v0.6.0 发布后观察）
+## Now（双平台 v0.6.0 发布后观察）
 
-PetsGraph v0.5.10 已完成双宠运行时、真实桌面验收和 Apple 芯片 DMG 发布。五百与飞流两个 `0.5.10` 包均为 `runtime-chain-approved` 和 `installable=true`，合计 84 个 clip 与 12,013 帧。当前焦点从“能否发布”转为“朋友长期使用是否稳定且安静”。
+PetsGraph v0.6.0 同时提供 Apple 芯片 macOS DMG 与 Windows 11 x64 便携 ZIP。五百与飞流两个 `0.5.10` 包均为 `runtime-chain-approved` 和 `installable=true`，合计 84 个 clip 与 12,013 帧。macOS App 更新为双猫相伴 Logo，没有改写宠物媒体。当前焦点从“能否发布”转为“朋友长期使用是否稳定且安静”。
 
 Windows `v0.6.0` 只面向 Windows 11 x64，采用 .NET 10 WPF 与无签名 self-contained 便携 ZIP。本机交叉编译、真实包完整性、x64 PE/ZIP 检查、GitHub Windows Runner 与朋友真机使用验收均已完成，朋友反馈没有问题，发布所有者已授权发布。真机反馈没有附带分项时长或 DPI 测试日志，后续长期观察继续补充量化证据。
 
@@ -17,7 +17,7 @@ Windows `v0.6.0` 只面向 Windows 11 x64，采用 .NET 10 WPF 与无签名 self
 ## Next
 
 1. 申请 Developer ID、完成 Apple 公证并优化首次安装体验。在此之前持续清楚展示 ad-hoc 签名和手动确认边界。
-2. 后续版本继续只发布一个 Apple 芯片 DMG，不恢复 App ZIP、预览图、校验和附件或独立宠物包。历史 Release 保持不变。
+2. 后续双平台版本每个平台只保留一个直接安装或运行入口，不恢复 App ZIP、预览图、校验和附件或独立宠物包。历史 Release 保持不变。
 3. 把 provider 调用、任务账本、抠图、QA、批准履历和包编译整理为内部可复用工具，但保留每只宠物的人工姿态设计、图设计和验收。
 4. 根据飞流真实使用决定是否增加低频耳动、砸吧嘴、伸懒腰或其他符合它习惯的小动作。
 5. 只有在猫窝首版稳定后，才重新设计符合猫窝接触关系的踩奶活动。历史毛毯踩奶不直接迁移。

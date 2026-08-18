@@ -1,6 +1,6 @@
 # PRD：PetsGraph 安静陪伴 MVP
 
-> 当前状态：PetsGraph macOS `0.5.10` 同时内嵌五百与飞流两个低功耗宠物包，均为 `runtime-chain-approved`、`installable=true`，双宠桌面人工验收和单 DMG 公开发布已完成。Windows `0.6.0` 仅面向 Windows 11 x64 和内部朋友，已完成 .NET 10 WPF 实现、本机交叉编译、真实双包校验、GitHub Windows Runner 和朋友真机使用验收，发布所有者已授权以无签名便携 ZIP 发布。
+> 当前状态：PetsGraph `0.6.0` 同时提供 Apple 芯片 macOS DMG 与 Windows 11 x64 便携 ZIP，两个平台均内嵌五百与飞流 `0.5.10` 低功耗宠物包。宠物包均为 `runtime-chain-approved`、`installable=true`，macOS 双宠桌面人工验收、Windows 朋友真机使用验收和两个平台的本地冻结产物校验已完成。
 
 ## 1. 产品目标
 
@@ -238,10 +238,18 @@ sit.front.floor ↔ 平趴睡
 
 - Windows 宿主只支持 Windows 11 x64，使用 .NET 10 WPF、self-contained 多文件便携 ZIP、系统托盘和每用户单实例，不提供 Windows 10、Windows on Arm、MSIX、安装器或代码签名。
 - 7 项 MSTest、WPF 解决方案 0 警告 0 错误、本机交叉编译、AMD64 PE、488 个 ZIP 条目、两个正式宠物包、84 个 clip 与 12,013 帧完整性校验通过。
-- 冻结 ZIP 为 `913953281` 字节，SHA-256 为 `90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`，Release 精确只提供这一份 Windows ZIP。
-- GitHub Windows Runner 代码验证已通过。正式发布工作流还会从草稿 Release 重新下载冻结 ZIP，按仓库清单复验字节数、摘要、版本、AMD64 PE、双包数量和运行时完整性。
+- 冻结 ZIP 为 `913953281` 字节，SHA-256 为 `90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`，它是双平台 Release 中唯一的 Windows 附件。
+- GitHub Windows Runner 代码验证已通过。正式发布工作流从草稿 Release 重新下载冻结 ZIP，按双平台仓库清单复验附件集合、字节数、摘要、版本、AMD64 PE、双包数量和运行时完整性。
 - 朋友已在真实 Windows 11 x64 电脑上完成使用验收，最终反馈为没有问题。该反馈没有附带分项时长或 DPI 测试日志，因此不补写未留证的量化结果。
-- 发布所有者已明确授权发布 v0.6.0。macOS 用户继续使用 v0.5.10 Apple 芯片 DMG，v0.6.0 不附带新的 macOS 产物。
+- 发布所有者已明确授权发布 v0.6.0。Windows 支持范围仍只包括 Windows 11 x64，不因同版本增加 macOS DMG 而扩展到其他 Windows 架构。
+
+### 7.7 macOS v0.6.0 发布补充
+
+- macOS App 更新为 `0.6.0` 并使用已经验收的双猫相伴 Logo，仍只支持 Apple 芯片和 macOS 14 及以上，保持 ad-hoc 签名且不公证。
+- App 继续内嵌五百与飞流 `0.5.10` 宠物包。品牌更新没有重新生成、抠图、重编或改写 12,013 帧媒体。
+- 冻结 DMG 为 `857640594` 字节，SHA-256 为 `04c6f30e35d7dd8b5b096d0051aad628987d59b8245d84060cf704f02709b159`，内嵌 ICNS SHA-256 为 `8b976a2ebe6badbcd6709201a03dc5900ed45c7bad01d4a210fde8cdbf38c24d`。
+- 67 项 XCTest、App 版本、arm64、签名、Logo、双包、运行时完整性、DMG 校验和只读挂载均已在本机通过。
+- v0.6.0 标签保持不移动。双平台清单从默认分支读取，固定标签提交以及两个附件的名称、平台、字节数和 SHA-256。
 
 ## 8. PM Red-Team 结论
 

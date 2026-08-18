@@ -2,6 +2,15 @@
 
 > Append-only。记录版本与里程碑，决策理由见 `DECISIONS.md`。
 
+## v0.6.0 macOS release amendment · 2026-08-18
+
+- Added: v0.6.0 双平台清单新增 `PetsGraph-v0.6.0-macOS-arm64.dmg`，与已经验收的 Windows 11 x64 ZIP 组成精确双附件集合。macOS DMG 为 `857640594` 字节，SHA-256 为 `04c6f30e35d7dd8b5b096d0051aad628987d59b8245d84060cf704f02709b159`。
+- Added: macOS v0.6.0 App 使用已经验收的双猫相伴 Logo。内嵌 ICNS SHA-256 为 `8b976a2ebe6badbcd6709201a03dc5900ed45c7bad01d4a210fde8cdbf38c24d`，Bundle 仍为 `PetsGraph` 与 `com.maxwell.petsgraph`。
+- Changed: App 版本和宠物内容版本分别记录。macOS App 为 `0.6.0`，继续内嵌已批准的五百与飞流 `0.5.10` 宠物包，不为品牌更新重编或伪造 12,013 帧媒体版本。
+- Changed: 已存在的 `v0.6.0` 标签保持指向 `ce4570cef6f47fe75b32df40c1476b0657a1d999`。默认分支承载标签后的双平台发布补充，验证流程要求平台源码相对标签无变化。
+- Changed: Windows Runner 在草稿阶段复验 Windows ZIP。macOS Runner 改用 `contents: read`，只在公开后下载双附件并挂载 DMG，不具备创建、编辑或发布 Release 的权限。
+- Review: 67 项 XCTest 全部通过。macOS App 与 DMG 在本机通过 `arm64`、Bundle 版本、Logo 哈希、ad-hoc 签名、双宠包、运行时完整性、`hdiutil verify` 和只读挂载校验。
+
 ## v0.6.0 · 2026-08-18
 
 - Added: 发布首个 Windows 11 x64 版本，使用 .NET 10 WPF、self-contained 多文件便携 ZIP、透明置顶窗口、逐像素鼠标穿透、拖动、系统托盘、七档全局缩放、位置持久化和每用户单实例。

@@ -2,7 +2,7 @@
 
 ## 身份
 
-PetsGraph 是为 Maxwell 自己和朋友们熟悉的真实猫狗制作的桌面陪伴项目。App、宠物身份和行为配置相互分离，一个 App 进程可以同时装载多只独立宠物。当前 macOS 正式版是 `v0.5.10`，Windows 11 x64 正式便携版是 `v0.6.0`。两个平台均使用五百和飞流的同一份 schema `0.4.0` 宠物包，用户界面只显示不带姓氏的熟悉短名。第一款体验仍是安静睡眠陪伴，核心不是功能数量，而是熟悉的宠物长时间自然待在桌面上。
+PetsGraph 是为 Maxwell 自己和朋友们熟悉的真实猫狗制作的桌面陪伴项目。App、宠物身份和行为配置相互分离，一个 App 进程可以同时装载多只独立宠物。当前 macOS Apple 芯片版和 Windows 11 x64 便携版均为 `v0.6.0`。两个平台均使用五百和飞流的同一份 schema `0.4.0`、内容版本 `0.5.10` 宠物包，用户界面只显示不带姓氏的熟悉短名。第一款体验仍是安静睡眠陪伴，核心不是功能数量，而是熟悉的宠物长时间自然待在桌面上。
 
 ## 使命
 
@@ -20,7 +20,7 @@ PetsGraph 是为 Maxwell 自己和朋友们熟悉的真实猫狗制作的桌面�
 - 首次安装默认装载全部内嵌宠物。默认在物理屏幕左下角横排，五百左一、飞流左二，窗口不重叠。之后分别持久化每只宠物的装载状态和位置。
 - 全局宠物大小提供 `0.5×`、`0.75×`、`1.0×`、`1.25×`、`1.5×`、`1.75×`、`2.0×` 七档。一次调整作用于全部已装载宠物并持久化，缩放保持当前动作、当前地面锚点和宠物之间的既定相对体型。
 - 睡眠内部 root motion 严格为零。只有进入或离开枕头、猫窝等道具场景的已批准短步动作可以产生水平 root motion。
-- App 名称固定为 `PetsGraph`，菜单从每个宠物包读取宠物名称、场景和中文姿态。v0.5.10 同时内嵌五百和飞流，两只宠物均已通过真实桌面验收。
+- App 名称固定为 `PetsGraph`，菜单从每个宠物包读取宠物名称、场景和中文姿态。v0.6.0 两个平台同时内嵌五百和飞流 `0.5.10` 宠物包，两只宠物均已通过真实桌面验收。
 - 飞流采用无道具与猫窝两个场景，当前动作图为 5 个无道具睡姿、4 个猫窝睡姿和 2 个点击坐姿。`rest.floor.prone.right` 是地面枢纽，连接地面正面坐姿、侧身伸展睡、紧蜷睡、半仰睡和猫窝蜷睡；仰躺睡只经半仰睡往返。`rest.cat-bed.curled` 是猫窝枢纽，连接猫窝正面坐姿、猫窝自然趴睡、猫窝侧伸睡和猫窝舒展露腹睡。两个坐姿不进入自主睡姿随机池，收爪趴睡与睡眠香箱不进入当前图。
 - 新宠物只按 Maxwell 自有宠物或朋友明确委托的定制项目推进，不以姿势数量、动作图或道具的跨宠物一致为目标。
 
@@ -58,12 +58,12 @@ PetsGraph 是为 Maxwell 自己和朋友们熟悉的真实猫狗制作的桌面�
 
 ## 生命周期
 
-`public-dual-platform / petsgraph-0.6.0` 是当前发布阶段。macOS 最新产物仍是 v0.5.10 Apple 芯片 DMG，Windows 最新产物是 v0.6.0 Windows 11 x64 ZIP。通用 App 统一使用 `PetsGraph` 品牌，macOS Bundle ID 为 `com.maxwell.petsgraph`，两个平台都内嵌 `wubai-quiet-companion-0.5.10` 与 `feiliu-quiet-companion-0.5.10`。两个包均为 schema `0.4.0`、`cropped-rgba-clips`、`runtime-chain-approved` 和 `installable=true`。
+`public-dual-platform / petsgraph-0.6.0` 是当前发布阶段。macOS 最新产物是 v0.6.0 Apple 芯片 DMG，Windows 最新产物是 v0.6.0 Windows 11 x64 ZIP。通用 App 统一使用 `PetsGraph` 品牌和双猫相伴 Logo，macOS Bundle ID 为 `com.maxwell.petsgraph`，两个平台都内嵌 `wubai-quiet-companion-0.5.10` 与 `feiliu-quiet-companion-0.5.10`。两个包均为 schema `0.4.0`、`cropped-rgba-clips`、`runtime-chain-approved` 和 `installable=true`。
 
 五百包包含 53 个 clip、14 个节点、39 条边与 6,866 帧。飞流包包含 31 个 clip、11 个节点、20 条边与 5,147 帧。合计 84 个 clip 与 12,013 帧。67 项 XCTest、完整包和媒体校验、arm64 架构、ad-hoc 签名、双宠首次布局、独立随机时钟、菜单、拖动、七档缩放、猫窝路径、透明边缘和相对体型已通过。飞流 `baseHeightPt=181.125`，五百 `baseHeightPt=172.5`，即同倍率下飞流比五百大 5%。
 
-macOS 版只构建 Apple 芯片 `arm64`，最低 macOS 14。App 使用 ad-hoc 签名，没有 Developer ID 签名和 Apple 公证，朋友首次打开时需要通过 Finder 右键「打开」或「隐私与安全性」确认。正式媒体内嵌在 App 中，v0.5.10 Release 精确发布一个 DMG，不提供 ZIP、独立宠物包、预览图或校验和附件。仓库清单固定记录 DMG 的字节数和 SHA-256。
+macOS 版只构建 Apple 芯片 `arm64`，最低 macOS 14。App 使用 ad-hoc 签名，没有 Developer ID 签名和 Apple 公证，朋友首次打开时需要通过 Finder 右键「打开」或「隐私与安全性」确认。正式媒体内嵌在 App 中，v0.6.0 Release 提供一个 macOS DMG 和一个 Windows ZIP，不提供 App ZIP、独立宠物包、预览图或校验和附件。仓库双平台清单固定记录两个附件的字节数和 SHA-256。
 
-v0.5.10 App 解压后约 2.42 GiB，无损压缩 DMG 约 816 MiB。运行时继续以存储换取较低 CPU 与内存开销，并使用每用户单实例锁。v0.4.0 的五百实测资源结果仍是参考基线，双宠整日 CPU 与内存属于发布后的持续观察项，不是本次已通过视觉与功能链的替代结论。
+v0.6.0 macOS App 解压后约 2.4 GiB，DMG 为 `857640594` 字节，SHA-256 为 `04c6f30e35d7dd8b5b096d0051aad628987d59b8245d84060cf704f02709b159`。运行时继续以存储换取较低 CPU 与内存开销，并使用每用户单实例锁。v0.4.0 的五百实测资源结果仍是参考基线，双宠整日 CPU 与内存属于发布后的持续观察项，不是本次已通过视觉与功能链的替代结论。
 
 Windows `v0.6.0` 只面向 Windows 11 x64，使用 .NET 10 WPF 和 self-contained 便携 ZIP，不使用 MSIX、代码签名或安装器。它复用同一份五百与飞流 `cropped-rgba-clips` 包，支持透明置顶窗口、宠物本体点击、拖动、托盘菜单、七档全局缩放、位置持久化和每用户单实例。冻结 ZIP 为 `913953281` 字节，SHA-256 为 `90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`。本机交叉编译、双宠完整性、GitHub Windows Runner 与真实 Windows 11 x64 朋友使用验收均已完成，朋友最终反馈为没有问题，发布所有者明确授权发布 v0.6.0。该真机反馈没有附带分项时长或 DPI 测试日志，因此只记录最终人工结论，不补写未留证的量化结果。

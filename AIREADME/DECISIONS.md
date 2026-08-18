@@ -333,3 +333,11 @@
 - Decision: v0.6.0 精确发布一份本机冻结的 `PetsGraph-v0.6.0-Windows-x64.zip`，字节数为 `913953281`，SHA-256 为 `90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`。仓库固定清单记录该附件，Windows Runner 从草稿 Release 下载同一文件并复验标签、附件集合、摘要、版本、AMD64 PE、双包数量和运行时完整性，成功后才允许发布。`dist/` 删除旧 macOS 候选 App 和 4 份废弃 Windows ZIP，只保留冻结正式 ZIP；历史正式产物继续由 Git 标签、GitHub Release、清单和批准包保留。
 - Alternatives（否决）: 把媒体 ZIP 提交进 Git；让 CI 重新编译并发布另一份未真机验收的附件；保留所有候选并靠文件名人工辨认；使用 `--clobber` 原位覆盖已上传附件；为本次内部朋友分发增加 MSIX、签名或其他架构。
 - Tradeoff: 发布附件与真机验收对象保持逐字节一致，下载入口和回滚身份清楚，也释放大量本地磁盘空间。代价是上传和远端复验耗时较长，Windows 真机结论目前只有最终反馈，没有可复查的分项量化日志。
+
+## ADR-042 · v0.6.0 补充 macOS DMG 并分离 App 与宠物内容版本 · 2026-08-18
+
+- Problem: v0.6.0 首次冻结时只发布 Windows ZIP，但同版本已经加入用户验收的双猫相伴 Logo。macOS 用户也需要获得新品牌 App。仅为 Logo 把两个已批准宠物包及 12,013 帧媒体重编为 `0.6.0`，会制造没有内容变化的伪版本和额外验收成本。
+- Constraint: 已存在的 `v0.6.0` 标签不能移动；标签提交已经包含 Swift 宿主、Windows 宿主和最终 Logo；两个 `0.5.10` 宠物包必须保持 `runtime-chain-approved`、`installable=true` 和逐字节媒体身份；macOS 仍只支持 Apple 芯片与 macOS 14 及以上，使用 ad-hoc 签名且不公证。
+- Decision: 本决策取代 ADR-041 中“Release 只有一个 Windows ZIP”的附件范围，不改变其 Windows 冻结产物与真机验收结论。v0.6.0 Release 精确提供 Windows ZIP 与 macOS DMG 两个附件。App 与平台发布版本为 `0.6.0`，内嵌宠物内容版本保持 `0.5.10`，双平台 schema 2 清单固定标签提交、平台、包 ID、包版本、Logo 哈希、附件字节数和 SHA-256。默认分支承载标签后的发布补充，两个验证流程先证明平台源码相对不可移动标签无变化。Windows Runner 在草稿阶段只复验 ZIP，macOS Runner 在公开后使用只读权限复验全部附件并挂载 DMG，最终发布动作与 CI 分离。
+- Alternatives（否决）: 移动或重建 `v0.6.0` 标签；为版本号一致重新生成、抠图或重编宠物媒体；另发没有必要的 `v0.6.1` 只改 Logo；继续让 macOS 用户停留在旧 Logo；给 macOS 验证工作流持久写权限并允许自动发布。
+- Tradeoff: 两个平台共享一个清晰版本入口，宠物内容身份保持真实，已有标签历史不被改写。代价是发布清单需要明确区分 App 和宠物包版本，标签后的发布补充必须从默认分支读取，并额外验证源码相对标签没有漂移。
