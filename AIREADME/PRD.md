@@ -1,10 +1,10 @@
 # PRD：PetsGraph 安静陪伴 MVP
 
-> 当前状态：PetsGraph macOS `0.5.10` 同时内嵌五百与飞流两个低功耗宠物包，均为 `runtime-chain-approved`、`installable=true`，双宠桌面人工验收和单 DMG 公开发布已完成。Windows `0.6.0` 仅面向 Windows 11 x64 和内部朋友，当前已完成 .NET 10 WPF 实现、本机交叉编译、真实双包校验和 GitHub Windows Runner，但真实 Windows 11 GUI 人工验收仍未完成。
+> 当前状态：PetsGraph macOS `0.5.10` 同时内嵌五百与飞流两个低功耗宠物包，均为 `runtime-chain-approved`、`installable=true`，双宠桌面人工验收和单 DMG 公开发布已完成。Windows `0.6.0` 仅面向 Windows 11 x64 和内部朋友，已完成 .NET 10 WPF 实现、本机交叉编译、真实双包校验、GitHub Windows Runner 和朋友真机使用验收，发布所有者已授权以无签名便携 ZIP 发布。
 
 ## 1. 产品目标
 
-在受支持的本地桌面上长期放置一只或多只像真实宠物、动作自然、不会打扰工作的数字宠物。它们大部分时间各自睡觉，偶尔按各自节奏自然换睡姿；用户点击某只宠物时，只让它醒来面向用户坐好，再次点击后回去睡觉。公开基线仍是 macOS，Windows 11 x64 是一条不改变宠物包与核心行为契约的内部验证路径。
+在受支持的本地桌面上长期放置一只或多只像真实宠物、动作自然、不会打扰工作的数字宠物。它们大部分时间各自睡觉，偶尔按各自节奏自然换睡姿；用户点击某只宠物时，只让它醒来面向用户坐好，再次点击后回去睡觉。macOS 与 Windows 11 x64 使用不同原生宿主，但共享不改变的宠物包与核心行为契约。
 
 首个版本验证的不是桌面宠物能做多少事，而是用户是否愿意让它整天留在桌面上。App 继续使用稳定名称 `PetsGraph`，但素材生产不追求通用化。五百、飞流及未来受托宠物可以拥有完全不同的姿势、道具、动作图和随机权重。
 
@@ -80,9 +80,9 @@
 ### 4.4.2 Windows 11 x64 平台范围
 
 - 以 .NET 10 WPF 提供无边框透明置顶窗口和系统托盘菜单，不改变宠物包的动作图、时间、坐标或批准媒体。
-- 只支持 Windows 11 x64，以 self-contained 便携 ZIP 内部分发。用户完整解压后直接运行 `PetsGraph.exe`，无需预装 .NET。
+- 只支持 Windows 11 x64，以 self-contained 便携 ZIP 分发给知情朋友。用户完整解压后直接运行 `PetsGraph.exe`，无需预装 .NET。
 - 当前不做 MSIX、安装器或代码签名。用户必须理解未签名应用可能出现 SmartScreen 提示，并通过可信渠道与 SHA-256 核对产物。
-- 真实 Windows 11 验收前只能称为内部候选。GitHub Windows Runner 的编译、测试和 PE/ZIP 检查不证明透明窗口、DPI 拖动、鼠标命中、托盘或长时运行已通过。
+- GitHub Windows Runner 的编译、测试和 PE/ZIP 检查不证明真实桌面体验。v0.6.0 另有朋友在真实 Windows 11 x64 上完成使用验收并反馈没有问题；因未附分项时长或 DPI 日志，只记录该最终人工结论。
 
 ### 4.5 普通睡眠场景
 
@@ -234,6 +234,15 @@ sit.front.floor ↔ 平趴睡
 - 飞流 `baseHeightPt=181.125`，五百 `baseHeightPt=172.5`，同倍率下飞流视觉基准大 5%。
 - v0.5.10 Release 精确提供一个 Apple 芯片 DMG，不发布 ZIP、预览图、校验和附件或独立宠物包。
 
+### 7.6 Windows v0.6.0 发布结论
+
+- Windows 宿主只支持 Windows 11 x64，使用 .NET 10 WPF、self-contained 多文件便携 ZIP、系统托盘和每用户单实例，不提供 Windows 10、Windows on Arm、MSIX、安装器或代码签名。
+- 7 项 MSTest、WPF 解决方案 0 警告 0 错误、本机交叉编译、AMD64 PE、488 个 ZIP 条目、两个正式宠物包、84 个 clip 与 12,013 帧完整性校验通过。
+- 冻结 ZIP 为 `913953281` 字节，SHA-256 为 `90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`，Release 精确只提供这一份 Windows ZIP。
+- GitHub Windows Runner 代码验证已通过。正式发布工作流还会从草稿 Release 重新下载冻结 ZIP，按仓库清单复验字节数、摘要、版本、AMD64 PE、双包数量和运行时完整性。
+- 朋友已在真实 Windows 11 x64 电脑上完成使用验收，最终反馈为没有问题。该反馈没有附带分项时长或 DPI 测试日志，因此不补写未留证的量化结果。
+- 发布所有者已明确授权发布 v0.6.0。macOS 用户继续使用 v0.5.10 Apple 芯片 DMG，v0.6.0 不附带新的 macOS 产物。
+
 ## 8. PM Red-Team 结论
 
 | 承重假设 | Fails if | 最便宜验证 | 改变方向的标准 |
@@ -251,7 +260,7 @@ sit.front.floor ↔ 平趴睡
 - 玩耍、进食、舔毛和复杂命令菜单。
 - 多宠互动、碰撞、自动避让、养成、数值、提醒、云同步和素材市场。多宠独立并列显示已经进入正式版，但宠物之间仍不互动。
 - 面向陌生用户的一键照片上传、自动选择通用姿势、自动生成完整动作图和自助安装包。
-- Intel Mac、Windows on Arm、Windows 10 和 Linux 安装包。Windows 11 x64 便携 ZIP 已进入内部验收，但不是已发布安装包。
+- Intel Mac、Windows on Arm、Windows 10 和 Linux 安装包。Windows 11 x64 只提供当前无签名便携 ZIP，不扩展为其他 Windows 载体。
 - 将已经批准的走跑素材删除或伪装成未完成。它们保留为后续能力，但不进入 MVP 默认行为。
 
 ## 10. MVP 后续未知

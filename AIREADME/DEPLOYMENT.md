@@ -1,6 +1,6 @@
 # DEPLOYMENT：petsgraph
 
-## 当前发布基线
+## macOS v0.5.10 发布基线
 
 PetsGraph `0.5.10` 是 Apple 芯片专用双宠正式版，最低支持 macOS 14。App 名称为 `PetsGraph`，Bundle ID 为 `com.maxwell.petsgraph`，使用 ad-hoc 签名，尚未使用 Developer ID 或 Apple 公证。
 
@@ -9,7 +9,7 @@ PetsGraph `0.5.10` 是 Apple 芯片专用双宠正式版，最低支持 macOS 14
 | 五百 | `wubai-quiet-companion-0.5.10` | 53 | 6,866 | 172.5 | `runtime-chain-approved`、`installable=true` |
 | 飞流 | `feiliu-quiet-companion-0.5.10` | 31 | 5,147 | 181.125 | `runtime-chain-approved`、`installable=true` |
 
-两包均使用 schema `0.4.0` 与 `cropped-rgba-clips`。飞流在 1.0× 下比五百大 5%。正式 App 为 `dist/PetsGraph-0.5.10.app`，本地 Release 产物为 `workspaces/release-dist/v0.5.10/PetsGraph-v0.5.10-macOS-arm64.dmg`。
+两包均使用 schema `0.4.0` 与 `cropped-rgba-clips`。飞流在 1.0× 下比五百大 5%。历史正式构建路径为 `dist/PetsGraph-0.5.10.app`，本地 Release 产物为 `workspaces/release-dist/v0.5.10/PetsGraph-v0.5.10-macOS-arm64.dmg`。v0.5.10 发布完成后，用户已授权清理 `dist/` 中的旧 macOS App 与候选产物，当前回滚事实以 Git 标签、GitHub Release、仓库清单和私有批准包为准。
 
 DMG 固定属性：
 
@@ -20,11 +20,11 @@ DMG 固定属性：
 
 公开 Release 不提供 App ZIP、预览图、校验和附件或独立 `.petsgraph-pet`。附件哈希记录在 `release/manifests/v0.5.10.json`。
 
-## Windows 11 x64 内部候选基线
+## Windows v0.6.0 发布基线
 
 Windows `0.6.0` 只面向 Windows 11 x64 与知情的内部朋友。它使用 .NET 10 WPF，以 self-contained 多文件便携 ZIP 交付，不需要用户预装 .NET。当前不构建 MSIX、安装器或代码签名。
 
-本地候选产物：
+冻结发布产物：
 
 - 路径：`dist/PetsGraph-v0.6.0-Windows-x64.zip`
 - 字节数：`913953281`
@@ -33,7 +33,7 @@ Windows `0.6.0` 只面向 Windows 11 x64 与知情的内部朋友。它使用 .N
 - 内嵌宠物包：`2`，五百与飞流
 - 主程序：PE32+ GUI，x86-64
 
-该 ZIP 已在 macOS arm64 本机使用 .NET SDK `10.0.400` 交叉发布，并通过压缩数据、无 `__MACOSX`/`.DS_Store`、双包数量和真实包完整性校验。它尚未上传到 GitHub Release，也尚未在真实 Windows 11 桌面完成透明窗口、DPI 拖动、托盘、鼠标命中和长时运行验收。
+该 ZIP 已在 macOS arm64 本机使用 .NET SDK `10.0.400` 交叉发布，并通过压缩数据、无 `__MACOSX`/`.DS_Store`、双包数量和真实包完整性校验。7 项 MSTest、WPF 编译、GitHub Windows Runner 与朋友真实 Windows 11 x64 使用验收均已通过，朋友反馈没有问题，发布所有者明确授权发布 v0.6.0。真机反馈没有附带分项时长或 DPI 日志，因此只记录最终结论。`dist/` 已删除约 34 GB 的旧 macOS 候选 App 和 4 份废弃 Windows ZIP，当前只保留这一份冻结 ZIP。
 
 ## macOS 用户安装
 
@@ -46,13 +46,15 @@ Windows `0.6.0` 只面向 Windows 11 x64 与知情的内部朋友。它使用 .N
 
 App 离线运行，不上传照片，不访问生成服务，不收集遥测，也不要求辅助功能权限。
 
-## Windows 内部安装
+## Windows 安装
 
-1. 通过可信内部渠道获得 `PetsGraph-v0.6.0-Windows-x64.zip`，先核对 SHA-256。
+公开入口：<https://github.com/iyuenan3/petsgraph/releases/tag/v0.6.0>
+
+1. 从 GitHub Release 下载 `PetsGraph-v0.6.0-Windows-x64.zip`，需要时先核对 SHA-256。
 2. 解压完整 ZIP，不要只把 `PetsGraph.exe` 拖到其他目录。`PetsGraph.exe`、.NET 运行文件和 `Pets` 必须保持在同一解压目录中。
-3. 双击 `PetsGraph.exe`。未签名内部版可能触发 SmartScreen，只在文件来源和哈希已核对时继续。
+3. 双击 `PetsGraph.exe`。未签名版本可能触发 SmartScreen，只在文件来源和哈希已核对时继续。
 4. 右键系统托盘中的双猫图标，可以分别显示、隐藏宠物、选择睡姿、设置全局大小或退出。
-5. 设置保存到 `%LOCALAPPDATA%\PetsGraph\settings.json`。当前内部候选不写注册表、不安装系统服务，也不配置开机自启。
+5. 设置保存到 `%LOCALAPPDATA%\PetsGraph\settings.json`。当前版本不写注册表、不安装系统服务，也不配置开机自启。
 
 ## macOS 本机构建与验证
 
@@ -123,7 +125,7 @@ DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
 
 GitHub 推送到 `codex/windows-win11-x64`、`main` 或相关 Pull Request 时，`.github/workflows/windows.yml` 在 `windows-2025` 上重新执行锁定还原、测试、WPF 编译、代码运行 ZIP、AMD64 PE 和 ZIP 结构检查。该 artifact 不含私有宠物媒体，仅保留 7 天。内容提交 `2b539a6` 对应运行 `32114691048`，全部步骤通过。
 
-`.github/workflows/windows-release-verify.yml` 只验证已上传到草稿 Release 的 Windows ZIP，它不创建标签、不上传附件、不发布草稿。当前没有 Windows 发布授权，因此不应触发该流程。
+`.github/workflows/windows-release-verify.yml` 只验证已上传到草稿 Release 的 Windows ZIP，它不创建标签、不上传附件、不发布草稿。流程检出精确标签，要求草稿附件集合与清单严格一致，再核对字节数、SHA-256、版本、AMD64 PE、双包数量和运行时完整性。发布所有者已授权对 v0.6.0 触发该流程。
 
 ## macOS GitHub 公开发布流程
 
@@ -137,6 +139,18 @@ GitHub 推送到 `codex/windows-win11-x64`、`main` 或相关 Pull Request 时�
 
 任何附件、标签或提交不一致都必须停止发布。不能原位移动已有正式标签，也不能用另一次远端编译替代本机人工验收过的 DMG。
 
+## Windows GitHub 发布流程
+
+1. 冻结真实 Windows 11 x64 验收过的 ZIP，记录精确名称、字节数和 SHA-256，不重新编译另一份附件。
+2. 提交 README、`docs/releases/v0.6.0.md`、`release/manifests/v0.6.0.json` 和 Windows 草稿验证工作流，再以该内容提交为锚点更新 AIREADME。
+3. 在最终文档提交上创建带注释标签 `v0.6.0`，推送当前发布分支与标签。
+4. 使用 `docs/releases/v0.6.0.md` 创建草稿 Release，精确只上传清单指定的 Windows ZIP。
+5. 手动触发 `.github/workflows/windows-release-verify.yml`，输入标签 `v0.6.0`。
+6. Windows Runner 检出精确标签，从草稿 Release 下载冻结 ZIP，并按仓库清单完成全部复验。只有该运行成功后，才能把草稿发布为最新版。
+7. 发布后回读 Release，确认不是草稿、不是预发布、附件数量严格为一，名称、字节数、摘要、标签提交和工作流运行均与冻结基线一致。
+
+v0.6.0 不触发只适用于 macOS DMG 的 `.github/workflows/release.yml`。上传过程如果长时间无输出，先继续轮询原进程或回读远端附件状态，不重复上传，不使用 `--clobber` 覆盖未知状态的正式附件。
+
 ## 回滚与运维
 
 - 历史标签、Release、五百 PNG 基线和飞流制作事实源保留，不覆盖或删除。
@@ -145,4 +159,4 @@ GitHub 推送到 `codex/windows-win11-x64`、`main` 或相关 Pull Request 时�
 - App 只使用一个共享 24 Hz 渲染 Timer，每只宠物仍拥有独立行为会话和随机时钟。
 - 双宠长期 CPU 与内存继续收集真实数据。性能结论必须注明唯一 PID、测量工具、稳定睡眠或过渡场景，不能把旧 AppTranslocation 进程计入当前版本。
 - 下一版如改变素材、位置、体型、窗口命中、动作图或发布附件，必须重跑相应自动检查和真实桌面人工闸门。
-- Windows 候选的历史 ZIP 只作为本地构建证据，不用旧哈希冒充最新产物。重建后必须重新记录字节数和 SHA-256，已上传的历史附件不原位覆盖。
+- Windows 历史候选 ZIP 已从 `dist/` 清理，不用旧哈希冒充最新产物。后续重建必须使用新版本名并重新记录字节数和 SHA-256，已上传的正式附件不原位覆盖。

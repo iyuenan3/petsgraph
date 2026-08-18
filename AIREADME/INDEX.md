@@ -1,23 +1,23 @@
 # petsgraph · AIREADME
 > 为 Maxwell 自有宠物与朋友委托宠物定制的多宠安静桌面陪伴项目 ｜ 生命周期: public-alpha
-> last-synced: 2b539a6 · 2026-08-18
-> phase: public-macos-v0.5.10-and-windows-v0.6.0-internal-preview
+> last-synced: d1b3a4e · 2026-08-18
+> phase: public-macos-v0.5.10-and-windows-v0.6.0
 
 ## 状态
 
 | 文件 | 状态 | 摘要 |
 |---|:---:|---|
-| CORE | ✅ | PetsGraph 多宠共享宿主、macOS 公开版、Windows 11 x64 内部预览与非通用化边界 |
+| CORE | ✅ | PetsGraph 多宠共享宿主、macOS 公开版、Windows 11 x64 便携版与非通用化边界 |
 | RELATIONS | ✅ | Seedance、Seedream、gpt-image-2、只读参考项目与定制消费关系 |
 | SPEC | ✅ | 一包一宠、数据驱动 scene、固定裁剪 RGBA、双宠宿主和全局倍率契约 |
 | ARCHITECTURE | ✅ | 独立行为会话、AppKit/CALayer 与 WPF/PBGRA 双宿主、固定方形视口与单实例 |
-| DEPLOYMENT | ✅ | Apple 芯片 DMG 公开基线与 Windows 11 x64 无签名便携 ZIP 内部候选 |
+| DEPLOYMENT | ✅ | Apple 芯片 DMG 与 Windows 11 x64 无签名便携 ZIP 发布基线 |
 | PRD | ✅ | 安静睡眠陪伴、多宠独立时钟、全局倍率、双平台范围和人工验收边界 |
-| ROADMAP | ✅ | macOS 长期观察、Windows 11 真机验收、Apple 公证与新宠物定制 |
+| ROADMAP | ✅ | 双平台发布后观察、Apple 公证、Windows 量化证据与新宠物定制 |
 | CONVENTIONS | ✅ | 一包一宠、独立会话、共享时钟、固定 raw crop、跨平台视口和验收约定 |
-| DECISIONS | ✅ | 追加 Windows 11 x64、.NET 10 WPF、便携 ZIP 和无签名内部分发决策 |
+| DECISIONS | ✅ | 追加 Windows 11 x64、.NET 10 WPF、便携 ZIP 和冻结产物发布决策 |
 | MEMORY | ✅ | 素材、抠图、固定几何、性能、macOS 打包和 Windows 渲染与 CI 边界 |
-| CHANGELOG | ✅ | `0.5.10` macOS 正式版、`0.6.0` Windows 内部候选与历史里程碑 |
+| CHANGELOG | ✅ | `0.5.10` macOS 正式版、`0.6.0` Windows 便携版与历史里程碑 |
 
 ## 按任务读
 

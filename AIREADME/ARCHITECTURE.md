@@ -46,7 +46,7 @@
 | 枕头睡眠 | 3 个睡姿、网关短循环、独立坐姿、直接换姿和自然进出 | 枕头全姿势整链与真实桌面评审通过 | 枕头仍是画面内嵌道具，不做独立物理对象 |
 | 安装 | 只发布 Apple 芯片 DMG，严格校验后公开 | 两个 `0.5.10` 包均为 `runtime-chain-approved`、`installable=true` | 不发布 ZIP、预览图、校验和附件或独立素材包；ad-hoc 签名未公证 |
 | 低功耗运行时 | PNG 事实源确定性编译为每 clip 固定裁剪的预乘 RGBA，内存映射后直接提交 CALayer | 84 个 clip、12,013 帧、67 项测试、真实桌面双宠验收 | 制作事实源继续作为回滚基线，双宠整日资源仍持续观察 |
-| Windows 内部宿主 | .NET 10 WPF 消费同一 RGBA 宠物包，提供托盘、透明命中、拖动、全局缩放与位置持久化 | 7 项 .NET 测试、双包 84 clip 校验、Windows Runner 编译与 x64 PE/ZIP 校验 | 仅 Windows 11 x64，真机透明、DPI、托盘和长时运行未人工验收 |
+| Windows 便携宿主 | .NET 10 WPF 消费同一 RGBA 宠物包，提供托盘、透明命中、拖动、全局缩放与位置持久化 | 7 项 .NET 测试、双包 84 clip 校验、Windows Runner、x64 PE/ZIP 与朋友真机验收 | 仅 Windows 11 x64，无签名、无 MSIX，不承诺 Windows 10 或 Windows on Arm |
 
 当前工作树中的点击目的地移动、左右镜像工程验证和强制走跑菜单只属于历史能力验证。它们不能被 README、MVP 包或默认启动参数包装成首发产品能力。
 
@@ -65,7 +65,7 @@ v0.5.10 在不改变单包动作图语义的前提下增加一个 App 级管理�
 
 当前双宠版本已经完成 67 项 XCTest、84 clip 图验证和 12,013 帧媒体可读校验。真实桌面布局、菜单操作、两只宠物独立随机变化、七档缩放、拖动、猫窝路径、透明边缘与相对体型均已由 Maxwell 验收。飞流基准高度为 181.125 pt，五百为 172.5 pt，二者保持 5% 的相对差异。双宠整日 CPU 与内存继续作为发布后观察项。
 
-## Windows `v0.6.0` 内部宿主
+## Windows `v0.6.0` 便携宿主
 
 Windows 宿主不修改宠物包或复制行为数据，它以 .NET 10 重新实现同一消费契约：
 
@@ -232,13 +232,13 @@ windowY(t) = userPlacedY
 Git 标签与仓库内发布清单
   → 草稿 GitHub Release 与版本化附件
   → GitHub Actions 检出精确标签
-  → Swift 测试、字节数、SHA-256、arm64 校验
+  → 对应平台测试、字节数、SHA-256 与架构校验
   → 全部通过后发布草稿
 ```
 
-Git 历史只保存代码、文档、构建工具和小型清单。正式运行时媒体内嵌在 App 的默认宠物包中，v0.5.10 Release 精确发布一个 DMG，不发布 ZIP、总览图、校验和附件或独立素材包。代码使用 MIT License，五百与飞流媒体遵守 `ASSETS.md`。公开版只允许 `arm64` 和 macOS 14 及以上。
+Git 历史只保存代码、文档、构建工具和小型清单。正式运行时媒体内嵌在 App 的默认宠物包中。v0.5.10 Release 精确发布一个 Apple 芯片 DMG，v0.6.0 Release 精确发布一个 Windows 11 x64 ZIP，两者都不重复发布独立素材包。代码使用 MIT License，五百与飞流媒体遵守 `ASSETS.md`。
 
-Windows `v0.6.0` ZIP 目前是本地内部候选，不是 GitHub Release 附件。提交到分支后，`.github/workflows/windows.yml` 在 GitHub 托管的 Windows Runner 上使用锁定依赖重新测试、编译并产生不含私有宠物媒体的短期代码运行包。真实双宠物 ZIP 由本机从已批准包构建，如需对外上传，必须先完成 Windows 11 真机人工验收并获得明确发布授权。
+Windows `v0.6.0` 真实双宠 ZIP 由本机从已批准包构建，仓库清单固定名称、字节数和 SHA-256。`.github/workflows/windows.yml` 在普通代码提交上产生不含私有宠物媒体的短期代码运行包；`.github/workflows/windows-release-verify.yml` 则检出精确标签，下载草稿 Release 的唯一正式 ZIP，并复验清单、版本、AMD64 PE、双包数量和运行时完整性。朋友在真实 Windows 11 x64 上完成使用验收并反馈没有问题，发布所有者明确授权 v0.6.0。该真机反馈没有附带分项时长或 DPI 日志，所以不把未留证量化结果写成事实。
 
 ## 10. 权限、配置与信任边界
 
@@ -273,7 +273,7 @@ v0.4.0 真实执行 57 项 XCTest，0 失败。固定裁剪正式包通过 53 �
 
 飞流素材闸门已经完成，且已从批准精抠事实源确定性构建正式固定裁剪 RGBA 运行时包。低功耗包包含 31 个 clip、5,147 帧，画布为 656×224，保留每条 clip 的批准播放速度，其中地面三种循环为 12 FPS，进猫窝为 18 FPS，出猫窝为 16.2 FPS，其余为 24 FPS。v0.5.10 双宠 App 同时通过五百 53 clip 与飞流 31 clip 的图和媒体校验，并完成真实桌面验收。两个包均标记为 `runtime-chain-approved` 和 `installable=true`。
 
-Windows 路径在 macOS arm64 上使用 .NET SDK `10.0.400` 完成交叉编译。7 项 MSTest 通过，WPF 解决方案 0 警告、0 错误，五百与飞流共 84 个 clip、12,013 帧通过完整性和首尾帧渲染校验。GitHub Actions `32114691048` 在内容提交 `2b539a6` 上通过锁定还原、测试、WPF 编译、self-contained 发布、AMD64 PE 检查、ZIP 结构校验和代码运行包上传。这些证据不覆盖真实 Windows 11 GUI 验收，所以 Windows 包仍为内部候选。
+Windows 路径在 macOS arm64 上使用 .NET SDK `10.0.400` 完成交叉编译。7 项 MSTest 通过，WPF 解决方案 0 警告、0 错误，五百与飞流共 84 个 clip、12,013 帧通过完整性和首尾帧渲染校验。GitHub Actions `32114691048` 在内容提交 `2b539a6` 上通过锁定还原、测试、WPF 编译、self-contained 发布、AMD64 PE 检查、ZIP 结构校验和代码运行包上传。冻结 ZIP 为 `913953281` 字节，SHA-256 为 `90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`。朋友在真实 Windows 11 x64 上完成使用验收并反馈没有问题，发布所有者明确授权 v0.6.0；未留存的分项时长和 DPI 日志不作推断。
 
 ## 12. 禁改项 / Forbidden Refactors
 
@@ -294,4 +294,4 @@ Windows 路径在 macOS arm64 上使用 .NET SDK `10.0.400` 完成交叉编译�
 - 不为每只宠物各起一套渲染 Timer，也不因为共享渲染 Timer 就共享行为会话、随机状态或下一次换姿时间。
 - 不把场景名称写死在 App 菜单或加载器白名单中。场景目录、中文名称和顺序来自宠物包，旧包兼容回退只用于迁移。
 - 不把全局大小实现为逐帧素材重采样或动作重启。它只改变窗口显示尺寸，并保持当前 ground anchor、当前动作和各宠物固有相对体型。
-- 不把 GitHub Windows Runner 通过写成 Windows 11 真实桌面通过，也不在未获授权时创建 Windows Release、MSIX 或签名产物。
+- 不把 GitHub Windows Runner 通过写成 Windows 11 真实桌面通过，也不在未获授权时创建 Windows Release、MSIX 或签名产物。v0.6.0 的真机通过来自朋友明确反馈，不来自 CI 推断。

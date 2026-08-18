@@ -2,6 +2,15 @@
 
 > Append-only。记录版本与里程碑，决策理由见 `DECISIONS.md`。
 
+## v0.6.0 · 2026-08-18
+
+- Added: 发布首个 Windows 11 x64 版本，使用 .NET 10 WPF、self-contained 多文件便携 ZIP、透明置顶窗口、逐像素鼠标穿透、拖动、系统托盘、七档全局缩放、位置持久化和每用户单实例。
+- Added: Release 精确只提供 `PetsGraph-v0.6.0-Windows-x64.zip`，不提供 MSIX、安装器、代码签名、Windows 10 或 Windows on Arm 版本。macOS 用户继续使用 v0.5.10 Apple 芯片 DMG。
+- Changed: Windows 草稿 Release 验证工作流现在检出精确标签，并按仓库清单复验唯一附件、字节数、SHA-256、版本、AMD64 PE、双宠数量和运行时完整性。
+- Changed: 用户明确授权清理 `dist/` 中约 34 GB 的旧 macOS 候选 App 和 4 份废弃 Windows ZIP，当前只保留冻结的 v0.6.0 正式 ZIP。历史正式发布继续由 Git 标签、GitHub Release、仓库清单和批准包保留。
+- Review: 7 项 MSTest、WPF 解决方案 0 警告 0 错误、两个包 84 个 clip 与 12,013 帧完整性、本机交叉编译、AMD64 PE、488 个 ZIP 条目和 GitHub Windows Runner 通过。冻结 ZIP 为 `913953281` 字节，SHA-256 为 `90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`。
+- Review: 朋友已在真实 Windows 11 x64 电脑上完成使用验收，最终反馈为没有问题，发布所有者明确授权发布 v0.6.0。该反馈没有附带分项时长或 DPI 测试日志，因此不补写未留证的量化结论。
+
 ## Unreleased · 2026-08-18
 
 - Added: 新增只面向 Windows 11 x64 的 .NET 10 WPF 内部宿主。它复用五百和飞流的 schema `0.4.0` 固定裁剪 RGBA 包，提供双宠独立行为、透明置顶窗口、宠物本体点击、DPI 拖动、托盘菜单、睡姿选择、七档全局缩放、位置持久化和每用户单实例。

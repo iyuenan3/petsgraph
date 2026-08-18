@@ -325,3 +325,11 @@
 - Decision: 新增 .NET 10 解决方案，核心层负责 schema `0.4.0`、安全加载、完整性、时间线、安静行为、累计 root motion 和 clip 级固定方形视口，WPF 层负责 RGBA 到 `Pbgra32` 通道转换、透明置顶窗口、Win32 透明命中、DPI 拖动、托盘、全局七档缩放、位置持久化和每用户 Mutex。产物固定为 `win-x64` self-contained 多文件 ZIP，默认不签名、不构建 MSIX。GitHub Windows Runner 只构建和校验不含私有媒体的代码运行包，真实双宠 ZIP 在本机从批准包确定性构建。
 - Alternatives（否决）: Electron 或 WebView 重写；继续把 Windows 排除在需求之外；为 Windows 重新编译一套宠物媒体契约；把完整私有媒体放入 Git 或常规 CI artifact；首版同时做 Windows on Arm、Win10、MSIX 和签名；仅因 Windows Runner 通过就对外发布。
 - Tradeoff: 双平台共享数据契约但保留原生窗口实现，代码和测试矩阵增加。便携 ZIP 简化内部分发，但用户需保留完整解压目录并理解未签名安全提示。Windows Server 2025 CI 可以证明编译、测试和产物结构，但真实 Windows 11 透明、DPI、拖动、托盘、多显示器与长时运行仍是必须人工完成的闸门。
+
+## ADR-041 · v0.6.0 发布冻结的单一 Windows ZIP · 2026-08-18
+
+- Problem: Windows 便携包接近 900 MiB，既不能写入 Git，也不应让 GitHub Runner 重新编译一份与朋友真机验收对象不同的附件。旧候选 App 和 ZIP 长期留在 `dist/` 还占用约 34 GB，并容易被误传为正式版。
+- Constraint: 只支持 Windows 11 x64，内部朋友接受无签名和 SmartScreen 提示；朋友已经对冻结候选给出“没有问题”的最终验收结论，发布所有者明确授权 v0.6.0；本次没有分项时长或 DPI 日志，不能补写量化结果；历史标签、Release、批准素材和仓库履历不得删除。
+- Decision: v0.6.0 精确发布一份本机冻结的 `PetsGraph-v0.6.0-Windows-x64.zip`，字节数为 `913953281`，SHA-256 为 `90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`。仓库固定清单记录该附件，Windows Runner 从草稿 Release 下载同一文件并复验标签、附件集合、摘要、版本、AMD64 PE、双包数量和运行时完整性，成功后才允许发布。`dist/` 删除旧 macOS 候选 App 和 4 份废弃 Windows ZIP，只保留冻结正式 ZIP；历史正式产物继续由 Git 标签、GitHub Release、清单和批准包保留。
+- Alternatives（否决）: 把媒体 ZIP 提交进 Git；让 CI 重新编译并发布另一份未真机验收的附件；保留所有候选并靠文件名人工辨认；使用 `--clobber` 原位覆盖已上传附件；为本次内部朋友分发增加 MSIX、签名或其他架构。
+- Tradeoff: 发布附件与真机验收对象保持逐字节一致，下载入口和回滚身份清楚，也释放大量本地磁盘空间。代价是上传和远端复验耗时较长，Windows 真机结论目前只有最终反馈，没有可复查的分项量化日志。
