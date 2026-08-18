@@ -64,9 +64,9 @@ internal sealed class TestPackageFixture : IDisposable
         });
 
         WriteClip("rest-loop", "loop", "rest.floor", "rest.floor", [10, 20, 30, 255, 40, 50, 60, 128]);
-        WriteClip("sit-loop", "loop", "sit.floor", "sit.floor", [60, 50, 40, 255, 30, 20, 10, 128]);
-        WriteClip("wake", "transition", "rest.floor", "sit.floor", [1, 2, 3, 255, 4, 5, 6, 255]);
-        WriteClip("sleep", "transition", "sit.floor", "rest.floor", [6, 5, 4, 255, 3, 2, 1, 255]);
+        WriteClip("sit-loop", "loop", "sit.floor", "sit.floor", [60, 50, 40, 255, 30, 20, 10, 128], facing: "front");
+        WriteClip("wake", "transition", "rest.floor", "sit.floor", [1, 2, 3, 255, 4, 5, 6, 255], rootMotionEndPt: 4);
+        WriteClip("sleep", "transition", "sit.floor", "rest.floor", [6, 5, 4, 255, 3, 2, 1, 255], facing: "left", rootMotionEndPt: 4);
 
         WriteJson("demo-sequence.json", new DemoSequence
         {
@@ -104,7 +104,14 @@ internal sealed class TestPackageFixture : IDisposable
         }
     }
 
-    private void WriteClip(string id, string type, string entry, string exit, byte[] mediaBytes)
+    private void WriteClip(
+        string id,
+        string type,
+        string entry,
+        string exit,
+        byte[] mediaBytes,
+        string facing = "right",
+        double rootMotionEndPt = 0)
     {
         var mediaRelativePath = $"clips/media/{id}.rgba";
         File.WriteAllBytes(Path.Combine(RootPath, mediaRelativePath), mediaBytes);
@@ -113,13 +120,13 @@ internal sealed class TestPackageFixture : IDisposable
             SchemaVersion = "0.4.0",
             Id = id,
             Type = type,
-            Facing = "right",
+            Facing = facing,
             MirrorSafe = false,
             EntryPose = entry,
             ExitPose = exit,
             SafeExitFrames = type == "loop" ? [0] : [],
             PreloadHints = [],
-            RootMotionEndPt = [0, 0],
+            RootMotionEndPt = [rootMotionEndPt, 0],
             Frames =
             [
                 new()

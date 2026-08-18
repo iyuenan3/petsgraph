@@ -37,9 +37,8 @@ public sealed class RgbaFrameRenderer : IDisposable
             stream.Position = checked((long)frameIndex * frameByteCount);
             stream.ReadExactly(source.AsSpan(0, frameByteCount));
 
-            var presentation = clip.Frames[frameIndex].PresentationOffsetPx;
-            var targetX = cropX + (int)Math.Round(presentation?[0] ?? 0);
-            var targetY = cropY + (int)Math.Round(presentation?[1] ?? 0);
+            var targetX = cropX;
+            var targetY = cropY;
             if (targetX < 0 || targetY < 0 || targetX + cropWidth > CanvasWidth || targetY + cropHeight > CanvasHeight)
             {
                 throw new InvalidDataException($"Frame {clipId}:{frameIndex} falls outside the package canvas.");

@@ -38,7 +38,7 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
                 settings.Pets.Add(petId, petSettings);
             }
             var window = new PetWindow(package);
-            window.SetScale(petSettings.Scale);
+            window.SetScale(settings.Scale);
             window.SetInitialPosition(petSettings.Left, petSettings.Top, nextLeft, workArea.Bottom - 12);
             window.PositionChanged += OnWindowPositionChanged;
             window.Faulted += OnWindowFaulted;
@@ -127,24 +127,21 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
             }
             menu.Items.Add(poses);
 
-            var sizes = new Forms.ToolStripMenuItem("大小");
-            foreach (var value in AllowedScales)
-            {
-                var item = new Forms.ToolStripMenuItem($"{value:0.##}×")
-                {
-                    Checked = Math.Abs(window.PetScale - value) < 0.001,
-                    Tag = value,
-                };
-                item.Click += (_, _) =>
-                {
-                    window.SetScale((double)item.Tag);
-                    SaveSettings();
-                };
-                sizes.DropDownItems.Add(item);
-            }
-            menu.Items.Add(sizes);
             menu.Items.Add(new Forms.ToolStripSeparator());
         }
+
+        var sizes = new Forms.ToolStripMenuItem("全局大小");
+        foreach (var value in AllowedScales)
+        {
+            var item = new Forms.ToolStripMenuItem($"{value:0.##}×")
+            {
+                Checked = Math.Abs(settings.Scale - value) < 0.001,
+                Tag = value,
+            };
+            item.Click += (_, _) => SetGlobalScale((double)item.Tag);
+            sizes.DropDownItems.Add(item);
+        }
+        menu.Items.Add(sizes);
 
         var showAll = new Forms.ToolStripMenuItem("显示全部");
         showAll.Click += (_, _) => SetAllVisible(true);
@@ -163,6 +160,16 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
         foreach (var window in windows)
         {
             SetVisible(window, visible, save: false);
+        }
+        SaveSettings();
+    }
+
+    private void SetGlobalScale(double value)
+    {
+        settings.Scale = value;
+        foreach (var window in windows)
+        {
+            window.SetScale(value);
         }
         SaveSettings();
     }
@@ -201,9 +208,8 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
         {
             var pet = settings.Pets[window.PetId];
             pet.Visible = window.IsVisible;
-            pet.Scale = window.PetScale;
-            pet.Left = window.Left;
-            pet.Top = window.Top;
+            pet.Left = window.PersistentCanvasLeft;
+            pet.Top = window.CanvasTop;
         }
         settingsStore.Save(settings);
     }

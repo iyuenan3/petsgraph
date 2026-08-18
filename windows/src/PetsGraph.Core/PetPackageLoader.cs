@@ -134,6 +134,9 @@ public sealed class PetPackageLoader
         PetPackageManifest manifest)
     {
         var nodes = graph.Nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
+        var declaredPropIds = (manifest.RenderAssets.EnvironmentProps ?? [])
+            .Select(prop => prop.Id)
+            .ToHashSet(StringComparer.Ordinal);
         foreach (var node in graph.Nodes)
         {
             ValidateIdentifier(node.Id, "node id");
@@ -144,6 +147,10 @@ public sealed class PetPackageLoader
             if (loop.EntryPose != node.Id || loop.ExitPose != node.Id)
             {
                 throw Invalid($"loop {loop.Id} does not preserve node {node.Id}");
+            }
+            if ((node.Props ?? []).Any(prop => !declaredPropIds.Contains(prop)))
+            {
+                throw Invalid($"node {node.Id} references an undeclared environment prop");
             }
         }
         foreach (var edge in graph.Edges)
@@ -199,7 +206,9 @@ public sealed class PetPackageLoader
 
     private static void ValidateClip(string root, PetPackageManifest manifest, ClipDefinition clip)
     {
-        if (clip.Frames.Length == 0 || clip.RootMotionEndPt.Length != 2)
+        if (clip.Frames.Length == 0 || clip.RootMotionEndPt.Length != 2 ||
+            clip.RootMotionEndPt.Any(value => !double.IsFinite(value)) ||
+            clip.RootMotionEndPt[0] < -0.000001 || Math.Abs(clip.RootMotionEndPt[1]) > 0.000001)
         {
             throw Invalid($"clip {clip.Id} has no frames or invalid root motion");
         }
@@ -207,14 +216,29 @@ public sealed class PetPackageLoader
         {
             throw Invalid($"loop {clip.Id} has invalid safe exits");
         }
+        var previousRootMotionX = double.NegativeInfinity;
         foreach (var frame in clip.Frames)
         {
             if (frame.DurationMs <= 0 || frame.ContentBoundsPx.Length != 4 || frame.RootMotionPt.Length != 2 ||
                 frame.AnchorsPx.Root.Length != 2 || frame.AnchorsPx.Ground.Length != 2 || frame.AnchorsPx.Head.Length != 2 ||
-                frame.Collision.BodyCoreEllipsePx.Length != 4 || frame.Collision.ScreenBoundsPx.Length != 4)
+                frame.Collision.BodyCoreEllipsePx.Length != 4 || frame.Collision.ScreenBoundsPx.Length != 4 ||
+                frame.RootMotionPt.Any(value => !double.IsFinite(value)) || frame.RootMotionPt[0] + 0.000001 < previousRootMotionX ||
+                frame.RootMotionPt[0] < -0.000001 || Math.Abs(frame.RootMotionPt[1]) > 0.000001 ||
+                (frame.PresentationOffsetPx is not null &&
+                    (frame.PresentationOffsetPx.Length != 2 || frame.PresentationOffsetPx.Any(value => !double.IsFinite(value)) ||
+                     Math.Abs(frame.PresentationOffsetPx[1]) > 0.000001)))
             {
                 throw Invalid($"clip {clip.Id} contains invalid frame metadata");
             }
+            previousRootMotionX = frame.RootMotionPt[0];
+        }
+        if (clip.RootMotionEndPt[0] + 0.000001 < previousRootMotionX ||
+            (clip.RootMotionEndPt[0] > 0.000001 && clip.Facing is not ("left" or "right")) ||
+            (clip.EntryPose.StartsWith("rest.", StringComparison.Ordinal) && clip.ExitPose.StartsWith("rest.", StringComparison.Ordinal) &&
+                (clip.RootMotionEndPt.Any(value => Math.Abs(value) > 0.000001) ||
+                 clip.Frames.Any(frame => frame.RootMotionPt.Any(value => Math.Abs(value) > 0.000001)))))
+        {
+            throw Invalid($"clip {clip.Id} has an invalid terminal root motion contract");
         }
 
         var media = clip.Media ?? throw Invalid($"clip {clip.Id} is missing raw media metadata");
@@ -265,7 +289,9 @@ public sealed class PetPackageLoader
             ValidateIdentifier(prop.Id, "environment prop id");
             if (prop.OffsetFromFloorOriginPt.Length != 2 || prop.Layer != "behind-pet" || prop.HitTest != "passthrough" ||
                 prop.Visibility is not ("persistent" or "node-scenes" or "embedded") ||
-                (prop.Scenes?.Any(scene => !scenes.Contains(scene)) ?? false))
+                (prop.Scenes?.Any(scene => !scenes.Contains(scene)) ?? false) ||
+                (prop.Visibility == "persistent" && prop.Scenes is { Length: > 0 }) ||
+                (prop.Visibility != "persistent" && prop.Scenes is not { Length: > 0 }))
             {
                 throw Invalid($"environment prop {prop.Id} has an invalid contract");
             }

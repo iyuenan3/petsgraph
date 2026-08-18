@@ -6,13 +6,13 @@ namespace PetsGraph.App.Runtime;
 internal sealed record PetSettings
 {
     public bool Visible { get; set; } = true;
-    public double Scale { get; set; } = 1;
     public double? Left { get; set; }
     public double? Top { get; set; }
 }
 
 internal sealed record AppSettings
 {
+    public double Scale { get; set; } = 1;
     public Dictionary<string, PetSettings> Pets { get; init; } = new(StringComparer.Ordinal);
 }
 

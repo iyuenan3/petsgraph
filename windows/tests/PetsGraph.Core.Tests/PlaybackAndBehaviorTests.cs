@@ -28,10 +28,14 @@ public sealed class PlaybackAndBehaviorTests
 
         Assert.AreEqual(PetClickResult.WakeStarted, session.HandlePetClick(1));
         Assert.AreEqual(QuietInteractionState.Waking, session.Update(1.05).State);
-        Assert.AreEqual(QuietInteractionState.Sitting, session.Update(1.25).State);
+        var sitting = session.Update(1.25);
+        Assert.AreEqual(QuietInteractionState.Sitting, sitting.State);
+        Assert.AreEqual(4, sitting.TotalRootMotionXPt, 0.000001);
 
         Assert.AreEqual(PetClickResult.SleepStarted, session.HandlePetClick(2));
-        Assert.AreEqual(QuietInteractionState.Sleeping, session.Update(2.25).State);
+        var sleeping = session.Update(2.25);
+        Assert.AreEqual(QuietInteractionState.Sleeping, sleeping.State);
+        Assert.AreEqual(0, sleeping.TotalRootMotionXPt, 0.000001);
         Assert.AreEqual("rest.floor", session.CurrentNodeId);
     }
 
@@ -45,5 +49,18 @@ public sealed class PlaybackAndBehaviorTests
         Assert.AreEqual("rest-loop", timeline.Sample(10).ClipId);
         Assert.AreEqual(0, timeline.Sample(10).SourceFrameIndex);
         Assert.AreEqual(0, timeline.FiniteDurationSeconds, 0.000001);
+    }
+
+    [TestMethod]
+    public void ViewportEnclosesRectangularClipInAStableSquare()
+    {
+        using var fixture = new TestPackageFixture();
+        var package = new PetPackageLoader().Load(fixture.RootPath);
+
+        var viewport = SquareViewport.ForClip(package.Clips["rest-loop"], package.Manifest.Art.CanvasPx);
+
+        Assert.AreEqual(0, viewport.X, 0.000001);
+        Assert.AreEqual(-0.5, viewport.Y, 0.000001);
+        Assert.AreEqual(2, viewport.Side, 0.000001);
     }
 }

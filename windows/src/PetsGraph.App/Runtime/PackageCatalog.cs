@@ -33,6 +33,13 @@ internal static class PackageCatalog
         {
             throw new InvalidDataException("宠物包包含重复 pet id。");
         }
+        var unsupportedProp = packages
+            .SelectMany(package => package.Manifest.RenderAssets.EnvironmentProps ?? [])
+            .FirstOrDefault(prop => prop.Visibility != "embedded");
+        if (unsupportedProp is not null)
+        {
+            throw new InvalidDataException($"Windows v0.6 仅支持 embedded 环境道具：{unsupportedProp.Id}。");
+        }
         return packages;
     }
 

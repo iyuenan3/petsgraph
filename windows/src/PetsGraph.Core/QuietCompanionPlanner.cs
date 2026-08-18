@@ -3,7 +3,8 @@ namespace PetsGraph.Core;
 public sealed record BehaviorPlan(
     DemoSequence Sequence,
     string FinalNodeId,
-    double FiniteRootMotionPt);
+    double FiniteRootMotionPt,
+    double MotionSign);
 
 public sealed class QuietCompanionPlanner
 {
@@ -127,14 +128,24 @@ public sealed class QuietCompanionPlanner
                 segments.Add(LoopExitSegment(edge.To, targetStart));
             }
         }
-        return MakePlan(id, [.. segments], finalNodeId);
+        var movementDirections = path
+            .Where(edge => package.Clips[edge.Clip].RootMotionEndPt[0] > 0.000001)
+            .Select(edge => package.Clips[edge.Clip].Facing)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        if (movementDirections.Length > 1 || movementDirections.Any(direction => direction is not ("left" or "right")))
+        {
+            throw Invalid("one quiet plan cannot mix movement directions");
+        }
+        var motionSign = movementDirections.FirstOrDefault() == "left" ? -1 : 1;
+        return MakePlan(id, [.. segments], finalNodeId, motionSign);
     }
 
-    private BehaviorPlan MakePlan(string id, DemoSegment[] segments, string finalNodeId)
+    private BehaviorPlan MakePlan(string id, DemoSegment[] segments, string finalNodeId, double motionSign = 1)
     {
         var sequence = new DemoSequence { SchemaVersion = "0.4.0", Id = id, Segments = segments };
         var timeline = new PlaybackTimeline(package.Clips, sequence);
-        return new(sequence, finalNodeId, timeline.FiniteRootMotionXPt);
+        return new(sequence, finalNodeId, timeline.FiniteRootMotionXPt, motionSign);
     }
 
     private ClipDefinition LoopClip(string nodeId)

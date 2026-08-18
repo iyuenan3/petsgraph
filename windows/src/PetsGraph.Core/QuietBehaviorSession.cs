@@ -11,6 +11,7 @@ public enum QuietInteractionState
 
 public readonly record struct BehaviorPresentation(
     TimelineSample Sample,
+    double TotalRootMotionXPt,
     QuietInteractionState State,
     IReadOnlyList<string> ClipIdsToPreload);
 
@@ -37,6 +38,7 @@ public sealed class QuietBehaviorSession
     private double nextSleepChangeSeconds = double.PositiveInfinity;
     private double lastClickSeconds = double.NegativeInfinity;
     private double currentSceneEnteredSeconds;
+    private double accumulatedRootMotionXPt;
     private string currentNodeId;
     private string lastDwellNodeId;
     private string? requestedSleepNodeId;
@@ -73,7 +75,11 @@ public sealed class QuietBehaviorSession
             BeginAutomaticSleepChange(uptimeSeconds);
         }
         var sample = timeline.Sample(uptimeSeconds - planStartSeconds);
-        return new(sample, State, timeline.ClipIdsNear(sample.SegmentIndex));
+        return new(
+            sample,
+            accumulatedRootMotionXPt + activePlan.MotionSign * sample.RootMotionXPt,
+            State,
+            timeline.ClipIdsNear(sample.SegmentIndex));
     }
 
     public PetClickResult HandlePetClick(double uptimeSeconds)
@@ -136,6 +142,7 @@ public sealed class QuietBehaviorSession
             return;
         }
         var previousNodeId = currentNodeId;
+        accumulatedRootMotionXPt += activePlan.MotionSign * activePlan.FiniteRootMotionPt;
         currentNodeId = activePlan.FinalNodeId;
         if (planner.Role(currentNodeId) == "interaction")
         {
