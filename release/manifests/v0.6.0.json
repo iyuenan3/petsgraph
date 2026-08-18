@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "tag": "v0.6.0",
+  "version": "0.6.0",
+  "platform": "windows-11-x64",
+  "architecture": "x64",
+  "runtime": "net10.0-windows",
+  "distribution": "portable-zip",
+  "signed": false,
+  "embeddedPets": [
+    {
+      "id": "feiliu",
+      "displayName": "飞流",
+      "packageId": "feiliu-quiet-companion",
+      "packageVersion": "0.5.10",
+      "schemaVersion": "0.4.0",
+      "renderMode": "cropped-rgba-clips"
+    },
+    {
+      "id": "wubai",
+      "displayName": "五百",
+      "packageId": "wubai-quiet-companion",
+      "packageVersion": "0.5.10",
+      "schemaVersion": "0.4.0",
+      "renderMode": "cropped-rgba-clips"
+    }
+  ],
+  "packageSchemaVersions": [
+    "0.4.0"
+  ],
+  "renderModes": [
+    "cropped-rgba-clips"
+  ],
+  "runtimeChainStatus": "runtime-chain-approved",
+  "installable": true,
+  "artifacts": [
+    {
+      "kind": "portable-zip",
+      "file": "PetsGraph-v0.6.0-Windows-x64.zip",
+      "bytes": 913953281,
+      "sha256": "90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015"
+    }
+  ]
+}

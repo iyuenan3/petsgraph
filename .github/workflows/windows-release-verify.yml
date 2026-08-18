@@ -30,12 +30,54 @@ jobs:
             throw "Expected a semantic version tag such as v0.6.0"
           }
 
-      - name: Download Windows ZIP from draft release
+      - name: Check out the tagged source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Verify tag and release manifest
         shell: pwsh
         run: |
-          $asset = "PetsGraph-$env:RELEASE_TAG-Windows-x64.zip"
+          $tagCommit = (git rev-list -n 1 $env:RELEASE_TAG).Trim()
+          $headCommit = (git rev-parse HEAD).Trim()
+          if ($tagCommit -ne $headCommit) { throw "Tag does not resolve to checked-out commit" }
+
+          $manifestPath = "release/manifests/$env:RELEASE_TAG.json"
+          if (-not (Test-Path $manifestPath)) { throw "Release manifest missing: $manifestPath" }
+          $manifest = Get-Content -Raw $manifestPath | ConvertFrom-Json
+          $artifacts = @($manifest.artifacts)
+          $embeddedPets = @($manifest.embeddedPets)
+
+          if ($manifest.tag -ne $env:RELEASE_TAG) { throw "Manifest tag mismatch" }
+          if ($manifest.platform -ne "windows-11-x64") { throw "Expected windows-11-x64 platform" }
+          if ($manifest.runtime -ne "net10.0-windows") { throw "Expected net10.0-windows runtime" }
+          if ($manifest.distribution -ne "portable-zip") { throw "Expected portable-zip distribution" }
+          if ($manifest.signed -ne $false) { throw "Expected unsigned Windows release" }
+          if ($manifest.runtimeChainStatus -ne "runtime-chain-approved") { throw "Runtime chain is not approved" }
+          if ($manifest.installable -ne $true) { throw "Release is not installable" }
+          if ($embeddedPets.Count -ne 2) { throw "Expected exactly two embedded pets" }
+          if ($artifacts.Count -ne 1 -or $artifacts[0].kind -ne "portable-zip") {
+            throw "Expected exactly one portable ZIP artifact"
+          }
+
+      - name: Download exact ZIP from draft release
+        shell: pwsh
+        run: |
+          $manifest = Get-Content -Raw "release/manifests/$env:RELEASE_TAG.json" | ConvertFrom-Json
+          $asset = $manifest.artifacts[0].file
           $isDraft = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isDraft --jq .isDraft
           if ($LASTEXITCODE -ne 0 -or $isDraft -ne "true") { throw "Release must still be a draft" }
+
+          $actualAssets = @(gh release view $env:RELEASE_TAG `
+            --repo $env:GITHUB_REPOSITORY `
+            --json assets `
+            --jq '.assets[].name')
+          if ($LASTEXITCODE -ne 0) { throw "Failed to read draft release assets" }
+          if ($actualAssets.Count -ne 1 -or $actualAssets[0] -ne $asset) {
+            throw "Draft release must contain only $asset"
+          }
+
           New-Item -ItemType Directory -Path "$env:RUNNER_TEMP/release-download" | Out-Null
           gh release download $env:RELEASE_TAG `
             --repo $env:GITHUB_REPOSITORY `
@@ -43,18 +85,30 @@ jobs:
             --dir "$env:RUNNER_TEMP/release-download"
           if ($LASTEXITCODE -ne 0) { throw "Failed to download $asset" }
 
-      - name: Verify ZIP, x64 PE, package count, and runtime integrity
+      - name: Verify ZIP, digest, x64 PE, packages, and runtime integrity
         shell: pwsh
         run: |
-          $asset = "PetsGraph-$env:RELEASE_TAG-Windows-x64.zip"
-          $zip = Join-Path "$env:RUNNER_TEMP/release-download" $asset
+          $manifest = Get-Content -Raw "release/manifests/$env:RELEASE_TAG.json" | ConvertFrom-Json
+          $artifact = $manifest.artifacts[0]
+          $zip = Join-Path "$env:RUNNER_TEMP/release-download" $artifact.file
+          $actualBytes = (Get-Item $zip).Length
+          $actualHash = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualBytes -ne [int64]$artifact.bytes) { throw "ZIP byte count mismatch" }
+          if ($actualHash -ne $artifact.sha256) { throw "ZIP SHA-256 mismatch" }
+
           $extract = Join-Path $env:RUNNER_TEMP "petsgraph-release-verify"
           Expand-Archive -Path $zip -DestinationPath $extract
           $root = Join-Path $extract "PetsGraph"
           $exe = Join-Path $root "PetsGraph.exe"
+          $versionFile = Join-Path $root "VERSION.txt"
           if (-not (Test-Path $exe)) { throw "PetsGraph.exe missing" }
+          if (-not (Test-Path $versionFile)) { throw "VERSION.txt missing" }
+          if ((Get-Content -Raw $versionFile).Trim() -ne $manifest.version) { throw "Version file mismatch" }
+
           $packages = @(Get-ChildItem -Path (Join-Path $root "Pets") -Directory -Filter "*.petsgraph-pet")
-          if ($packages.Count -lt 2) { throw "Expected at least two embedded pet packages" }
+          if ($packages.Count -ne @($manifest.embeddedPets).Count) {
+            throw "Embedded package count does not match manifest"
+          }
 
           $stream = [System.IO.File]::OpenRead($exe)
           try {
@@ -77,6 +131,6 @@ jobs:
             throw "PetsGraph runtime validation failed with exit code $($process.ExitCode)"
           }
 
-          $hash = Get-FileHash -Path $zip -Algorithm SHA256
-          "Windows ZIP SHA-256: $($hash.Hash.ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "Windows ZIP SHA-256: $actualHash" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          "Windows ZIP bytes: $actualBytes" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
           "Embedded pets: $($packages.Count)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append

@@ -1,6 +1,8 @@
 # PetsGraph for Windows
 
-这个版本面向 Windows 11 x64，采用免安装便携包，不使用 MSIX，也不包含代码签名。
+v0.6.0 面向 Windows 11 x64，采用免安装便携包，不使用 MSIX，也不包含代码签名。
+
+[从 GitHub Release 下载 PetsGraph v0.6.0](https://github.com/iyuenan3/petsgraph/releases/download/v0.6.0/PetsGraph-v0.6.0-Windows-x64.zip)
 
 ## 使用
 
@@ -13,7 +15,11 @@
 
 ## Windows 安全提示
 
-内部版本没有代码签名。Windows 可能显示 SmartScreen 提示，请只使用由项目成员通过 GitHub Release 分享的 ZIP，并在需要时核对 SHA-256。
+本版本没有代码签名。Windows 可能显示 SmartScreen 提示，请只使用本项目 GitHub Release 分享的 ZIP，并在需要时核对 SHA-256：
+
+```text
+90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015
+```
 
 ## 离线校验
 
