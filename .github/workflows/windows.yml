@@ -78,7 +78,7 @@ jobs:
           }
 
       - name: Upload code-only runtime artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: PetsGraph-v0.6.0-Windows-x64-runtime
           path: ${{ runner.temp }}/PetsGraph-v0.6.0-Windows-x64-runtime.zip
