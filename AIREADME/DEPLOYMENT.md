@@ -20,7 +20,22 @@ DMG 固定属性：
 
 公开 Release 不提供 App ZIP、预览图、校验和附件或独立 `.petsgraph-pet`。附件哈希记录在 `release/manifests/v0.5.10.json`。
 
-## 用户安装
+## Windows 11 x64 内部候选基线
+
+Windows `0.6.0` 只面向 Windows 11 x64 与知情的内部朋友。它使用 .NET 10 WPF，以 self-contained 多文件便携 ZIP 交付，不需要用户预装 .NET。当前不构建 MSIX、安装器或代码签名。
+
+本地候选产物：
+
+- 路径：`dist/PetsGraph-v0.6.0-Windows-x64.zip`
+- 字节数：`913953281`
+- SHA-256：`90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`
+- ZIP 条目：`488`
+- 内嵌宠物包：`2`，五百与飞流
+- 主程序：PE32+ GUI，x86-64
+
+该 ZIP 已在 macOS arm64 本机使用 .NET SDK `10.0.400` 交叉发布，并通过压缩数据、无 `__MACOSX`/`.DS_Store`、双包数量和真实包完整性校验。它尚未上传到 GitHub Release，也尚未在真实 Windows 11 桌面完成透明窗口、DPI 拖动、托盘、鼠标命中和长时运行验收。
+
+## macOS 用户安装
 
 公开入口：<https://github.com/iyuenan3/petsgraph/releases/tag/v0.5.10>
 
@@ -31,7 +46,15 @@ DMG 固定属性：
 
 App 离线运行，不上传照片，不访问生成服务，不收集遥测，也不要求辅助功能权限。
 
-## 本机构建与验证
+## Windows 内部安装
+
+1. 通过可信内部渠道获得 `PetsGraph-v0.6.0-Windows-x64.zip`，先核对 SHA-256。
+2. 解压完整 ZIP，不要只把 `PetsGraph.exe` 拖到其他目录。`PetsGraph.exe`、.NET 运行文件和 `Pets` 必须保持在同一解压目录中。
+3. 双击 `PetsGraph.exe`。未签名内部版可能触发 SmartScreen，只在文件来源和哈希已核对时继续。
+4. 右键系统托盘中的双猫图标，可以分别显示、隐藏宠物、选择睡姿、设置全局大小或退出。
+5. 设置保存到 `%LOCALAPPDATA%\PetsGraph\settings.json`。当前内部候选不写注册表、不安装系统服务，也不配置开机自启。
+
+## macOS 本机构建与验证
 
 测试必须使用完整 Xcode 基线：
 
@@ -70,7 +93,39 @@ python3 tools/build-release-artifacts.py \
 
 DMG 使用本机 `/usr/bin/hdiutil create` 从冻结 App 构建。GitHub Actions 不重新编译媒体或 App，只验证并发布这份已验收附件。本机受限沙箱可能让 `hdiutil` 报“设备未配置”，此时必须确认没有残留半成品，再以明确的磁盘映像权限重跑同一确定性命令。
 
-## GitHub 发布流程
+## Windows 构建与验证
+
+仓库用 `global.json` 锁定 .NET SDK `10.0.400`。macOS arm64 本机 SDK 安装在 `~/.dotnet`，未修改用户全局 PATH。核心命令：
+
+```bash
+DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
+  ~/.dotnet/dotnet test windows/tests/PetsGraph.Core.Tests/PetsGraph.Core.Tests.csproj \
+  --no-restore --disable-build-servers -m:1 -p:UseSharedCompilation=false
+
+DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
+  ~/.dotnet/dotnet build windows/PetsGraph.slnx \
+  --no-restore --disable-build-servers -m:1 \
+  -p:UseSharedCompilation=false -p:RestoreLockedMode=true
+
+PETSGRAPH_PETS_DIR=dist/PetsGraph-0.5.10.app/Contents/Resources/Pets \
+DOTNET_BIN=~/.dotnet/dotnet \
+DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
+  bash windows/scripts/build-portable.sh
+```
+
+`build-portable.sh` 拒绝覆盖同名 ZIP，先交叉发布 `win-x64` self-contained 应用，再用 .NET 校验器检查真实宠物包，复制完整包后生成 ZIP，最后执行解压测试与 SHA-256。发布前还必须检查：
+
+- 7 项 MSTest，覆盖 RGBA 到 PBGRA 转换、鼠标 alpha、点击往返、左右 root motion、时间线和方形视口。
+- WPF 与全解决方案零警告、零错误编译。
+- 五百 53 clip、飞流 31 clip，共 12,013 帧的结构、批准状态、媒体长度、首尾帧渲染和 SHA-256 完整性。
+- ZIP 可完整解压，主程序为 AMD64 PE32+ GUI，包含两个 `.petsgraph-pet`，不包含 macOS 元数据。
+- 真实 Windows 11 x64 上的透明、DPI、命中、拖动、托盘、边界、锁屏恢复和长时运行人工闸门。
+
+GitHub 推送到 `codex/windows-win11-x64`、`main` 或相关 Pull Request 时，`.github/workflows/windows.yml` 在 `windows-2025` 上重新执行锁定还原、测试、WPF 编译、代码运行 ZIP、AMD64 PE 和 ZIP 结构检查。该 artifact 不含私有宠物媒体，仅保留 7 天。内容提交 `2b539a6` 对应运行 `32114691048`，全部步骤通过。
+
+`.github/workflows/windows-release-verify.yml` 只验证已上传到草稿 Release 的 Windows ZIP，它不创建标签、不上传附件、不发布草稿。当前没有 Windows 发布授权，因此不应触发该流程。
+
+## macOS GitHub 公开发布流程
 
 1. 先提交实现并执行测试、包校验、App 校验和 DMG 校验。
 2. 以实现提交更新 README、AIREADME、Release 说明和固定清单，单独提交文档。
@@ -90,3 +145,4 @@ DMG 使用本机 `/usr/bin/hdiutil create` 从冻结 App 构建。GitHub Actions
 - App 只使用一个共享 24 Hz 渲染 Timer，每只宠物仍拥有独立行为会话和随机时钟。
 - 双宠长期 CPU 与内存继续收集真实数据。性能结论必须注明唯一 PID、测量工具、稳定睡眠或过渡场景，不能把旧 AppTranslocation 进程计入当前版本。
 - 下一版如改变素材、位置、体型、窗口命中、动作图或发布附件，必须重跑相应自动检查和真实桌面人工闸门。
+- Windows 候选的历史 ZIP 只作为本地构建证据，不用旧哈希冒充最新产物。重建后必须重新记录字节数和 SHA-256，已上传的历史附件不原位覆盖。

@@ -1,23 +1,23 @@
 # petsgraph · AIREADME
-> 为 Maxwell 自有宠物与朋友委托宠物定制的多宠 macOS 安静桌面陪伴项目 ｜ 生命周期: public-alpha
-> last-synced: 4a7e801 · 2026-08-18
-> phase: public-dual-pet-v0.5.10
+> 为 Maxwell 自有宠物与朋友委托宠物定制的多宠安静桌面陪伴项目 ｜ 生命周期: public-alpha
+> last-synced: 2b539a6 · 2026-08-18
+> phase: public-macos-v0.5.10-and-windows-v0.6.0-internal-preview
 
 ## 状态
 
 | 文件 | 状态 | 摘要 |
 |---|:---:|---|
-| CORE | ✅ | PetsGraph 多宠共享宿主、五百与飞流正式包、非通用化边界 |
+| CORE | ✅ | PetsGraph 多宠共享宿主、macOS 公开版、Windows 11 x64 内部预览与非通用化边界 |
 | RELATIONS | ✅ | Seedance、Seedream、gpt-image-2、只读参考项目与定制消费关系 |
 | SPEC | ✅ | 一包一宠、数据驱动 scene、固定裁剪 RGBA、双宠宿主和全局倍率契约 |
-| ARCHITECTURE | ✅ | 多控制器、独立随机会话、共享 scheduler、CALayer、raw mmap 与单实例 |
-| DEPLOYMENT | ✅ | Apple 芯片 `0.5.10` 双宠正式版、仅 DMG Release 与非公证边界 |
-| PRD | ✅ | 安静睡眠陪伴、多宠独立时钟、全局倍率、朋友安装和人工定制边界 |
-| ROADMAP | ✅ | 双宠正式版已发布，下一步是长期资源观察、公证与新宠物定制 |
-| CONVENTIONS | ✅ | 一包一宠、独立会话、共享时钟、固定 raw crop 和验收约定 |
-| DECISIONS | ✅ | 追加双宠单进程、独立随机时钟、左下横排和全局倍率决策 |
-| MEMORY | ✅ | 素材、两阶段抠图、固定整段几何、PNG 体积、性能和 macOS 打包事故 |
-| CHANGELOG | ✅ | `0.5.10` 双宠正式版、仅 DMG 发布与历史版本里程碑 |
+| ARCHITECTURE | ✅ | 独立行为会话、AppKit/CALayer 与 WPF/PBGRA 双宿主、固定方形视口与单实例 |
+| DEPLOYMENT | ✅ | Apple 芯片 DMG 公开基线与 Windows 11 x64 无签名便携 ZIP 内部候选 |
+| PRD | ✅ | 安静睡眠陪伴、多宠独立时钟、全局倍率、双平台范围和人工验收边界 |
+| ROADMAP | ✅ | macOS 长期观察、Windows 11 真机验收、Apple 公证与新宠物定制 |
+| CONVENTIONS | ✅ | 一包一宠、独立会话、共享时钟、固定 raw crop、跨平台视口和验收约定 |
+| DECISIONS | ✅ | 追加 Windows 11 x64、.NET 10 WPF、便携 ZIP 和无签名内部分发决策 |
+| MEMORY | ✅ | 素材、抠图、固定几何、性能、macOS 打包和 Windows 渲染与 CI 边界 |
+| CHANGELOG | ✅ | `0.5.10` macOS 正式版、`0.6.0` Windows 内部候选与历史里程碑 |
 
 ## 按任务读
 
@@ -28,4 +28,5 @@
 - 修改枕头、猫窝等道具场景、网关或点击坐姿 → `PRD.md` + `SPEC.md` + `DECISIONS.md`
 - 讨论产品范围和验收 → `PRD.md` + `ROADMAP.md`
 - 安装、运行或发布 → `DEPLOYMENT.md` + `CHANGELOG.md`
+- 修改 Windows WPF、便携 ZIP 或 Windows Runner → `ARCHITECTURE.md` + `DEPLOYMENT.md` + `DECISIONS.md`
 - 复盘失败 → `MEMORY.md`，重大取舍另追加到 `DECISIONS.md`

@@ -1,6 +1,6 @@
 # SPEC：petsgraph 宠物素材包 v0.4
 
-> 本契约是人工定制制作侧与桌面运行时之间的数据边界。它统一坐标、完整性、动作图和播放语义，不规定所有宠物必须拥有相同姿势或图拓扑。schema `0.2.0` 是 v0.3.1 PNG 回滚包；schema `0.3.0` 是 HEVC Alpha 对照实验；schema `0.4.0` 是 v0.4.0 正式固定 clip 裁剪预乘 RGBA 运行时。三者都由当前 Swift 加载器显式验证，旧工程包继续作为只读历史证据。
+> 本契约是人工定制制作侧与桌面运行时之间的数据边界。它统一坐标、完整性、动作图和播放语义，不规定所有宠物必须拥有相同姿势或图拓扑。schema `0.2.0` 是 v0.3.1 PNG 回滚包；schema `0.3.0` 是 HEVC Alpha 对照实验；schema `0.4.0` 是 v0.4.0 正式固定 clip 裁剪预乘 RGBA 运行时。schema `0.4.0` 由当前 Swift 与 .NET 加载器显式验证，旧工程包继续作为只读历史证据。
 
 ## 1. 契约范围
 
@@ -316,6 +316,7 @@
 - `frameRate` 是该 clip 自己的批准播放速度，必须为正数，并与所有帧的固定 `durationMs` 一致。运行时不能把全包强制改成 24 FPS。一个包可以同时包含 12、16.2、18 和 24 FPS 等不同 clip。
 - 裁剪只改变媒体存储窗口。帧锚点、碰撞区、道具区、root motion 和窗口布局继续使用包级完整画布坐标。
 - 每帧按 RGBA 字节顺序存储，RGB 已按 alpha 预乘，帧序必须与批准配方完全一致。默认不得插帧、倒放、交叉淡化或修改时间顺序；人工批准的同节点偶发自环可以按配方追加批准源帧的精确倒序副本，但不得修改单帧内容或把该例外扩展到普通图边。
+- RGBA 字节顺序属于包契约，不随平台改成 BGRA。需要 `Pbgra32` 的 Windows WPF 运行时必须在提交帧缓冲时转换 R/B 通道，禁止把 RGBA 字节直接解释为 BGRA。
 - `bytesPerRow = cropWidth × 4`，`frameByteCount = bytesPerRow × cropHeight`，文件字节数严格等于 `frameCount × frameByteCount`。
 - `compiledFrameSequenceDigest` 是 `.rgba` 文件 SHA-256，并必须与 `integrity.json` 对应条目一致。`sourceSequenceDigest` 必须继续匹配批准配方履历。
 - 运行时用只读内存映射与 Core Graphics 直接寻址。小循环可以在预算内预建全部图像，长过渡按固定 crop 分块预建并有界释放。

@@ -317,3 +317,11 @@
 - Decision: v0.5.10 固定五百 `baseHeightPt=172.5`、飞流 `baseHeightPt=181.125`，即同倍率下飞流比五百大 5%。只修改飞流包级显示元数据并重新计算完整性，31 个运行时媒体文件保持不变。
 - Alternatives（否决）: 保留 10% 差异；把两只宠物设为同高；在 Swift 代码里写死飞流缩放；逐 clip 或逐帧修改素材大小。
 - Tradeoff: 相对体型成为当前两包的人工视觉校准结果，不代表真实厘米比例。未来新增宠物仍需单独校准自己的 `baseHeightPt`。
+
+## ADR-040 · Windows 11 x64 采用 .NET 10 WPF 与无签名便携 ZIP · 2026-08-18
+
+- Problem: 朋友需要在 Windows 电脑上使用 PetsGraph。新平台必须复用五百和飞流已批准宠物包，不能为迁就窗口系统重新生成、抠图或修改媒体，也不能把跨平台编译绿色写成真实 GUI 通过。
+- Constraint: 目标设备固定为 Windows 11 x64；用户接受内部无签名分发与 SmartScreen 提示；不需要 MSIX 或安装器；应用必须离线、自包含运行时、保持一包一宠和原有动作图契约；宠物与当前内嵌道具必须正确命中与穿透。
+- Decision: 新增 .NET 10 解决方案，核心层负责 schema `0.4.0`、安全加载、完整性、时间线、安静行为、累计 root motion 和 clip 级固定方形视口，WPF 层负责 RGBA 到 `Pbgra32` 通道转换、透明置顶窗口、Win32 透明命中、DPI 拖动、托盘、全局七档缩放、位置持久化和每用户 Mutex。产物固定为 `win-x64` self-contained 多文件 ZIP，默认不签名、不构建 MSIX。GitHub Windows Runner 只构建和校验不含私有媒体的代码运行包，真实双宠 ZIP 在本机从批准包确定性构建。
+- Alternatives（否决）: Electron 或 WebView 重写；继续把 Windows 排除在需求之外；为 Windows 重新编译一套宠物媒体契约；把完整私有媒体放入 Git 或常规 CI artifact；首版同时做 Windows on Arm、Win10、MSIX 和签名；仅因 Windows Runner 通过就对外发布。
+- Tradeoff: 双平台共享数据契约但保留原生窗口实现，代码和测试矩阵增加。便携 ZIP 简化内部分发，但用户需保留完整解压目录并理解未签名安全提示。Windows Server 2025 CI 可以证明编译、测试和产物结构，但真实 Windows 11 透明、DPI、拖动、托盘、多显示器与长时运行仍是必须人工完成的闸门。

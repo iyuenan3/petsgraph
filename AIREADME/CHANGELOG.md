@@ -2,6 +2,15 @@
 
 > Append-only。记录版本与里程碑，决策理由见 `DECISIONS.md`。
 
+## Unreleased · 2026-08-18
+
+- Added: 新增只面向 Windows 11 x64 的 .NET 10 WPF 内部宿主。它复用五百和飞流的 schema `0.4.0` 固定裁剪 RGBA 包，提供双宠独立行为、透明置顶窗口、宠物本体点击、DPI 拖动、托盘菜单、睡姿选择、七档全局缩放、位置持久化和每用户单实例。
+- Added: 新增 Windows PowerShell 与 macOS 交叉构建脚本、锁定 NuGet 依赖、真实宠物包校验器、Windows Runner 代码运行包工作流和草稿 Release ZIP 只读验证工作流。默认交付 self-contained 便携 ZIP，不生成 MSIX、安装器或代码签名。
+- Added: 采用用户确认的双猫图标，生成 1024×1024 RGBA 主图、macOS ICNS 和 Windows ICO，并把图标实际接入两个平台的构建产物。
+- Fixed: Windows 渲染层不再把 RGBA 字节误当 BGRA，而是转为 WPF `Pbgra32`。窗口使用与 macOS 相同的 clip 级固定正方形视口，并区分制作画布原点、presentation offset、左右 root motion 与当帧可见内容边界修正，避免宽画布、原地滑动和位置持久化跳变。
+- Changed: Windows `v0.6` 只接受当前已嵌入媒体的 environment props。尚未实现的 persistent 或 node-scenes 独立道具会被显式拒绝，不会静默忽略。
+- Review: macOS arm64 上的 .NET SDK `10.0.400` 交叉编译通过，7 项 MSTest 通过，WPF 解决方案 0 警告、0 错误，两个正式包共 84 个 clip、12,013 帧通过完整性和渲染校验。最终 ZIP 为 `913953281` 字节，SHA-256 为 `90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`。GitHub Actions `32114691048` 完成锁定还原、测试、WPF 编译、self-contained 发布、AMD64 PE、ZIP 结构和 artifact 校验。真实 Windows 11 GUI 人工闸门尚未完成，因此本次不创建 Windows GitHub Release。
+
 ## v0.5.10 · 2026-08-18
 
 - Added: 发布 PetsGraph `0.5.10` 双宠正式版，同时内嵌五百与飞流。两只宠物拥有独立动作会话、随机时钟、位置和中文睡姿菜单，首次安装默认在屏幕左下角横排。
