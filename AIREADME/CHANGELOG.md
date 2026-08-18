@@ -10,6 +10,7 @@
 - Changed: 已存在的 `v0.6.0` 标签保持指向 `ce4570cef6f47fe75b32df40c1476b0657a1d999`。默认分支承载标签后的双平台发布补充，验证流程要求平台源码相对标签无变化。
 - Changed: Windows Runner 在草稿阶段复验 Windows ZIP。macOS Runner 改用 `contents: read`，只在公开后下载双附件并挂载 DMG，不具备创建、编辑或发布 Release 的权限。
 - Review: 67 项 XCTest 全部通过。macOS App 与 DMG 在本机通过 `arm64`、Bundle 版本、Logo 哈希、ad-hoc 签名、双宠包、运行时完整性、`hdiutil verify` 和只读挂载校验。
+- Review: GitHub Windows 草稿复验 `32139232230` 和公开 macOS 只读复验 `32139688614` 均成功。v0.6.0 已作为最新版公开，远端回读确认不是草稿、不是预发布，两个附件均为 `uploaded`，字节数和服务端 SHA-256 与双平台清单一致。
 
 ## v0.6.0 · 2026-08-18
 
