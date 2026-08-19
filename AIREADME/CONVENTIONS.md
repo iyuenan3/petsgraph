@@ -10,6 +10,7 @@
 - 已批准素材不可原位覆盖。修订版增加版本号并保留旧版本与拒绝记录。
 - 面向用户的节点必须提供简洁中文 `displayName`。节点 ID、clip ID 和边 ID 只属于内部契约，不能出现在正式菜单、状态栏或普通错误提示中。
 - App 品牌固定使用 `PetsGraph`，macOS Bundle ID 使用 `com.maxwell.petsgraph`，Windows 主程序使用 `PetsGraph.exe`。宠物包使用自己的稳定 ID 和 `pet.displayName`，用户界面显示熟悉的短名且不带姓氏，当前为五百和飞流。通用 Swift、C# 代码、DMG/ZIP 模板和菜单不得写死任何具体宠物名。
+- Codex 导出目录使用 `pet.json.id` 作为稳定 kebab-case 名称。当前为 `wubai-v0` 与 `feiliu-hatch-native-v1`；大幅视觉更新增加版本号，不原位覆盖旧 ID。
 
 ## 偏好模式
 
@@ -63,6 +64,7 @@
 - 含道具帧同时记录宠物命中区、道具区域和猫道具联合屏幕边界。不能用联合 alpha 直接判断是否点击了宠物。
 - 宠物包临时构建目录不用点号前缀。编译完成后必须检查根目录及全部子项没有 `UF_HIDDEN` 标记，再执行目录级安装。
 - 数百 MB 的正式媒体不写入 Git 历史。默认宠物包内嵌在 App 中，不再作为重复 Release 附件。单平台每次只发布一个直接安装或运行入口，v0.6.0 双平台清单精确声明一个 macOS DMG 和一个 Windows ZIP，不发布 App ZIP、总览图、校验和附件或独立宠物包。仓库内固定清单记录平台、字节数和 SHA-256。
+- 小型 Codex v2 导出允许进入 `codex-pets/`。每包只保留 `pet.json` 与 `spritesheet.webp`，manifest 固定字节数和 SHA-256；机械校验与真实 Codex 视觉验收分别记录，不能借用 PetsGraph 正式包批准状态。
 - App 版本与宠物内容版本分别记录。品牌、平台宿主或打包边界变化可以提升 App 版本，同时继续内嵌已经批准的旧宠物包版本，但清单必须固定每个包的 ID、版本、schema 和渲染模式。不得仅为对齐版本号重编或伪造未改变的批准媒体。
 - DMG 在本机从冻结 App 构建。GitHub Actions 不重新编译媒体或 App，不把远端生成的不同二进制冒充本地已验收附件。Windows Runner 只复验草稿 ZIP；macOS Runner 使用 `contents: read` 在公开后复验双附件摘要并只读挂载 DMG，发布动作与验证工作流分离。
 - 首个公开版只构建 Apple 芯片 `arm64`，最低 macOS 14。Intel 或通用二进制只有在明确进入新产品范围并重新验证后才能增加。
@@ -102,3 +104,4 @@
 - 禁止在仓库、日志、宠物包或 AIREADME 中写 provider 凭据和原始私密照片信息。
 - 禁止在生产履历中保存密钥、访问令牌、签名 URL、临时下载地址，或用推测值填补历史缺失字段。
 - 禁止把代码的 MIT License 自动扩展到五百或飞流的照片和动画素材。媒体使用边界以 `ASSETS.md` 为准。
+- 禁止让 Codex 图集进入 PetsGraph `.petsgraph-pet` 加载器，或把它的 8×11 单帧动作格描述为连续视频动作图。

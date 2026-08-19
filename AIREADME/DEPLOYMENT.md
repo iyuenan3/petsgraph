@@ -142,6 +142,28 @@ GitHub 推送到 `codex/windows-win11-x64`、`main` 或相关 Pull Request 时�
 
 v0.6.0 实际发布证据：Windows 草稿复验运行 `32139232230` 成功，公开 macOS 只读复验运行 `32139688614` 成功，两者均基于发布契约提交 `9c185fc`。远端最新版回读确认标签提交仍为 `ce4570cef6f47fe75b32df40c1476b0657a1d999`，两个附件均为 `uploaded`，Release 不是草稿也不是预发布。
 
+## Codex 宠物导出维护与安装
+
+Codex 导出随普通 Git 分支分发，不增加 GitHub Release 附件。内容基线提交为 `9f230c1`，包含五百与飞流两个完整 v2 目录、`codex-pets/manifest.json` 和 `tools/manage-codex-pets.py`。
+
+仓库维护者先运行：
+
+```bash
+python3 tools/manage-codex-pets.py validate
+```
+
+该命令核对目录白名单、`pet.json` 字段、字节数、SHA-256、WebP 透明通道、1536×2288 尺寸和 8×11 网格契约。发布前还要分别使用 Hatch Pet `validate_atlas.py --require-v2` 复验两张图集，并在真实 Codex 窗口中观看动作与身份。
+
+用户安装全部或单只宠物：
+
+```bash
+python3 tools/manage-codex-pets.py install
+python3 tools/manage-codex-pets.py install wubai-v0
+python3 tools/manage-codex-pets.py install feiliu-hatch-native-v1
+```
+
+默认目标是 `${CODEX_HOME:-~/.codex}/pets/`。相同内容重复安装不写盘；不同内容必须由用户显式传入 `--force`，安装器先把旧目录移动到 `${CODEX_HOME:-~/.codex}/pets-backups/<UTC 时间>/`。安装后在 Codex 设置的 Pets 页面重新选择宠物，缓存未刷新时重启 Codex。
+
 ## 回滚与运维
 
 - 历史标签、Release、五百 PNG 基线和飞流制作事实源保留，不覆盖或删除。
@@ -152,3 +174,4 @@ v0.6.0 实际发布证据：Windows 草稿复验运行 `32139232230` 成功，�
 - 下一版如改变素材、位置、体型、窗口命中、动作图或发布附件，必须重跑相应自动检查和真实桌面人工闸门。
 - Windows 历史候选 ZIP 已从 `dist/` 清理，不用旧哈希冒充最新产物。后续重建必须使用新版本名并重新记录字节数和 SHA-256，已上传的正式附件不原位覆盖。
 - v0.6.0 macOS App 完成发布后从 `dist/` 清理，正式 DMG 保留在 `workspaces/release-dist/v0.6.0/`，GitHub Release、双平台清单和已批准宠物包共同构成回滚事实。
+- Codex 导出使用稳定 ID 和 Git 历史回滚。更新现有视觉内容时新建版本化 ID；强制本地替换留下 `pets-backups`，不物理删除旧目录。

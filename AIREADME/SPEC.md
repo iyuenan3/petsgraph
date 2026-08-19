@@ -527,3 +527,24 @@ PNG 序列摘要固定按文件名字典序处理。每帧依次写入 UTF-8 文
 - 同一主版本新增未知字段时，旧运行时应忽略未知字段并读取已知部分。
 - 未知主版本必须拒绝，并给出可读错误。
 - 任何改变坐标、root motion、图语义或验收要求的变更都视为潜在破坏性变更，必须追加 ADR 并升级 schema。
+
+## 13. Codex 宠物导出契约
+
+`codex-pets/` 是独立于 `.petsgraph-pet` 的公开分发面。它只服务 Codex 自定义 Pets 系统，不进入 PetsGraph 的 Swift 或 .NET 包加载器。
+
+```text
+codex-pets/
+  README.md
+  manifest.json
+  <codex-pet-id>/
+    pet.json
+    spritesheet.webp
+```
+
+- 当前 manifest schema 为整数 `1`。每条记录固定目录、Codex pet ID、显示名、两个文件的字节数和 SHA-256。
+- 每个目录只允许 `pet.json` 与 `spritesheet.webp`。目录名、manifest ID 和 `pet.json.id` 必须一致，不能使用符号链接或路径越界。
+- `pet.json.spriteVersionNumber` 固定为 `2`，`spritesheetPath` 固定为 `spritesheet.webp`。
+- v2 图集固定为 1536×2288 RGBA WebP，由 8 列、11 行、每格 192×208 组成。仓库校验器和 Hatch Pet 原生校验器都必须通过。
+- 当前导出为五百 `wubai-v0` 与飞流 `feiliu-hatch-native-v1`。更新视觉内容时使用新的版本化 ID，不原位改写已经公开的稳定 ID。
+- Codex 导出的机械通过不映射为 `human-action-approved`、`runtime-chain-approved` 或 `installable=true`。这些状态只属于 PetsGraph 连续动作包自己的证据链。
+- 安装器必须先校验全部仓库资产。目标内容相同则保持不变，内容不同时默认拒绝覆盖；显式 `--force` 只能在先移动旧目录到 `pets-backups` 后替换。
