@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-08-19",
+  "contract": {
+    "spriteVersionNumber": 2,
+    "columns": 8,
+    "rows": 11,
+    "cellWidth": 192,
+    "cellHeight": 208,
+    "width": 1536,
+    "height": 2288
+  },
+  "pets": [
+    {
+      "id": "wubai-v0",
+      "displayName": "五百",
+      "directory": "wubai-v0",
+      "files": {
+        "pet.json": {
+          "bytes": 230,
+          "sha256": "aa516869904494a26e58b71a0a237f580ed76e08c8e40b60eeec94b696636eb0"
+        },
+        "spritesheet.webp": {
+          "bytes": 2345394,
+          "sha256": "260a092e7bef78ad2005c766ed5c9c0e4cf48195ce4d99c86b5f2839cfbf5624"
+        }
+      }
+    },
+    {
+      "id": "feiliu-hatch-native-v1",
+      "displayName": "飞流",
+      "directory": "feiliu-hatch-native-v1",
+      "files": {
+        "pet.json": {
+          "bytes": 226,
+          "sha256": "cf007630551ceb5fea1a816fac6e19187aab450d45760ef6fa7e586beee2c25c"
+        },
+        "spritesheet.webp": {
+          "bytes": 2076944,
+          "sha256": "20fc7e6a065bffba85e3d592b3f027fe6e668756790a57b1a61fa3ca7f52177a"
+        }
+      }
+    }
+  ]
+}
