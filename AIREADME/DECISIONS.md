@@ -341,3 +341,11 @@
 - Decision: 本决策取代 ADR-041 中“Release 只有一个 Windows ZIP”的附件范围，不改变其 Windows 冻结产物与真机验收结论。v0.6.0 Release 精确提供 Windows ZIP 与 macOS DMG 两个附件。App 与平台发布版本为 `0.6.0`，内嵌宠物内容版本保持 `0.5.10`，双平台 schema 2 清单固定标签提交、平台、包 ID、包版本、Logo 哈希、附件字节数和 SHA-256。默认分支承载标签后的发布补充，两个验证流程先证明平台源码相对不可移动标签无变化。Windows Runner 在草稿阶段只复验 ZIP，macOS Runner 在公开后使用只读权限复验全部附件并挂载 DMG，最终发布动作与 CI 分离。
 - Alternatives（否决）: 移动或重建 `v0.6.0` 标签；为版本号一致重新生成、抠图或重编宠物媒体；另发没有必要的 `v0.6.1` 只改 Logo；继续让 macOS 用户停留在旧 Logo；给 macOS 验证工作流持久写权限并允许自动发布。
 - Tradeoff: 两个平台共享一个清晰版本入口，宠物内容身份保持真实，已有标签历史不被改写。代价是发布清单需要明确区分 App 和宠物包版本，标签后的发布补充必须从默认分支读取，并额外验证源码相对标签没有漂移。
+
+## ADR-043 · 小型 Codex 双宠导出进入 Git 并保持独立批准边界 · 2026-08-19
+
+- Problem: 五百与飞流已经各有一套可安装的 Codex v2 自定义宠物。如果只保存在 `~/.codex/pets`，它们不会随项目版本化、无法从远端恢复，也缺少统一哈希和安全安装路径；如果把它们混同为 PetsGraph 正式宠物包，又会错误继承连续视频、动作图和真实桌面批准结论。
+- Constraint: 两张 WebP 合计约 4.4 MB，可以由普通 Git 承载；正式 PetsGraph 数百 MB 运行时媒体仍只进入 Release；五百和飞流形象遵守 `ASSETS.md`；机械图集校验不能代替 Codex 真实窗口人工观看；本地已有同名包不能被静默覆盖或删除。
+- Decision: 在 `codex-pets/` 版本化保存 `wubai-v0` 与 `feiliu-hatch-native-v1` 的完整 `pet.json`、`spritesheet.webp` 和 schema 1 哈希清单。维护工具验证 v2 的 1536×2288、8×11、RGBA、目录白名单、字节数和 SHA-256，并安全安装到 Codex。相同包幂等跳过，不同包默认拒绝，显式强制替换前移动到 `pets-backups`。Codex 导出不进入 PetsGraph App、`.petsgraph-pet` 或 v0.6.0 Release，也不获得 `runtime-chain-approved`。
+- Alternatives（否决）: 继续只维护在用户目录；把图集复制进 PetsGraph 正式包；把两张小图也放进 GitHub Release；使用 Git LFS；安装时直接覆盖同名目录；因为 Hatch Pet 机械校验通过就宣称动作视觉通过。
+- Tradeoff: 普通 clone 增加约 4.4 MB，仓库需要维护另一套简单 manifest 和安装工具。换来两只 Codex 宠物可以被版本化、核验、恢复和共同维护，同时正式连续动作路线与其更低帧数的图集路线保持清晰隔离。

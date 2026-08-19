@@ -126,7 +126,18 @@ Windows v0.6.0 ZIP 为 `913953281` 字节，约 872 MiB。它除了相同的双�
 - 五百与飞流的获批源素材继续作为制作事实源保留，公开 App 只内嵌确定性编译的低功耗副本。
 - Windows v0.6.0 通过 7 项 MSTest、WPF 编译、AMD64 PE、ZIP、双宠完整性和 GitHub Windows Runner 校验，真实 Windows 11 x64 使用验收反馈为没有问题。
 
-正式 App 和素材随 [GitHub Release](https://github.com/iyuenan3/petsgraph/releases) 分发，不把数百 MB 的运行时资源写入 Git 历史。原始宠物照片、Seedance 任务记录、被拒绝的候选和私有生产上下文不会公开。
+正式 App 和大型运行时素材随 [GitHub Release](https://github.com/iyuenan3/petsgraph/releases) 分发，不把数百 MB 的资源写入 Git 历史。原始宠物照片、Seedance 任务记录、被拒绝的候选和私有生产上下文不会公开。
+
+## Codex 宠物导出
+
+仓库同时维护五百和飞流的 Codex v2 自定义宠物图集，位于 [`codex-pets/`](codex-pets/)。它们是可以直接安装到 Codex 的小型独立导出，不是 PetsGraph App 的连续视频动作包，也不替代上面的正式运行时验收结论。
+
+```bash
+python3 tools/manage-codex-pets.py validate
+python3 tools/manage-codex-pets.py install
+```
+
+安装器默认同时安装两只宠物，并在覆盖不同内容前停止。完整清单、哈希、单只安装与可恢复替换方式见 [`codex-pets/README.md`](codex-pets/README.md)。
 
 ## 仓库结构
 
@@ -135,6 +146,8 @@ Windows v0.6.0 ZIP 为 `913953281` 字节，约 872 MiB。它除了相同的双�
 - `windows/src/PetsGraph.Core/`：跨平台 C# 包校验、行为图、时间轴和 RGBA 转换。
 - `windows/src/PetsGraph.App/`：Win11 x64 WPF 透明窗口、托盘菜单和桌面交互。
 - `windows/scripts/`：Windows 自包含运行时和便携 ZIP 打包脚本。
+- `codex-pets/`：五百与飞流的 Codex v2 宠物导出、完整性清单和安装说明。
+- `tools/manage-codex-pets.py`：校验 Codex 图集契约并安全安装到本机 Codex 数据目录。
 - `tools/build-prototype-package.py`：把固定 PNG 事实源编译为版本化宠物包。
 - `tools/build-cropped-rgba-package.py`：从获批 PNG 包生成固定 clip 裁剪的低功耗运行时副本。
 - `tools/build-macos-app.py`：把已校验宠物包嵌入通用 PetsGraph App。
@@ -174,4 +187,4 @@ PETSGRAPH_PETS_DIR=/path/to/Pets bash windows/scripts/build-portable.sh
 
 ## License
 
-运行时代码使用 [MIT License](LICENSE)。五百和飞流的照片与动画素材可以随官方 Release 用于个人桌面陪伴，其他使用边界见 [ASSETS.md](ASSETS.md)。
+运行时代码和维护工具使用 [MIT License](LICENSE)。五百和飞流的 PetsGraph 动画素材与 Codex 宠物图集可以用于个人桌面陪伴，其他使用边界见 [ASSETS.md](ASSETS.md)。

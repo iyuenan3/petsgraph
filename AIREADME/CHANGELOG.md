@@ -2,6 +2,13 @@
 
 > Append-only。记录版本与里程碑，决策理由见 `DECISIONS.md`。
 
+## Unreleased · 2026-08-19
+
+- Added: 在 `codex-pets/` 同时维护五百 `wubai-v0` 与飞流 `feiliu-hatch-native-v1` 两套 Codex v2 自定义宠物。每套包含 `pet.json` 与 1536×2288 RGBA WebP 图集，两张图集合计约 4.4 MB。
+- Added: 新增 schema 1 `manifest.json`，固定目录、显示名、字节数和 SHA-256；新增 `tools/manage-codex-pets.py`，校验目录白名单、v2 网格、透明通道、哈希，并提供幂等安装、冲突拒绝和备份后替换。
+- Changed: README 与素材授权说明覆盖仓库内 Codex 图集。小型 Codex 导出允许进入 Git，数百 MB PetsGraph 正式运行时媒体继续只随 GitHub Release 分发。
+- Review: 两张仓库图集与本机已安装版本逐字节一致，仓库校验器和 Hatch Pet `--require-v2` 均通过。隔离目录完成首次安装、幂等重装、冲突拒绝、备份替换和安装后哈希核对。该机械结论不等于 Codex 动作视觉通过，也不改变 PetsGraph `runtime-chain-approved` 状态。
+
 ## v0.6.0 macOS release amendment · 2026-08-18
 
 - Added: v0.6.0 双平台清单新增 `PetsGraph-v0.6.0-macOS-arm64.dmg`，与已经验收的 Windows 11 x64 ZIP 组成精确双附件集合。macOS DMG 为 `857640594` 字节，SHA-256 为 `04c6f30e35d7dd8b5b096d0051aad628987d59b8245d84060cf704f02709b159`。
