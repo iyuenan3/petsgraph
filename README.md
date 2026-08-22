@@ -108,7 +108,7 @@ Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公
 3. 双击 `PetsGraph.exe`。当前版本没有代码签名，可能出现 SmartScreen 提示。
 4. SHA-256：`90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`。
 
-更多当前版本说明见 [`windows/README-Windows.md`](windows/README-Windows.md)。
+更多当前版本说明见 [`player/windows/README-Windows.md`](player/windows/README-Windows.md)。
 
 ### Apple Silicon macOS
 
@@ -119,12 +119,12 @@ Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公
 
 ## 当前仓库结构与目标目录
 
-下一代目录迁移已经开始。Codex 公开包已完成切换，Player 源码仍保持 v0.6.0 as-built 路径：
+下一代目录迁移已经开始。Codex 公开包和 Player 平台源码已完成路径切换，运行时行为仍保持 v0.6.0 as-built：
 
-- `Sources/PetsGraphCore/`：当前 Swift 包加载、动作图、时间线和行为核心。
-- `Sources/PetsGraphApp/`：当前 AppKit 透明窗口、菜单和渲染。
-- `windows/src/PetsGraph.Core/`：当前 C# 包校验、动作图、时间线和媒体转换。
-- `windows/src/PetsGraph.App/`：当前 Windows x64 WPF 透明窗口和托盘。
+- `player/macos/Sources/PetsGraphCore/`：当前 Swift 包加载、动作图、时间线和行为核心。
+- `player/macos/Sources/PetsGraphApp/`：当前 AppKit 透明窗口、菜单和渲染。
+- `player/windows/src/PetsGraph.Core/`：当前 C# 包校验、动作图、时间线和媒体转换。
+- `player/windows/src/PetsGraph.App/`：当前 Windows x64 WPF 透明窗口和托盘。
 - `tools/`：当前构建、制作、校验和历史 provider 工具，后续按公开 Player 与私有 Studio 边界迁移。
 - `codexpets/packages/public/`：当前五百与飞流的 Codex v2 小型图集导出，不是 PetsGraph 连续视频 PetPack。
 - `AIREADME/`：产品、架构、PetPack 契约、迁移与发布真相源。
@@ -136,14 +136,14 @@ Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公
 Swift：
 
 ```bash
-bash tools/test-swift.sh
+bash player/macos/scripts/test.sh
 ```
 
 Windows 核心与 WPF：
 
 ```bash
-DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet test windows/tests/PetsGraph.Core.Tests/PetsGraph.Core.Tests.csproj -c Release
-DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet build windows/PetsGraph.slnx -c Release
+DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet test player/windows/tests/PetsGraph.Core.Tests/PetsGraph.Core.Tests.csproj -c Release
+DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet build player/windows/PetsGraph.slnx -c Release
 ```
 
 当前构建命令验证的是 `v0.6.0` as-built，不证明 PetPack 1.0 已实现。下一步重构路线见 [`AIREADME/ROADMAP.md`](AIREADME/ROADMAP.md)。

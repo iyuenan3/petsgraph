@@ -7,15 +7,13 @@ on:
       - main
       - codex/windows-win11-x64
     paths:
-      - "windows/**"
+      - "player/windows/**"
       - "assets/app-icon/**"
-      - "global.json"
       - ".github/workflows/windows.yml"
   pull_request:
     paths:
-      - "windows/**"
+      - "player/windows/**"
       - "assets/app-icon/**"
-      - "global.json"
       - ".github/workflows/windows.yml"
 
 permissions:
@@ -36,22 +34,22 @@ jobs:
       - name: Set up .NET 10
         uses: actions/setup-dotnet@v5
         with:
-          global-json-file: global.json
+          global-json-file: player/windows/global.json
           cache: true
-          cache-dependency-path: windows/**/packages.lock.json
+          cache-dependency-path: player/windows/**/packages.lock.json
 
       - name: Restore locked dependencies
-        run: dotnet restore windows/PetsGraph.slnx --locked-mode
+        run: dotnet restore player/windows/PetsGraph.slnx --locked-mode
 
       - name: Test core and package contract
-        run: dotnet test windows/tests/PetsGraph.Core.Tests/PetsGraph.Core.Tests.csproj --configuration Release --no-restore
+        run: dotnet test player/windows/tests/PetsGraph.Core.Tests/PetsGraph.Core.Tests.csproj --configuration Release --no-restore
 
       - name: Build WPF application
-        run: dotnet build windows/src/PetsGraph.App/PetsGraph.App.csproj --configuration Release --no-restore
+        run: dotnet build player/windows/src/PetsGraph.App/PetsGraph.App.csproj --configuration Release --no-restore
 
       - name: Publish portable x64 runtime ZIP
         shell: pwsh
-        run: windows/scripts/build-portable.ps1 -Version 0.6.0 -OutputDirectory $env:RUNNER_TEMP
+        run: player/windows/scripts/build-portable.ps1 -Version 0.6.0 -OutputDirectory $env:RUNNER_TEMP
 
       - name: Verify x64 PE and ZIP contents
         shell: pwsh

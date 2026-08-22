@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 version="${PETSGRAPH_VERSION:-0.6.0}"
 pets_dir="${PETSGRAPH_PETS_DIR:-}"
 if [[ -n "$pets_dir" ]]; then
@@ -25,7 +25,7 @@ trap 'rm -rf "$stage_root"' EXIT
 publish_dir="$stage_root/PetsGraph"
 
 DOTNET_CLI_HOME="${DOTNET_CLI_HOME:-/private/tmp/petsgraph-dotnet-home}" \
-  "$dotnet_bin" publish "$repo_root/windows/src/PetsGraph.App/PetsGraph.App.csproj" \
+  "$dotnet_bin" publish "$repo_root/player/windows/src/PetsGraph.App/PetsGraph.App.csproj" \
   --configuration Release \
   --runtime win-x64 \
   --self-contained true \
@@ -34,13 +34,13 @@ DOTNET_CLI_HOME="${DOTNET_CLI_HOME:-/private/tmp/petsgraph-dotnet-home}" \
   -p:Version="$version" \
   --output "$publish_dir"
 
-cp "$repo_root/windows/README-Windows.md" "$publish_dir/README-Windows.md"
+cp "$repo_root/player/windows/README-Windows.md" "$publish_dir/README-Windows.md"
 printf '%s\n' "$version" > "$publish_dir/VERSION.txt"
 
 if [[ -n "$pets_dir" ]]; then
   test -d "$pets_dir"
   DOTNET_CLI_HOME="${DOTNET_CLI_HOME:-/private/tmp/petsgraph-dotnet-home}" \
-    "$dotnet_bin" run --project "$repo_root/windows/src/PetsGraph.Validator" -- \
+    "$dotnet_bin" run --project "$repo_root/player/windows/src/PetsGraph.Validator" -- \
     "$pets_dir" --verify-integrity
   mkdir "$publish_dir/Pets"
   package_count=0

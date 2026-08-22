@@ -8,7 +8,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../../..")).Path
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
     $OutputDirectory = Join-Path $RepoRoot "dist"
 }
@@ -23,7 +23,7 @@ if (Test-Path $ZipPath) {
 
 try {
     New-Item -ItemType Directory -Path $PublishDirectory -Force | Out-Null
-    dotnet publish (Join-Path $RepoRoot "windows/src/PetsGraph.App/PetsGraph.App.csproj") `
+    dotnet publish (Join-Path $RepoRoot "player/windows/src/PetsGraph.App/PetsGraph.App.csproj") `
         --configuration Release `
         --runtime win-x64 `
         --self-contained true `
@@ -35,7 +35,7 @@ try {
         throw "dotnet publish failed with exit code $LASTEXITCODE"
     }
 
-    Copy-Item (Join-Path $RepoRoot "windows/README-Windows.md") $PublishDirectory
+    Copy-Item (Join-Path $RepoRoot "player/windows/README-Windows.md") $PublishDirectory
     Set-Content -Path (Join-Path $PublishDirectory "VERSION.txt") -Value $Version -Encoding utf8NoBOM
 
     if (-not [string]::IsNullOrWhiteSpace($PetsDirectory)) {

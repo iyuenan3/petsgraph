@@ -12,7 +12,8 @@ import subprocess
 import tempfile
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 APP_ICON = ROOT / "assets" / "app-icon" / "macos" / "PetsGraph.icns"
 SIGNING_DETRITUS_XATTRS = {
     "com.apple.FinderInfo",
@@ -137,13 +138,13 @@ def main() -> None:
     ]
     subprocess.run(
         swift_build,
-        cwd=ROOT,
+        cwd=PACKAGE_ROOT,
         env=environment,
         check=True,
     )
     bin_path = subprocess.run(
         [*swift_build, "--show-bin-path"],
-        cwd=ROOT,
+        cwd=PACKAGE_ROOT,
         env=environment,
         check=True,
         capture_output=True,
@@ -162,7 +163,7 @@ def main() -> None:
         raise ValueError("release executable is not Apple silicon arm64")
     subprocess.run(
         [str(binary), *[str(package) for package in packages], "--validate-only"],
-        cwd=ROOT,
+        cwd=PACKAGE_ROOT,
         env=environment,
         check=True,
     )
