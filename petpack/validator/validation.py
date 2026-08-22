@@ -5,6 +5,7 @@ import json
 import math
 import re
 import stat
+import struct
 import unicodedata
 import zipfile
 from dataclasses import asdict, dataclass
@@ -19,10 +20,8 @@ SUPPORTED_REQUIRED_CAPABILITIES = frozenset({BASELINE_CAPABILITY})
 PACKAGE_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 NODE_ID_RE = re.compile(r"^[a-z0-9]+(?:[.-][a-z0-9]+)*$")
 CLIP_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-SEMVER_RE = re.compile(
-    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
-    r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
-)
+SEMVER_IDENTIFIER_RE = re.compile(r"^[0-9A-Za-z-]+$")
+MAX_PORTABLE_INTEGER = 2_147_483_647
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 ALLOWED_COMPRESSION = frozenset({zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED})
 PROHIBITED_SUFFIXES = frozenset(
@@ -182,6 +181,32 @@ def _sha256(value: Any, where: str) -> str:
     return result
 
 
+def _semantic_version(value: Any, where: str) -> str:
+    result = _string(value, where, maximum=80)
+    build_parts = result.split("+", 1)
+    if len(build_parts) == 2:
+        identifiers = build_parts[1].split(".")
+        if any(SEMVER_IDENTIFIER_RE.fullmatch(item) is None for item in identifiers):
+            _fail("invalid_semver", f"{where} must be semantic versioning")
+    core_parts = build_parts[0].split("-", 1)
+    core = core_parts[0].split(".")
+    if len(core) != 3:
+        _fail("invalid_semver", f"{where} must be semantic versioning")
+    for item in core:
+        if not item.isascii() or not item.isdigit() or (len(item) > 1 and item[0] == "0"):
+            _fail("invalid_semver", f"{where} must be semantic versioning")
+        if int(item) > MAX_PORTABLE_INTEGER:
+            _fail("invalid_semver", f"{where} exceeds the portable version range")
+    if len(core_parts) == 2:
+        identifiers = core_parts[1].split(".")
+        for item in identifiers:
+            if SEMVER_IDENTIFIER_RE.fullmatch(item) is None:
+                _fail("invalid_semver", f"{where} must be semantic versioning")
+            if item.isdigit() and len(item) > 1 and item[0] == "0":
+                _fail("invalid_semver", f"{where} prerelease has a leading zero")
+    return result
+
+
 def _json_load(data: bytes, where: str) -> dict[str, Any]:
     def pairs_hook(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         result: dict[str, Any] = {}
@@ -246,7 +271,7 @@ class PetPackValidator:
 
     def validate(self, package_path: str | Path) -> PetPackValidationReport:
         path = Path(package_path)
-        if path.suffix.lower() != ".petpack" or not path.is_file():
+        if path.suffix.lower() != ".petpack" or path.is_symlink() or not path.is_file():
             _fail("invalid_container", "input must be one .petpack file")
         archive_bytes = path.stat().st_size
         if archive_bytes <= 0 or archive_bytes > self.limits.max_archive_bytes:
@@ -273,6 +298,7 @@ class PetPackValidator:
 
         with archive:
             infos, info_by_path, uncompressed_bytes = self._validate_archive_index(archive)
+            self._validate_local_layout(path, infos, archive.start_dir)
             json_cache = self._load_json_files(archive, info_by_path)
             integrity = _json_load(json_cache["integrity.json"], "integrity.json")
             digests = self._verify_integrity(archive, infos, info_by_path, integrity, json_cache)
@@ -330,7 +356,9 @@ class PetPackValidator:
         for info in infos:
             # On Windows, ZipInfo.filename replaces backslashes with forward slashes.
             # orig_filename preserves the archive entry exactly as encoded.
-            normalized = _safe_archive_path(info.orig_filename, directory=info.is_dir())
+            if info.is_dir():
+                _fail("noncanonical_zip", f"explicit directory entry {info.orig_filename!r} is not allowed")
+            normalized = _safe_archive_path(info.orig_filename, directory=False)
             collision_key = unicodedata.normalize("NFC", normalized).casefold()
             if normalized in info_by_path:
                 _fail("duplicate_path", f"duplicate ZIP entry {normalized}")
@@ -342,8 +370,10 @@ class PetPackValidator:
             folded[collision_key] = normalized
             info_by_path[normalized] = info
 
-            if info.flag_bits & 0x1:
+            if info.flag_bits & 0x41:
                 _fail("encrypted_entry", f"encrypted ZIP entry {normalized}")
+            if info.comment:
+                _fail("noncanonical_zip", f"ZIP entry comments are not allowed: {normalized}")
             if info.compress_type not in ALLOWED_COMPRESSION:
                 _fail("unsupported_compression", f"unsupported compression for {normalized}")
             mode = info.external_attr >> 16
@@ -351,8 +381,6 @@ class PetPackValidator:
                 _fail("symlink_entry", f"symbolic link entry {normalized}")
             if not info.is_dir() and mode and mode & 0o111:
                 _fail("executable_entry", f"executable permission bits on {normalized}")
-            if info.is_dir():
-                continue
             suffix = PurePosixPath(normalized).suffix.lower()
             if suffix in PROHIBITED_SUFFIXES:
                 _fail("executable_entry", f"prohibited executable content {normalized}")
@@ -386,6 +414,89 @@ class PetPackValidator:
             else:
                 _fail("unexpected_runtime_file", f"unexpected runtime path {name}")
         return infos, info_by_path, total
+
+    def _validate_local_layout(
+        self, path: Path, infos: list[zipfile.ZipInfo], central_offset: int
+    ) -> None:
+        ordered = sorted(infos, key=lambda item: item.header_offset)
+        expected_offset = 0
+        with path.open("rb") as handle:
+            for index, info in enumerate(ordered):
+                if info.header_offset != expected_offset:
+                    _fail("archive_gap", "ZIP local records are not contiguous")
+                handle.seek(info.header_offset)
+                header = handle.read(30)
+                if len(header) != 30:
+                    _fail("invalid_container", "ZIP local header is truncated")
+                (
+                    signature,
+                    _version,
+                    flags,
+                    method,
+                    _time,
+                    _date,
+                    crc32,
+                    compressed32,
+                    uncompressed32,
+                    name_length,
+                    extra_length,
+                ) = struct.unpack("<IHHHHHIIIHH", header)
+                if signature != 0x04034B50 or flags != info.flag_bits or method != info.compress_type:
+                    _fail("invalid_container", "ZIP local and central headers disagree")
+                name_bytes = handle.read(name_length)
+                if len(name_bytes) != name_length or len(handle.read(extra_length)) != extra_length:
+                    _fail("invalid_container", "ZIP local header fields are truncated")
+                encoding = "utf-8" if flags & 0x800 else "cp437"
+                try:
+                    local_name = name_bytes.decode(encoding)
+                except UnicodeDecodeError as error:
+                    _fail("invalid_container", f"ZIP local path is invalid: {error}")
+                if local_name != info.orig_filename:
+                    _fail("invalid_container", "ZIP local and central paths disagree")
+                has_descriptor = bool(flags & 0x8)
+                if not has_descriptor and (
+                    crc32 != info.CRC
+                    or (compressed32 != 0xFFFFFFFF and compressed32 != info.compress_size)
+                    or (uncompressed32 != 0xFFFFFFFF and uncompressed32 != info.file_size)
+                ):
+                    _fail("invalid_container", "ZIP local sizes disagree with the central directory")
+                data_end = info.header_offset + 30 + name_length + extra_length + info.compress_size
+                boundary = (
+                    ordered[index + 1].header_offset
+                    if index + 1 < len(ordered)
+                    else central_offset
+                )
+                if not has_descriptor:
+                    expected_offset = data_end
+                    continue
+                zip64 = info.compress_size > 0xFFFFFFFF or info.file_size > 0xFFFFFFFF
+                descriptor_size = 20 if zip64 else 12
+                remaining = boundary - data_end
+                if remaining not in {descriptor_size, descriptor_size + 4}:
+                    _fail("archive_gap", "ZIP data descriptor or local record boundary is invalid")
+                handle.seek(data_end)
+                descriptor = handle.read(remaining)
+                if remaining == descriptor_size + 4:
+                    if struct.unpack_from("<I", descriptor)[0] != 0x08074B50:
+                        _fail("invalid_container", "ZIP data descriptor signature is invalid")
+                    descriptor = descriptor[4:]
+                if zip64:
+                    descriptor_crc, descriptor_compressed, descriptor_uncompressed = struct.unpack(
+                        "<IQQ", descriptor
+                    )
+                else:
+                    descriptor_crc, descriptor_compressed, descriptor_uncompressed = struct.unpack(
+                        "<III", descriptor
+                    )
+                if (
+                    descriptor_crc != info.CRC
+                    or descriptor_compressed != info.compress_size
+                    or descriptor_uncompressed != info.file_size
+                ):
+                    _fail("invalid_container", "ZIP data descriptor disagrees with the central directory")
+                expected_offset = boundary
+            if expected_offset != central_offset:
+                _fail("archive_gap", "ZIP has data outside declared local records")
 
     def _load_json_files(
         self, archive: zipfile.ZipFile, info_by_path: Mapping[str, zipfile.ZipInfo]
@@ -487,9 +598,9 @@ class PetPackValidator:
         package = _object(manifest["package"], "manifest.package")
         _keys(package, "manifest.package", {"id", "contentVersion", "createdAt"})
         package_id = _identifier(package["id"], "manifest.package.id", PACKAGE_ID_RE, 80)
-        content_version = _string(package["contentVersion"], "manifest.package.contentVersion", maximum=80)
-        if SEMVER_RE.fullmatch(content_version) is None:
-            _fail("invalid_semver", "manifest.package.contentVersion must be semantic versioning")
+        content_version = _semantic_version(
+            package["contentVersion"], "manifest.package.contentVersion"
+        )
         created_at = _string(package["createdAt"], "manifest.package.createdAt", maximum=80)
         try:
             timestamp = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
@@ -578,7 +689,9 @@ class PetPackValidator:
             if clip_type == "transition" and entry_node == exit_node:
                 _fail("invalid_clip", f"transition {clip_id} must change nodes")
             frame_rate = self._frame_rate(clip["frameRate"], f"{clip_path}.frameRate")
-            frame_count = _integer(clip["frameCount"], f"{clip_path}.frameCount", 1)
+            frame_count = _integer(
+                clip["frameCount"], f"{clip_path}.frameCount", 1, MAX_PORTABLE_INTEGER
+            )
             duration = _positive_number(clip["durationSeconds"], f"{clip_path}.durationSeconds")
             expected_duration = frame_count * frame_rate[1] / frame_rate[0]
             if not math.isclose(duration, expected_duration, rel_tol=0, abs_tol=1e-6):
@@ -741,7 +854,7 @@ class PetPackValidator:
                 if clip is None or clip["type"] != "loop" or clip["entry"] != node_id:
                     _fail("invalid_graph", f"node {node_id} has an invalid loop clip")
                 referenced_clips.add(loop_clip)
-            elif loop_clip is not None or autonomous:
+            elif "loopClip" in node or autonomous:
                 _fail("invalid_graph", f"gateway {node_id} cannot loop or be autonomous")
             if autonomous:
                 eligible.add(node_id)

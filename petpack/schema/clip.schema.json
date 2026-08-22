@@ -12,7 +12,7 @@
     "entryNode": {"$ref": "#/$defs/nodeId"},
     "exitNode": {"$ref": "#/$defs/nodeId"},
     "frameRate": {"$ref": "#/$defs/frameRate"},
-    "frameCount": {"type": "integer", "minimum": 1},
+    "frameCount": {"type": "integer", "minimum": 1, "maximum": 2147483647},
     "durationSeconds": {"type": "number", "exclusiveMinimum": 0},
     "safeExitFrames": {"type": "array", "uniqueItems": true, "items": {"type": "integer", "minimum": 0}},
     "stage": {
@@ -70,6 +70,7 @@
     "representations": {
       "type": "array",
       "minItems": 1,
+      "maxItems": 1,
       "items": {"$ref": "#/$defs/representation"}
     }
   },
@@ -98,7 +99,7 @@
         "widthPx": {"type": "integer", "minimum": 1},
         "heightPx": {"type": "integer", "minimum": 1},
         "bytesPerRow": {"type": "integer", "minimum": 4},
-        "frameCount": {"type": "integer", "minimum": 1},
+        "frameCount": {"type": "integer", "minimum": 1, "maximum": 2147483647},
         "frameRate": {"$ref": "#/$defs/frameRate"},
         "alpha": {"const": "premultiplied"},
         "colorSpace": {"const": "srgb"},

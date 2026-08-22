@@ -46,6 +46,7 @@ def write_entries(
     compression: int = zipfile.ZIP_DEFLATED,
     extras: list[tuple[str, bytes, int]] | None = None,
     comment: bytes = b"",
+    entry_comment: bytes = b"",
 ) -> None:
     def raw_info(path: str, mode: int) -> zipfile.ZipInfo:
         # ZipInfo normalizes backslashes on Windows. Assign the stored name after
@@ -59,8 +60,11 @@ def write_entries(
         return info
 
     with zipfile.ZipFile(output, "w", compression=compression, allowZip64=True) as archive:
-        for path, data in sorted(entries.items()):
-            archive.writestr(raw_info(path, 0o100644), data)
+        for index, (path, data) in enumerate(sorted(entries.items())):
+            info = raw_info(path, 0o100644)
+            if index == 0:
+                info.comment = entry_comment
+            archive.writestr(info, data)
         for path, data, mode in extras or []:
             archive.writestr(raw_info(path, mode), data)
         archive.comment = comment
@@ -204,6 +208,20 @@ class PetPackValidatorTests(unittest.TestCase):
         )
         self.assert_failure(package, "executable_entry")
 
+    def test_rejects_explicit_directory_entry(self) -> None:
+        package = self.root / "directory-entry.petpack"
+        write_entries(
+            package,
+            fixture_entries(),
+            extras=[("media/", b"", stat.S_IFDIR | 0o755)],
+        )
+        self.assert_failure(package, "noncanonical_zip")
+
+    def test_rejects_symlinked_source_archive(self) -> None:
+        linked = self.root / "linked.petpack"
+        linked.symlink_to(self.valid)
+        self.assert_failure(linked, "invalid_container")
+
     def test_rejects_windows_reserved_path(self) -> None:
         package = self.root / "reserved.petpack"
         write_entries(
@@ -252,6 +270,45 @@ class PetPackValidatorTests(unittest.TestCase):
         package = self.semantic_mutation("capability.petpack", mutate)
         self.assert_failure(package, "unsupported_capability")
 
+    def test_rejects_nonportable_semantic_versions(self) -> None:
+        for index, version in enumerate(
+            ["1.0.0-01", "1.0.0-alpha..1", "2147483648.0.0"]
+        ):
+            def mutate(entries: dict[str, bytes], value: str = version) -> None:
+                manifest = json.loads(entries["manifest.json"])
+                manifest["package"]["contentVersion"] = value
+                entries["manifest.json"] = canonical_json(manifest)
+
+            package = self.semantic_mutation(f"semver-{index}.petpack", mutate)
+            self.assert_failure(package, "invalid_semver")
+
+    def test_rejects_gateway_with_explicit_null_loop(self) -> None:
+        def mutate(entries: dict[str, bytes]) -> None:
+            graph = json.loads(entries["graph.json"])
+            graph["nodes"].append(
+                {
+                    "autonomousEligible": False,
+                    "id": "rest.gateway",
+                    "loopClip": None,
+                    "role": "gateway",
+                    "scene": "rest",
+                }
+            )
+            entries["graph.json"] = canonical_json(graph)
+
+        package = self.semantic_mutation("gateway-null.petpack", mutate)
+        self.assert_failure(package, "invalid_graph")
+
+    def test_rejects_frame_count_outside_portable_integer_range(self) -> None:
+        def mutate(entries: dict[str, bytes]) -> None:
+            path = "clips/rest-primary-loop.json"
+            clip = json.loads(entries[path])
+            clip["frameCount"] = 2_147_483_648
+            entries[path] = canonical_json(clip)
+
+        package = self.semantic_mutation("frame-count-overflow.petpack", mutate)
+        self.assert_failure(package, "invalid_value")
+
     def test_rejects_unreachable_autonomous_node(self) -> None:
         def mutate(entries: dict[str, bytes]) -> None:
             graph = json.loads(entries["graph.json"])
@@ -278,6 +335,35 @@ class PetPackValidatorTests(unittest.TestCase):
         write_entries(package, fixture_entries(), comment=b"not canonical")
         self.assert_failure(package, "noncanonical_zip")
 
+    def test_rejects_entry_comment(self) -> None:
+        package = self.root / "entry-comment.petpack"
+        write_entries(package, fixture_entries(), entry_comment=b"not canonical")
+        self.assert_failure(package, "noncanonical_zip")
+
+    def test_rejects_strong_encryption_flag(self) -> None:
+        package = self.root / "strong-encryption.petpack"
+        data = bytearray(self.valid.read_bytes())
+        end = len(data) - 22
+        central = int.from_bytes(data[end + 16 : end + 20], "little")
+        local = int.from_bytes(data[central + 42 : central + 46], "little")
+        central_flags = int.from_bytes(data[central + 8 : central + 10], "little") | 0x40
+        local_flags = int.from_bytes(data[local + 6 : local + 8], "little") | 0x40
+        data[central + 8 : central + 10] = central_flags.to_bytes(2, "little")
+        data[local + 6 : local + 8] = local_flags.to_bytes(2, "little")
+        package.write_bytes(data)
+        self.assert_failure(package, "encrypted_entry")
+
+    def test_rejects_gap_before_central_directory(self) -> None:
+        package = self.root / "archive-gap.petpack"
+        data = bytearray(self.valid.read_bytes())
+        end = len(data) - 22
+        central = int.from_bytes(data[end + 16 : end + 20], "little")
+        data[central:central] = b"x"
+        shifted_end = end + 1
+        data[shifted_end + 16 : shifted_end + 20] = (central + 1).to_bytes(4, "little")
+        package.write_bytes(data)
+        self.assert_failure(package, "archive_gap")
+
     def test_rejects_executable_prefix_before_zip(self) -> None:
         package = self.root / "prefixed.petpack"
         package.write_bytes(b"MZ" + self.valid.read_bytes())
@@ -301,6 +387,9 @@ class PetPackValidatorTests(unittest.TestCase):
         for schema in schemas:
             decoded = json.loads(schema.read_text(encoding="utf-8"))
             self.assertEqual(decoded["$schema"], "https://json-schema.org/draft/2020-12/schema")
+        clip = json.loads((schema_root / "clip.schema.json").read_text(encoding="utf-8"))
+        self.assertEqual(clip["properties"]["representations"]["maxItems"], 1)
+        self.assertEqual(clip["properties"]["frameCount"]["maximum"], 2_147_483_647)
 
 
 if __name__ == "__main__":
