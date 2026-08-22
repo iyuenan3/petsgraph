@@ -2,7 +2,7 @@
 
 ## 状态与下一代分发目标
 
-当前可下载的 `v0.6.0` 仍是内嵌五百与飞流的历史正式版，下面的构建、安装、摘要和双平台发布流程继续作为该版本的事实与回滚依据。零素材 PetsGraph Player、外部 `.petpack` 装载和内部宠物库尚未实现，不能用目标文档替换当前安装说明。
+当前可下载的 `v0.6.0` 仍是内嵌五百与飞流的历史正式版，下面的安装、摘要和双平台发布流程继续作为该版本的事实与回滚依据。Apple Silicon macOS `0.7.0-dev` 已实现零素材 Player、外部 `.petpack` 装载和内部宠物库，但尚未完成真实桌面人工验收或正式发布；Windows x64 新 Player 尚未实现。不能用开发实现替换当前公开安装说明。
 
 下一代发布边界：
 
@@ -98,7 +98,7 @@ App 离线运行，不上传照片，不访问生成服务，不收集遥测，�
 4. 右键系统托盘中的双猫图标，可以分别显示、隐藏宠物、选择睡姿、设置全局大小或退出。
 5. 设置保存到 `%LOCALAPPDATA%\PetsGraph\settings.json`。当前版本不写注册表、不安装系统服务，也不配置开机自启。
 
-## macOS 本机构建与验证
+## macOS `0.7.0-dev` 本机构建与验证
 
 测试必须使用完整 Xcode 基线：
 
@@ -106,17 +106,30 @@ App 离线运行，不上传照片，不访问生成服务，不收集遥测，�
 bash player/macos/scripts/test.sh
 ```
 
-构建正式 App：
+构建零宠物素材开发 App：
 
 ```bash
-.local/environments/core/bin/python player/macos/scripts/build-legacy-app.py \
-  --package petpacks/personal/wubai/legacy/runtime/wubai-quiet-companion-0.5.10.petsgraph-pet \
-  --package petpacks/personal/feiliu/legacy/runtime/feiliu-quiet-companion-0.5.10.petsgraph-pet \
-  --output .local/dist/builds/PetsGraph-0.6.0.app \
-  --version 0.6.0
+python3 player/macos/scripts/build-app.py \
+  --output .local/dist/builds/PetsGraph-0.7.0-dev.app \
+  --version 0.7.0-dev
 ```
 
-构建唯一发布附件：
+当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。它在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 24 项公开 PetPack 回归、8 项 Swift 测试并上传保留 7 天的代码开发 App。
+
+本地已验证：
+
+- Swift 严格警告编译与 8 项测试通过。
+- 公开 store 合成包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
+- App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
+- App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
+
+上述结果不替代真实 macOS 桌面上的菜单、拖动、透明命中、多宠并发、隐藏恢复、应用升级保留和正常速度视觉验收。
+
+## macOS `v0.6.0` 历史构建基线
+
+`v0.6.0` 的内嵌双宠构建器已经从 main 删除。若需要重现旧 App，必须在独立工作区检出不可移动的 `v0.6.0` 标签，并使用标签内的旧 `build-legacy-app.py`、旧源码路径和冻结宠物包。不要在当前 main 伪造兼容入口。
+
+历史版本构建唯一发布附件的命令为：
 
 ```bash
 .local/environments/core/bin/python studio/packaging/build-release-artifacts.py \
@@ -125,7 +138,7 @@ bash player/macos/scripts/test.sh
   --version 0.6.0
 ```
 
-正式构建必须通过：
+历史正式构建必须通过：
 
 - 67 项 XCTest。
 - 两个包的 schema、独立包版本、批准状态、图、完整性和全部 12,013 帧媒体校验。

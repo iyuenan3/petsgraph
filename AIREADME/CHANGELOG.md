@@ -414,3 +414,11 @@
 - Added: 每个候选旁保存私有 conversion record，记录旧 integrity、最终 review、逐 clip 配方、排除清单、窗口 root motion 处置、输出摘要和公开验证结果，不把私有路径或生产正文写入包内。
 - Review: 五百候选为 1,068,381,496 bytes、SHA-256 `14f719b67da95a4cf089500aedc7c67fb6c74c3a63a273052190856f99b3e0ef`；飞流候选为 596,024,359 bytes、SHA-256 `f0308cd322fbbd1ef1259e64ca3f93a8f7da58b202aa441baef5a26fe61aef25`。公开验证器、旧新媒体摘要映射和重复确定性构建均通过，旧包 integrity 摘要未改变。
 - Review: 两包仍为 `mechanically-validated-awaiting-player-runtime-review`，只位于私有 `candidates/`。在新 Player 的 Apple Silicon macOS 与 Windows x64 真实桌面验收前，不进入 `approved/`、`delivery/` 或公开发布物。
+
+## Unreleased macOS PetPack 1.0 Player · 2026-08-23
+
+- Changed: Apple Silicon macOS 主线从历史 schema `0.4.0` 内嵌双宠运行时切换到 PetPack `formatVersion=1.0.0` 零素材 Player，不保留旧路径或旧包直接加载兼容层；历史实现继续由 `v0.6.0` 标签和 Release 保存。
+- Added: Swift 原生实现普通 ZIP 与 ZIP64、store 与 deflate、安全路径、严格 JSON、完整性、RGBA 媒体长度、canonical 库、幂等导入、升级确认、降级拒绝、cache 重建和卸载。
+- Added: 每只宠物使用独立被动行为会话、随机时钟、固定透明舞台、可见状态与位置；菜单只提供装载、显示、隐藏、卸载、全局七档大小和退出，单击不触发动作，视频不推动窗口。
+- Added: 新构建器生成 Apple Silicon `0.7.0-dev` ad-hoc 签名 App，强制不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体；独立 macOS CI 运行公开 PetPack 回归、Swift 测试和零素材构建。
+- Review: 严格警告编译与 8 项 Swift 测试通过。公开 store 合成包、临时 deflate 合成包、五百与飞流真实候选均由原生加载器验证，零素材 App 架构和签名检查通过。真实 macOS 桌面菜单、拖动、透明命中、多宠长时性能、隐藏恢复、应用升级保留和正常速度视觉验收仍未完成。

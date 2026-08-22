@@ -1,9 +1,9 @@
 # PetsGraph · AIREADME
 > 面向宠物离世纪念的开源多宠 Player 与私有定制 PetPack 体系 ｜ 生命周期: implementation-in-progress
-> last-synced: 591a333 · 2026-08-23
-> phase: two-pet-candidates-validated / player-library-next
+> last-synced: 70d71b7 · 2026-08-23
+> phase: macos-player-implemented / windows-player-next
 
-当前公开 `v0.6.0` 仍是内嵌五百与飞流的旧架构发布版。PetPack 1.0 公开 schema、参考验证器、合成包与安全回归已经实现，五百与飞流已经形成私有机械验证候选；下一代零素材 Player、双平台运行时验收和可交付正式包尚未实现。后续报告仍必须显式区分 Target、契约实现、候选包与已发布 As-built。
+当前公开 `v0.6.0` 仍是内嵌五百与飞流的旧架构发布版。PetPack 1.0 公开 schema、参考验证器、合成包与安全回归已经实现，五百与飞流已经形成私有机械验证候选。Apple Silicon macOS `0.7.0-dev` 已实现零素材 Player、原生 PetPack 校验、canonical 库、被动行为会话、固定舞台与目标菜单；真实桌面人工验收、Windows x64 重构、双平台一致性和可交付正式包尚未完成。后续报告仍必须显式区分 Target、机械实现、人工验收、候选包与已发布 As-built。
 
 ## 状态
 
@@ -11,16 +11,16 @@
 |---|:---:|---|
 | CORE | ✅ | 纪念陪伴定位、零素材 Player、客户自持 PetPack、私有 Studio 与硬约束 |
 | RELATIONS | ✅ | Player、Studio、PetPack 三层边界及 provider、GitHub 与历史运行时关系 |
-| SPEC | ✅ | PetPack 1.0 行为、ZIP 容器、单一 RGBA 基线、完整性、安全和首版无签名契约已实现；Player 装载待实现 |
-| ARCHITECTURE | ✅ | 目标组件、固定舞台、多宠状态、内部宠物库、当前 v0.6.0 与迁移边界 |
+| SPEC | ✅ | PetPack 1.0 行为、ZIP 容器、单一 RGBA 基线、完整性、安全和首版无签名契约已实现；macOS 原生装载已实现，Windows 待实现 |
+| ARCHITECTURE | ✅ | 目标组件、固定舞台、多宠状态、macOS 新实现、Windows 与 v0.6.0 历史边界 |
 | DIRECTORY | ✅ | 唯一项目根、公开与私有子树、已迁移源码、Studio、宠物事实源、旧包与本地产物边界 |
 | DEPLOYMENT | ✅ | 下一代零素材分发目标与 v0.6.0 双平台历史发布基线 |
 | PRD | ✅ | 离世客群、定制服务、多宠独立时钟、菜单、隐藏卸载和成功指标 |
-| ROADMAP | ✅ | 职责目录、本机环境、PetPack 1.0 公开契约和双宠候选转换已完成，继续实现 Player canonical 库 |
+| ROADMAP | ✅ | 目录、PetPack、双宠候选和 macOS Player 已完成机械实现，继续 Windows x64 与双平台人工验收 |
 | CONVENTIONS | ✅ | 公开私有边界、客户目录、生成配置、慢动作、抠图与包生命周期约定 |
 | DECISIONS | ✅ | 追加 ADR-044 至 ADR-052，记录纪念定位、三层架构、目录、PetPack 基线、首版严格边界和执行护栏 |
 | MEMORY | ✅ | 追加纯色背景色族、原生慢动作和完整链优先的制作经验 |
-| CHANGELOG | ✅ | 记录 2026-08-23 目录迁移、PetPack 1.0 契约和双宠候选转换，新 Player 仍未实现 |
+| CHANGELOG | ✅ | 记录 2026-08-23 目录迁移、PetPack 1.0、双宠候选转换和 macOS Player 实现 |
 
 ## 按任务读
 
@@ -36,4 +36,4 @@
 - 复盘实际失败 → `MEMORY.md`，重大取舍另向 `DECISIONS.md` 追加
 - 维护 Codex 宠物导出 → `DIRECTORY.md` 第 10 节 + `SPEC.md` 第 14 节 + `DEPLOYMENT.md` 的 Codex 章节
 
-同步锚点指向已审阅并提交的双宠候选状态说明 `591a333`。AIREADME 自身随后单独提交；公开契约和五百飞流私有候选已经完成，但 canonical 宠物库、双平台运行时验收、正式交付与新 Player 仍未实现。
+同步锚点指向已审阅并提交的 macOS Player 内容提交 `70d71b7`。AIREADME 自身随后单独提交；公开契约、五百飞流私有候选和 macOS 机械实现已经完成，但真实 macOS 桌面人工验收、Windows x64 重构、双平台一致性、正式交付与 `1.0.0` 发布仍未完成。

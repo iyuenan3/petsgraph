@@ -1,6 +1,6 @@
 # ROADMAP：PetsGraph
 
-## Now（PetPack 契约已实现，双宠转换准备）
+## Completed（目录、PetPack、双宠候选与 macOS 机械实现）
 
 1. 提交最新产品、目录、PetPack 和迁移文档，直接在 `main` 上形成可回滚基线并及时 push。
 2. 只读盘点 Swift、WPF、旧 schema `0.4.0`、制作工具、素材工作区、发布物和未提交文件，记录文件数、字节数、摘要和处置分类。
@@ -13,14 +13,16 @@
 9. 已把通用制作、精细抠图和 Seedance 环境迁入 `.local/environments/`，把 rembg 模型迁入 `.local/cache/`，并保存精确依赖快照。旧根 Swift 构建缓存移入系统回收站。
 10. 已实现 PetPack `formatVersion=1.0.0` 的五份 schema、标准库参考验证器、确定性合成包和 24 项合法包与动态坏包回归；公开 CI 覆盖 macOS 与 Windows，真实宠物媒体未进入夹具。
 11. 已用私有离线转换器生成五百与飞流 PetPack 1.0 候选，排除 interaction、交互边、网关停留循环和窗口 root motion，保留自主睡眠与场景过渡；旧媒体与新媒体摘要逐项一致，两个大包均可确定性重建。
+12. 已重构 Apple Silicon macOS `0.7.0-dev`，实现严格原生 PetPack 校验、canonical 库、幂等导入与升级边界、每宠独立行为、固定舞台、拖动、持久可见状态、统一大小和目标菜单；构建物不含真实宠物媒体。
+13. 已用公开 store 与 deflate 测试包、五百和飞流真实候选验证 Swift 原生加载器，并完成严格编译、8 项测试、arm64 App、ad-hoc 签名和零素材检查。真实桌面观看尚未通过，不能提升为发布结论。
 
-## Next（PetPack 1.0 与双平台 Player）
+## Now（Windows x64 与同包一致性）
 
-1. 实现 Player 内部 canonical 库、幂等装载、原子更新、坏包隔离、卸载和应用升级保留。
-2. 重构 macOS 与 Windows x64 Player，使发布物零宠物素材并实现多宠独立时钟、固定拖动位置、跨启动可见状态、统一 `0.5` 至 `2.0` 缩放和既定菜单。
-3. 从新目标运行时删除点击坐立、指定睡姿、动作菜单、窗口 root motion 和旧 schema `0.4.0` 直接加载；历史能力只由 `v0.6.0` 标签与 Release 保存。
-4. 建立重复包、升级失败、卸载全部、应用升级、多宠 2/4/8 并发和双平台状态机一致性回归，并让平台加载器消费公开 PetPack 测试向量。
-5. 先完成 Apple Silicon macOS 真实桌面验收，再完成 Windows x64 同包验收；通过后才把双宠候选移入 approved 与 delivery，最后发布首个正式 `1.0.0`。
+1. 重构 Windows x64 Player，复现 macOS 已实现的安全装载、canonical 库、原子更新、卸载、每宠独立行为、固定舞台、拖动、跨启动可见状态、统一 `0.5` 至 `2.0` 缩放和既定托盘菜单。
+2. 从 Windows 新目标运行时删除点击坐立、指定睡姿、动作菜单、窗口 root motion、内嵌宠物发现和旧 schema `0.4.0` 直接加载；历史能力只由 `v0.6.0` 标签与 Release 保存。
+3. 让 Windows 原生加载器消费公开 PetPack 合成向量，并与 Swift 对 ZIP、ZIP64、store、deflate、路径安全、JSON 严格性、完整性、更新和行为状态机给出一致结论。
+4. 补齐重复包冲突、升级失败、卸载全部、应用升级、多宠 2/4/8 并发、隐藏过渡和 cache 重建回归。
+5. 完成 Apple Silicon macOS 真实桌面验收，再完成 Windows x64 同包验收；通过后才把双宠候选移入 approved 与 delivery，最后发布首个正式 `1.0.0`。
 
 ## Later
 
