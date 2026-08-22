@@ -363,3 +363,9 @@
 - Added: 公开清单为每只宠物记录 `public=true`、素材所有者和 `ASSETS.md` 授权指针；根忽略规则隔离 Codex 私有包、私有清单和制作工作区。
 - Added: 新增标准库回归测试，覆盖公开包清单校验和隔离目录首次安装、重复安装幂等行为。
 - Review: 五百与飞流的两个稳定 ID、四个包文件字节数和 SHA-256 均未改变。公开校验器通过，2 项回归测试通过。该切片只完成 Codex 目录迁移，不表示 Player、Studio、PetPack 或宠物事实源已经迁移。
+
+## Unreleased Player path migration · 2026-08-23
+
+- Changed: 根 `Package.swift`、`Sources/`、`Tests/`、`windows/` 与 `global.json` 一次性迁入 `player/macos/` 和 `player/windows/`，平台测试、旧 App 构建入口及日常 Windows CI 同步更新，不保留旧路径兼容入口。
+- Changed: 两个 v0.6.0 历史 Release 复验工作流保持发布时的源码差异门禁，目录迁移不修改其安全语义；新 1.0.0 Player 后续建立独立发布链。
+- Review: Swift 迁移前后均为 67 项测试通过。Windows 在重新生成锁定依赖资产后为 7 项测试通过，完整解决方案构建 0 警告、0 错误。`player/` 没有真实宠物图片、视频或图集。

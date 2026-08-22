@@ -1,6 +1,6 @@
 # DIRECTORY：PetsGraph 项目目录与 Git 边界
 
-> Target: 本文件定义下一代目录结构和迁移护栏。As-built: Codex 公开包、清单和管理工具已迁入 `codexpets/`；Player 源码仍位于根 `Sources/`、`Tests/` 与 `windows/`，私有媒体仍位于 `workspaces/`，其余目录继续按小切片迁移。
+> Target: 本文件定义下一代目录结构和迁移护栏。As-built: Codex 公开包已迁入 `codexpets/`，macOS 与 Windows 平台源码已迁入 `player/`；私有媒体仍位于 `workspaces/`，Studio、宠物事实源、PetPack 与本地产物继续按小切片迁移。
 
 ## 1. 根目录原则
 
@@ -293,8 +293,8 @@ codexpets/
 
 | 当前 As-built | 目标 Target | 约束 |
 |---|---|---|
-| `Package.swift`、`Sources/`、`Tests/` | `player/macos/` | 保持 SwiftPM 目标、测试与构建入口可复现 |
-| `windows/` | `player/windows/` | 保持 .NET solution、x64 发布与测试语义 |
+| `Package.swift`、`Sources/`、`Tests/` | `player/macos/` | 已在 `84bbc5e` 完成；67 项测试迁移前后均通过 |
+| `windows/`、`global.json` | `player/windows/` | 已在 `84bbc5e` 完成；7 项测试通过，解决方案 0 警告 0 错误 |
 | Player 构建、测试和公开验证工具 | 对应平台 `scripts/` 或 `petpack/validator/` | 不能依赖私有目录也能运行 |
 | Seedance、Seedream、抠图、评审和宠物专用工具 | `studio/` | 迁入根 Git 忽略的本机私有目录，不创建独立 Git，不再保留公开工作副本 |
 | `workspaces/<pet>-private/` | `pets/personal/<pet-id>/` 及 `petpacks/personal/<pet-id>/` | 逐宠、逐类映射；源、批准、失败、包和缓存不可混迁 |
@@ -349,4 +349,4 @@ codexpets/
 
 状态为 `directory-contract-frozen / migration-in-progress`。
 
-目标目录和 Git 边界已经确认。清理审计与 `codexpets` 小切片已经迁移并验证，Player、Studio、宠物事实源、PetPack 工作区和本地产物仍待切换。任何后续报告必须逐子树说明实际状态，不能把局部迁移写成整体完成。
+目标目录和 Git 边界已经确认。清理审计、`codexpets` 与 `player/` 源码路径已经迁移并验证；Player 行为仍为 v0.6.0 as-built，Studio、宠物事实源、PetPack 工作区和本地产物仍待切换。任何后续报告必须逐子树说明实际状态，不能把路径迁移写成新运行时已经完成。

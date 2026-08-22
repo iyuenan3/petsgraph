@@ -79,18 +79,17 @@ App 离线运行，不上传照片，不访问生成服务，不收集遥测，�
 测试必须使用完整 Xcode 基线：
 
 ```bash
-bash tools/test-swift.sh
+bash player/macos/scripts/test.sh
 ```
 
 构建正式 App：
 
 ```bash
-.venv/bin/python tools/build-macos-app.py \
+.venv/bin/python player/macos/scripts/build-legacy-app.py \
   --package workspaces/wubai-private/runtime/wubai-quiet-companion-0.5.10.petsgraph-pet \
   --package workspaces/feiliu-private/runtime/feiliu-quiet-companion-0.5.10.petsgraph-pet \
   --output dist/PetsGraph-0.6.0.app \
-  --version 0.6.0 \
-  --min-macos 14.0
+  --version 0.6.0
 ```
 
 构建唯一发布附件：
@@ -115,22 +114,22 @@ DMG 使用本机 `/usr/bin/hdiutil create` 从冻结 App 构建。GitHub Actions
 
 ## Windows 构建与验证
 
-仓库用 `global.json` 锁定 .NET SDK `10.0.400`。macOS arm64 本机 SDK 安装在 `~/.dotnet`，未修改用户全局 PATH。核心命令：
+仓库用 `player/windows/global.json` 锁定 .NET SDK `10.0.400`。macOS arm64 本机 SDK 安装在 `~/.dotnet`，未修改用户全局 PATH。核心命令：
 
 ```bash
 DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
-  ~/.dotnet/dotnet test windows/tests/PetsGraph.Core.Tests/PetsGraph.Core.Tests.csproj \
+  ~/.dotnet/dotnet test player/windows/tests/PetsGraph.Core.Tests/PetsGraph.Core.Tests.csproj \
   --no-restore --disable-build-servers -m:1 -p:UseSharedCompilation=false
 
 DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
-  ~/.dotnet/dotnet build windows/PetsGraph.slnx \
+  ~/.dotnet/dotnet build player/windows/PetsGraph.slnx \
   --no-restore --disable-build-servers -m:1 \
   -p:UseSharedCompilation=false -p:RestoreLockedMode=true
 
 PETSGRAPH_PETS_DIR=/path/to/approved/Pets \
 DOTNET_BIN=~/.dotnet/dotnet \
 DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
-  bash windows/scripts/build-portable.sh
+  bash player/windows/scripts/build-portable.sh
 ```
 
 `build-portable.sh` 拒绝覆盖同名 ZIP，先交叉发布 `win-x64` self-contained 应用，再用 .NET 校验器检查真实宠物包，复制完整包后生成 ZIP，最后执行解压测试与 SHA-256。发布前还必须检查：
@@ -144,6 +143,8 @@ DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
 GitHub 推送到 `codex/windows-win11-x64`、`main` 或相关 Pull Request 时，`.github/workflows/windows.yml` 在 `windows-2025` 上重新执行锁定还原、测试、WPF 编译、代码运行 ZIP、AMD64 PE 和 ZIP 结构检查。该 artifact 不含私有宠物媒体，仅保留 7 天。内容提交 `2b539a6` 对应运行 `32114691048`，全部步骤通过。
 
 `.github/workflows/windows-release-verify.yml` 只验证已上传到草稿 Release 的 Windows ZIP，它不创建标签、不上传附件、不发布草稿。GitHub 会对只有 `contents: read` 的工作流 token 隐藏草稿 Release，因此该工作流经发布所有者明确授权使用 `contents: write`，但步骤只允许 `gh release view` 与 `gh release download`。流程从默认分支读取双平台清单，确认不可移动标签是当前发布契约的祖先且 Windows 源码相对标签没有变化，要求草稿附件集合与清单严格一致，并核对字节数、SHA-256、版本、AMD64 PE、双包数量和运行时完整性。
+
+两个 v0.6.0 Release 复验工作流保持发布时的旧路径与 tag 对 HEAD 完整源码差异门禁，本次目录迁移没有修改或削弱它们。提交 `84bbc5e` 之后的 `main` 不再把这两个历史工作流当作新 Player 的 CI；PetPack 1.0 与零素材 Player 必须建立独立的 1.0.0 构建和发布门禁。
 
 ## v0.6.0 GitHub 双平台发布流程
 
