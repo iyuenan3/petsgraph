@@ -164,6 +164,8 @@ DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet build player/windows
 
 Swift 与 Windows 命令分别验证两个 `0.7.0-dev` Player 的 PetPack 1.0 原生装载、canonical 库、行为状态机和零素材构建，但都不替代真实桌面人工观看。下一步验收路线见 [`AIREADME/ROADMAP.md`](AIREADME/ROADMAP.md)。
 
+2026-08-23 的逐项重构证据、开发产物摘要和人工门禁见 [`docs/audits/refactor-2026-08-23.md`](docs/audits/refactor-2026-08-23.md)。
+
 ## Codex 宠物导出
 
 仓库另行维护五百和飞流的 Codex v2 自定义宠物图集：
