@@ -18,10 +18,11 @@
 14. 已重构 Windows x64 `0.7.0-dev`，实现严格原生 PetPack 校验、canonical 库、幂等导入与升级边界、每宠独立行为、固定舞台、拖动、持久可见状态、统一大小和目标托盘菜单；旧点击、指定动作、root motion、内嵌宠物发现和 schema `0.4.0` 直接加载已从当前 main 删除。
 15. 已用公开 store、前向兼容与 deflate 测试包、五百和飞流真实候选验证 C# 原生加载器，并完成 20 项测试、全解决方案零警告构建、self-contained AMD64 ZIP 和零素材检查。两个平台的安装索引均增加路径身份防护，旧运行时迁移只保留匹配 package ID 的位置和全局大小，不保留旧显示状态。真实 Windows GUI 和远端 Windows CI 尚未通过，不能提升为发布结论。
 16. 已新增 `docs/audits/refactor-2026-08-23.md`，逐条映射 12 项目标、当前证据、可恢复清理、开发产物摘要和未通过门禁；该记录保持 Goal 为未完成状态。
+17. 首次远端 push 已完成，macOS 工作流通过。PetPack 与 Windows 工作流分别发现 Python ZIP 路径规范化和 .NET 测试包创建主机差异，已经用 `orig_filename` 与确定性中央目录元数据修复；25 项 Python 和 20 项 MSTest 本地通过，等待再次 push 后回读远端结论。
 
 ## Now（双平台真实桌面与同包验收）
 
-1. 获得明确远端目标授权后，把当前 `main` 推送到 `git@github.com:iyuenan3/petsgraph.git`，回读远端 SHA，并确认 macOS、Windows 与 PetPack 工作流实际运行结果。
+1. 把当前跨平台 CI 修复推送到 `git@github.com:iyuenan3/petsgraph.git`，回读远端 SHA，并确认 macOS、Windows 与 PetPack 三个工作流的再次运行结果。
 2. 在 Apple Silicon macOS 上使用五百和飞流候选完成真实桌面验收：零宠启动、单包与多包导入、目标菜单、透明命中拖动、隐藏过渡、重启恢复、cache 重建、更新、卸载和正常速度长时间观看。
 3. 在真实 Windows 11 x64 上对同两个包完成相同验收，并增加 SmartScreen、DPI、多显示器、托盘、PE 运行、PowerShell 打包入口和应用目录替换后的宠物库保留检查。
 4. 补齐更新失败回滚、应用升级、多宠 2、4、8 只并发和同时过渡的机械与人工回归，记录两个平台的 CPU、内存、卡帧、闪动和连接观察，不能用单元测试替代视觉结论。

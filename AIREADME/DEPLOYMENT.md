@@ -188,6 +188,8 @@ DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
 
 本轮 12 项重构要求、清理恢复点、双平台产物摘要和逐项人工门禁统一记录在 `docs/audits/refactor-2026-08-23.md`。该记录明确保持 Goal 未完成，不得用自动化测试替代真实桌面批准。
 
+首次把重构提交推送到远端后，macOS Apple Silicon 工作流在 `a7c2cb5` 通过。PetPack contract 的 Windows job 暴露 Python `ZipInfo.filename` 会把原始反斜线规范化，Windows x64 job 另暴露 .NET `ZipArchive` 在 Windows 上不会自动把 Unix 权限位标记为 Unix 创建主机。`1937a03` 改为验证 `orig_filename` 并让测试写入真实原始路径，`f6b855f` 让 C# 恶意 symlink 测试包在所有平台固定中央目录创建主机。25 项 Python 与 20 项 MSTest 本地回归通过；远端再次运行前仍不能写成 CI 已通过。
+
 ### Windows `v0.6.0` 历史 Release 复验
 
 `.github/workflows/windows-release-verify.yml` 只验证已上传到草稿 Release 的 Windows ZIP，它不创建标签、不上传附件、不发布草稿。GitHub 会对只有 `contents: read` 的工作流 token 隐藏草稿 Release，因此该工作流经发布所有者明确授权使用 `contents: write`，但步骤只允许 `gh release view` 与 `gh release download`。流程从默认分支读取双平台清单，确认不可移动标签是当前发布契约的祖先且 Windows 源码相对标签没有变化，要求草稿附件集合与清单严格一致，并核对字节数、SHA-256、版本、AMD64 PE、双包数量和运行时完整性。

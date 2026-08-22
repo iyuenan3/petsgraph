@@ -443,3 +443,10 @@
 - Fixed: macOS 与 Windows 的旧运行时迁移不再复用旧显示状态，只在 package ID 明确匹配时迁移位置，并继续迁移全局大小；新增双平台回归防止隐藏状态越过一次性架构切换。
 - Added: `docs/audits/refactor-2026-08-23.md` 逐条映射 12 项重构目标、可恢复清理、公开私有边界、包摘要、测试、开发产物、远端门禁和人工验收步骤。
 - Review: 25 项 Python、11 项 Swift、20 项 MSTest 与 2 项 Codex 回归通过。Windows 全解决方案 Release 构建 0 警告、0 错误，两个原生加载器验证同一五包集合。新构建的 macOS arm64 App 与 Windows x64 ZIP 均为零宠物素材开发产物。远端 push、CI、真实双平台 GUI 与正常速度视觉批准仍未完成。
+
+## Unreleased cross-platform hostile ZIP fixtures · 2026-08-23
+
+- Fixed: Python 参考验证器在 Windows 上改用 `ZipInfo.orig_filename` 检查归档原始条目名，防止标准库先把反斜线改成正斜线后绕过 `unsafe_path` 分类。
+- Fixed: Python 安全测试绕过 `ZipInfo` 写入阶段的主机分隔符规范化，明确断言归档实际包含反斜线；本地测试同时模拟 Windows `os.sep`，避免 macOS 假绿。
+- Fixed: C# 恶意 symlink 测试包固定最后一个中央目录条目的 Unix 创建主机标记，使 Unix mode 在 macOS 与 Windows Runner 上具有相同含义，不放宽生产验证器。
+- Review: 首次远端 push 的 macOS 工作流通过，PetPack contract 与 Windows x64 工作流分别暴露上述两个问题。修复后 25 项 Python、Python 编译、20 项 MSTest 与 `dotnet format` 本地通过；远端再次运行仍待回读。
