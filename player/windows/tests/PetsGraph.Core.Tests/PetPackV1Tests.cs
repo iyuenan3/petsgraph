@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -357,21 +358,55 @@ public sealed class PetPackV1Tests
     {
         var extracted = workspace.CreateDirectory($"archive-{Guid.NewGuid():N}");
         ZipFile.ExtractToDirectory(FixturePath, extracted);
-        using var archive = ZipFile.Open(output, ZipArchiveMode.Create);
-        foreach (var path in Directory.EnumerateFiles(extracted, "*", SearchOption.AllDirectories)
-                     .Order(StringComparer.Ordinal))
+        using (var archive = ZipFile.Open(output, ZipArchiveMode.Create))
         {
-            var relative = Path.GetRelativePath(extracted, path).Replace(Path.DirectorySeparatorChar, '/');
-            var entry = archive.CreateEntry(relative, CompressionLevel.NoCompression);
-            entry.ExternalAttributes = RegularFileAttributes;
-            using var input = File.OpenRead(path);
-            using var target = entry.Open();
-            input.CopyTo(target);
+            foreach (var path in Directory.EnumerateFiles(extracted, "*", SearchOption.AllDirectories)
+                         .Order(StringComparer.Ordinal))
+            {
+                var relative = Path.GetRelativePath(extracted, path).Replace(Path.DirectorySeparatorChar, '/');
+                var entry = archive.CreateEntry(relative, CompressionLevel.NoCompression);
+                entry.ExternalAttributes = RegularFileAttributes;
+                using var input = File.OpenRead(path);
+                using var target = entry.Open();
+                input.CopyTo(target);
+            }
+            var extra = archive.CreateEntry(extraPath, CompressionLevel.NoCompression);
+            extra.ExternalAttributes = externalAttributes;
+            using var stream = extra.Open();
+            stream.Write(extraData);
         }
-        var extra = archive.CreateEntry(extraPath, CompressionLevel.NoCompression);
-        extra.ExternalAttributes = externalAttributes;
-        using var stream = extra.Open();
-        stream.Write(extraData);
+        ForceLastCentralEntryUnixHost(output);
+    }
+
+    private static void ForceLastCentralEntryUnixHost(string archivePath)
+    {
+        var bytes = File.ReadAllBytes(archivePath);
+        byte[] eocdSignature = [0x50, 0x4b, 0x05, 0x06];
+        var eocdOffset = bytes.AsSpan().LastIndexOf(eocdSignature);
+        if (eocdOffset < 0 || eocdOffset + 22 != bytes.Length)
+        {
+            throw new InvalidDataException("test archive has no canonical ZIP end record");
+        }
+        var entryCount = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(eocdOffset + 10));
+        var cursor = checked((int)BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(eocdOffset + 16)));
+        for (var index = 0; index < entryCount; index++)
+        {
+            if (BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(cursor)) != 0x02014b50)
+            {
+                throw new InvalidDataException("test archive central directory is invalid");
+            }
+            if (index == entryCount - 1)
+            {
+                var versionMadeBy = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(cursor + 4));
+                versionMadeBy = (ushort)((versionMadeBy & 0x00ff) | (3 << 8));
+                BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(cursor + 4), versionMadeBy);
+            }
+            var nameLength = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(cursor + 28));
+            var extraLength = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(cursor + 30));
+            var commentLength = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(cursor + 32));
+            cursor = checked(cursor + 46 + nameLength + extraLength + commentLength);
+        }
+        File.WriteAllBytes(archivePath, bytes);
     }
 
     private static void RewriteIntegrity(string extractedRoot)
