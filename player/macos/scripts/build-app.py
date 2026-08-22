@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a versioned Apple-silicon PetsGraph app with bundled pet packages."""
+"""Build a zero-pet Apple-silicon PetsGraph Player application."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 APP_ICON = ROOT / "assets" / "brand" / "macos" / "PetsGraph.icns"
+SYNTHETIC_FIXTURE = ROOT / "petpack" / "fixtures" / "synthetic-cat-v1.petpack"
 SIGNING_DETRITUS_XATTRS = {
     "com.apple.FinderInfo",
     "com.apple.ResourceFork",
@@ -24,21 +25,11 @@ SIGNING_DETRITUS_XATTRS = {
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--package",
-        type=Path,
-        action="append",
-        required=True,
-        help="repeat once for every bundled .petsgraph-pet package",
-    )
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--version", required=True)
+    parser.add_argument("--version", default="0.7.0-dev")
     parser.add_argument("--build-number", default="1")
     parser.add_argument("--app-name", default="PetsGraph")
-    parser.add_argument(
-        "--bundle-identifier",
-        default="com.maxwell.petsgraph",
-    )
+    parser.add_argument("--bundle-identifier", default="com.maxwell.petsgraph")
     return parser.parse_args()
 
 
@@ -71,77 +62,35 @@ def assert_no_signing_detritus(root: Path) -> None:
         if f"{name}:" in result.stdout
     ]
     if remaining:
-        raise ValueError(
-            "app contains Finder metadata rejected by codesign: "
-            + ", ".join(remaining)
-        )
-
-
-def clone_or_copytree(source: Path, destination: Path) -> None:
-    """Prefer an APFS clone so local review apps do not duplicate pet media."""
-    copy_environment = os.environ.copy()
-    copy_environment["COPYFILE_DISABLE"] = "1"
-    cloned = subprocess.run(
-        ["/bin/cp", "-cR", str(source), str(destination)],
-        check=False,
-        env=copy_environment,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    if cloned.returncode != 0:
-        shutil.copytree(source, destination, copy_function=shutil.copyfile)
+        raise ValueError("app contains signing-hostile metadata: " + ", ".join(remaining))
 
 
 def main() -> None:
     args = parse_args()
-    packages = [within_repo(value, strict=True) for value in args.package]
-    if any(not package.is_dir() or package.suffix != ".petsgraph-pet" for package in packages):
-        raise ValueError("every --package must be a .petsgraph-pet directory")
-    if len({package.name for package in packages}) != len(packages):
-        raise ValueError("bundled pet package directory names must be unique")
     output = within_repo(args.output, strict=False)
     if output.exists():
         raise FileExistsError(f"refusing to overwrite existing app: {output}")
     if output.suffix != ".app":
         raise ValueError("--output must end in .app")
-    if not args.bundle_identifier or any(
-        character.isspace() for character in args.bundle_identifier
-    ):
-        raise ValueError("--bundle-identifier must be a non-empty identifier without spaces")
+    if not args.bundle_identifier or any(character.isspace() for character in args.bundle_identifier):
+        raise ValueError("--bundle-identifier must not contain spaces")
     app_name = args.app_name.strip()
     if not app_name or "/" in app_name or ":" in app_name:
-        raise ValueError("--app-name must be a non-empty macOS file-safe name")
+        raise ValueError("--app-name must be a file-safe name")
+    if not APP_ICON.is_file() or not SYNTHETIC_FIXTURE.is_file():
+        raise FileNotFoundError("public app icon or synthetic PetPack fixture is missing")
     output.parent.mkdir(parents=True, exist_ok=True)
-    if not APP_ICON.is_file():
-        raise FileNotFoundError(
-            "missing macOS app icon; run assets/brand/scripts/generate-app-icons.sh first"
-        )
 
     environment = os.environ.copy()
     environment.setdefault("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
     environment.setdefault("CLANG_MODULE_CACHE_PATH", "/tmp/petsgraph-clang-module-cache")
     environment.setdefault("SWIFTPM_MODULECACHE_OVERRIDE", "/tmp/petsgraph-swiftpm-module-cache")
     environment.setdefault("CFFIXED_USER_HOME", "/tmp/petsgraph-cf-home")
-    for key in (
-        "CLANG_MODULE_CACHE_PATH",
-        "SWIFTPM_MODULECACHE_OVERRIDE",
-        "CFFIXED_USER_HOME",
-    ):
+    for key in ("CLANG_MODULE_CACHE_PATH", "SWIFTPM_MODULECACHE_OVERRIDE", "CFFIXED_USER_HOME"):
         Path(environment[key]).mkdir(parents=True, exist_ok=True)
-    swift_build = [
-        "/usr/bin/xcrun",
-        "swift",
-        "build",
-        "--disable-sandbox",
-        "-c",
-        "release",
-    ]
-    subprocess.run(
-        swift_build,
-        cwd=PACKAGE_ROOT,
-        env=environment,
-        check=True,
-    )
+
+    swift_build = ["/usr/bin/xcrun", "swift", "build", "--disable-sandbox", "-c", "release"]
+    subprocess.run(swift_build, cwd=PACKAGE_ROOT, env=environment, check=True)
     bin_path = subprocess.run(
         [*swift_build, "--show-bin-path"],
         cwd=PACKAGE_ROOT,
@@ -159,11 +108,11 @@ def main() -> None:
         capture_output=True,
         text=True,
     ).stdout
-    if "arm64" not in architecture:
-        raise ValueError("release executable is not Apple silicon arm64")
+    if "arm64" not in architecture or "x86_64" in architecture:
+        raise ValueError("release executable must be Apple silicon arm64 only")
     subprocess.run(
-        [str(binary), *[str(package) for package in packages], "--validate-only"],
-        cwd=PACKAGE_ROOT,
+        [str(binary), "--validate-only", str(SYNTHETIC_FIXTURE)],
+        cwd=ROOT,
         env=environment,
         check=True,
     )
@@ -179,10 +128,6 @@ def main() -> None:
         destination_binary = macos / "petsgraph"
         shutil.copy2(binary, destination_binary)
         destination_binary.chmod(0o755)
-        pets = resources / "Pets"
-        pets.mkdir()
-        for package in packages:
-            clone_or_copytree(package, pets / package.name)
         info = {
             "CFBundleDevelopmentRegion": "zh_CN",
             "CFBundleDisplayName": app_name,
@@ -200,31 +145,18 @@ def main() -> None:
         }
         with (contents / "Info.plist").open("wb") as handle:
             plistlib.dump(info, handle, sort_keys=True)
+        if list(temporary.rglob("*.petpack")) or (resources / "Pets").exists():
+            raise ValueError("zero-pet Player build unexpectedly contains pet media")
         remove_signing_detritus(temporary)
         assert_no_signing_detritus(temporary)
         subprocess.run(
-            [
-                "/usr/bin/codesign",
-                "--force",
-                "--deep",
-                "--sign",
-                "-",
-                "--timestamp=none",
-                str(temporary),
-            ],
+            ["/usr/bin/codesign", "--force", "--deep", "--sign", "-", "--timestamp=none", str(temporary)],
             cwd=ROOT,
             env=environment,
             check=True,
         )
         subprocess.run(
-            [
-                "/usr/bin/codesign",
-                "--verify",
-                "--deep",
-                "--strict",
-                "--verbose=2",
-                str(temporary),
-            ],
+            ["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=2", str(temporary)],
             cwd=ROOT,
             env=environment,
             check=True,
@@ -233,14 +165,13 @@ def main() -> None:
         remove_signing_detritus(output)
         assert_no_signing_detritus(output)
         subprocess.run(
-            [
-                "/usr/bin/codesign",
-                "--verify",
-                "--deep",
-                "--strict",
-                "--verbose=2",
-                str(output),
-            ],
+            ["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=2", str(output)],
+            cwd=ROOT,
+            env=environment,
+            check=True,
+        )
+        subprocess.run(
+            [str(output / "Contents" / "MacOS" / "petsgraph"), "--validate-only", str(SYNTHETIC_FIXTURE)],
             cwd=ROOT,
             env=environment,
             check=True,

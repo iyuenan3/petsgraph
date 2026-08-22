@@ -1,0 +1,57 @@
+name: macOS Apple Silicon build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "player/macos/**"
+      - "petpack/**"
+      - "assets/brand/**"
+      - ".github/workflows/macos.yml"
+  pull_request:
+    paths:
+      - "player/macos/**"
+      - "petpack/**"
+      - "assets/brand/**"
+      - ".github/workflows/macos.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: petsgraph-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6.0.2
+
+      - name: Test PetPack and macOS runtime
+        shell: bash
+        run: |
+          python3 -m unittest discover -s petpack/tests -v
+          bash player/macos/scripts/test.sh
+
+      - name: Build zero-pet Apple Silicon app
+        shell: bash
+        run: |
+          python3 player/macos/scripts/build-app.py \
+            --output .local/dist/PetsGraph-0.7.0-dev.app \
+            --version 0.7.0-dev
+          test "$(lipo -archs .local/dist/PetsGraph-0.7.0-dev.app/Contents/MacOS/petsgraph)" = "arm64"
+          test ! -d .local/dist/PetsGraph-0.7.0-dev.app/Contents/Resources/Pets
+          test -z "$(find .local/dist/PetsGraph-0.7.0-dev.app -name '*.petpack' -print -quit)"
+          codesign --verify --deep --strict --verbose=2 .local/dist/PetsGraph-0.7.0-dev.app
+
+      - name: Upload code-only app
+        uses: actions/upload-artifact@v7
+        with:
+          name: PetsGraph-0.7.0-dev-macOS-arm64
+          path: .local/dist/PetsGraph-0.7.0-dev.app
+          if-no-files-found: error
+          retention-days: 7

@@ -8,7 +8,7 @@ PetsGraph 正在重构为面向宠物离世纪念场景的开源多宠播放器�
 
 ## 当前状态
 
-产品方向已经完成文档决策。PetPack 1.0 的公开 schema、标准库验证器、合成夹具和安全回归已经实现。五百与飞流已经从旧批准包确定性转换出私有候选 `.petpack`，媒体字节保持不变；下一代 Player 和可交付正式包尚未实现。
+产品方向已经完成文档决策。PetPack 1.0 的公开 schema、标准库验证器、合成夹具和安全回归已经实现。五百与飞流已经从旧批准包确定性转换出私有候选 `.petpack`，媒体字节保持不变。Apple Silicon macOS `0.7.0-dev` 已实现原生 PetPack 校验、canonical 宠物库、被动行为会话、固定舞台、多宠窗口和目标菜单，并能构建零宠物素材 App；真实桌面人工验收、Windows x64 重构和正式交付仍未完成。
 
 当前公开的 `v0.6.0` 仍是历史双宠架构：
 
@@ -119,10 +119,10 @@ Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公
 
 ## 当前仓库结构与目标目录
 
-下一代目录迁移已经完成。Codex 公开包、Player 平台源码、私有 Studio、宠物事实源、旧包和本地产物均已完成路径切换，运行时行为仍保持 v0.6.0 as-built：
+下一代目录迁移已经完成。Codex 公开包、Player 平台源码、私有 Studio、宠物事实源、旧包和本地产物均已完成路径切换。macOS 已切入 PetPack 1.0 开发实现，Windows 运行时仍保持 v0.6.0 as-built：
 
-- `player/macos/Sources/PetsGraphCore/`：当前 Swift 包加载、动作图、时间线和行为核心。
-- `player/macos/Sources/PetsGraphApp/`：当前 AppKit 透明窗口、菜单和渲染。
+- `player/macos/Sources/PetsGraphV1Core/`：PetPack 1.0 原生 ZIP、完整性、canonical 库、独立时钟和持久状态核心。
+- `player/macos/Sources/PetsGraphV1App/`：零素材 AppKit Player、固定透明舞台、拖动与目标菜单。
 - `player/windows/src/PetsGraph.Core/`：当前 C# 包校验、动作图、时间线和媒体转换。
 - `player/windows/src/PetsGraph.App/`：当前 Windows x64 WPF 透明窗口和托盘。
 - `studio/`：本机私有制作工具、provider 配置和环境模板，整个目录被根 Git 忽略，不存在于公开 clone。
@@ -149,6 +149,9 @@ Swift：
 
 ```bash
 bash player/macos/scripts/test.sh
+python3 player/macos/scripts/build-app.py \
+  --output .local/dist/builds/PetsGraph-0.7.0-dev.app \
+  --version 0.7.0-dev
 ```
 
 Windows 核心与 WPF：
@@ -158,7 +161,7 @@ DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet test player/windows/
 DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet build player/windows/PetsGraph.slnx -c Release
 ```
 
-Swift 与 Windows 构建命令验证的是 `v0.6.0` as-built，不证明新 Player 已装载 PetPack 1.0。下一步重构路线见 [`AIREADME/ROADMAP.md`](AIREADME/ROADMAP.md)。
+Swift 命令验证 macOS `0.7.0-dev` 的 PetPack 1.0 原生装载、canonical 库、行为状态机和零素材 App 构建，但不替代真实桌面人工观看。Windows 命令当前仍验证 `v0.6.0` as-built。下一步重构路线见 [`AIREADME/ROADMAP.md`](AIREADME/ROADMAP.md)。
 
 ## Codex 宠物导出
 

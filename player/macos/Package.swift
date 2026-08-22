@@ -3,27 +3,29 @@
 import PackageDescription
 
 let package = Package(
-  name: "petsgraph",
+  name: "PetsGraph",
   platforms: [
-    .macOS(.v13),
+    .macOS(.v14),
   ],
   products: [
     .library(name: "PetsGraphCore", targets: ["PetsGraphCore"]),
     .executable(name: "petsgraph", targets: ["PetsGraphApp"]),
   ],
   targets: [
-    .target(name: "PetsGraphCore"),
+    .target(
+      name: "PetsGraphCore",
+      path: "Sources/PetsGraphV1Core",
+      linkerSettings: [.linkedLibrary("z")]
+    ),
     .executableTarget(
       name: "PetsGraphApp",
-      dependencies: ["PetsGraphCore"]
+      dependencies: ["PetsGraphCore"],
+      path: "Sources/PetsGraphV1App"
     ),
     .testTarget(
       name: "PetsGraphCoreTests",
-      dependencies: ["PetsGraphCore"]
-    ),
-    .testTarget(
-      name: "PetsGraphAppTests",
-      dependencies: ["PetsGraphApp", "PetsGraphCore"]
+      dependencies: ["PetsGraphCore"],
+      path: "Tests/PetsGraphV1CoreTests"
     ),
   ]
 )
