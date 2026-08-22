@@ -8,11 +8,13 @@ on:
       - codex/windows-win11-x64
     paths:
       - "player/windows/**"
+      - "petpack/**"
       - "assets/brand/**"
       - ".github/workflows/windows.yml"
   pull_request:
     paths:
       - "player/windows/**"
+      - "petpack/**"
       - "assets/brand/**"
       - ".github/workflows/windows.yml"
 
@@ -32,7 +34,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Set up .NET 10
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: player/windows/global.json
           cache: true
@@ -49,12 +51,12 @@ jobs:
 
       - name: Publish portable x64 runtime ZIP
         shell: pwsh
-        run: player/windows/scripts/build-portable.ps1 -Version 0.6.0 -OutputDirectory $env:RUNNER_TEMP
+        run: player/windows/scripts/build-portable.ps1 -Version 0.7.0-dev -OutputDirectory $env:RUNNER_TEMP
 
       - name: Verify x64 PE and ZIP contents
         shell: pwsh
         run: |
-          $zip = Join-Path $env:RUNNER_TEMP "PetsGraph-v0.6.0-Windows-x64-runtime.zip"
+          $zip = Join-Path $env:RUNNER_TEMP "PetsGraph-v0.7.0-dev-Windows-x64.zip"
           $extract = Join-Path $env:RUNNER_TEMP "petsgraph-verify"
           Expand-Archive -Path $zip -DestinationPath $extract
           $exe = Join-Path $extract "PetsGraph/PetsGraph.exe"
@@ -74,11 +76,14 @@ jobs:
           if (Get-ChildItem -Path (Join-Path $extract "PetsGraph") -Directory -Filter "Pets") {
             throw "Code-only CI artifact must not contain private pet packages"
           }
+          if (Get-ChildItem -Path (Join-Path $extract "PetsGraph") -Recurse -File -Filter "*.petpack") {
+            throw "Code-only CI artifact must not contain PetPack media"
+          }
 
       - name: Upload code-only runtime artifact
         uses: actions/upload-artifact@v7
         with:
-          name: PetsGraph-v0.6.0-Windows-x64-runtime
-          path: ${{ runner.temp }}/PetsGraph-v0.6.0-Windows-x64-runtime.zip
+          name: PetsGraph-v0.7.0-dev-Windows-x64
+          path: ${{ runner.temp }}/PetsGraph-v0.7.0-dev-Windows-x64.zip
           if-no-files-found: error
           retention-days: 7

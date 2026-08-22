@@ -1,97 +1,128 @@
-using System.Buffers;
+using System.IO.MemoryMappedFiles;
 
 namespace PetsGraph.Core;
 
 public sealed class RgbaFrameRenderer : IDisposable
 {
-    private readonly LoadedPetPackage package;
-    private readonly Dictionary<string, FileStream> streams = new(StringComparer.Ordinal);
+    private sealed class ClipStore : IDisposable
+    {
+        private readonly MemoryMappedFile mapping;
+        private readonly MemoryMappedViewAccessor accessor;
+        private readonly byte[] scratch;
 
-    public int CanvasWidth => package.Manifest.Art.CanvasPx[0];
-    public int CanvasHeight => package.Manifest.Art.CanvasPx[1];
-    public int BufferLength => checked(CanvasWidth * CanvasHeight * 4);
+        public ClipStore(LoadedPetPack package, PetClip clip)
+        {
+            Clip = clip;
+            Representation = clip.Representations.Single();
+            var path = package.MediaPath(clip.Id);
+            if (new FileInfo(path).Length != Representation.Bytes)
+            {
+                throw Invalid("invalid_media_length", "runtime media length changed");
+            }
+            mapping = MemoryMappedFile.CreateFromFile(path, FileMode.Open, null, 0, MemoryMappedFileAccess.Read);
+            accessor = mapping.CreateViewAccessor(0, Representation.Bytes, MemoryMappedFileAccess.Read);
+            scratch = new byte[checked(Representation.BytesPerRow * Representation.HeightPx)];
+        }
 
-    public RgbaFrameRenderer(LoadedPetPackage package)
+        public PetClip Clip { get; }
+        public ClipRepresentation Representation { get; }
+        public int FrameBytes => scratch.Length;
+
+        public void RenderPbgra32(int frameIndex, Span<byte> destination)
+        {
+            if (frameIndex < 0 || frameIndex >= Clip.FrameCount || destination.Length < scratch.Length)
+            {
+                throw Invalid("invalid_frame", "runtime requested an invalid frame or buffer");
+            }
+            var offset = checked((long)frameIndex * scratch.Length);
+            if (accessor.ReadArray(offset, scratch, 0, scratch.Length) != scratch.Length)
+            {
+                throw Invalid("invalid_media_length", "runtime frame exceeds its media");
+            }
+            for (var index = 0; index < scratch.Length; index += 4)
+            {
+                destination[index] = scratch[index + 2];
+                destination[index + 1] = scratch[index + 1];
+                destination[index + 2] = scratch[index];
+                destination[index + 3] = scratch[index + 3];
+            }
+        }
+
+        public double Alpha(int frameIndex, int canvasX, int canvasY)
+        {
+            if (Clip.Geometry.CropPx is not [var x, var y, var width, var height] ||
+                frameIndex < 0 || frameIndex >= Clip.FrameCount || canvasX < x || canvasY < y ||
+                canvasX >= x + width || canvasY >= y + height)
+            {
+                return 0;
+            }
+            var localX = canvasX - x;
+            var localY = canvasY - y;
+            var offset = checked((long)frameIndex * FrameBytes +
+                (long)localY * Representation.BytesPerRow + localX * 4 + 3);
+            return accessor.ReadByte(offset) / 255.0;
+        }
+
+        public void Dispose()
+        {
+            accessor.Dispose();
+            mapping.Dispose();
+        }
+    }
+
+    private readonly LoadedPetPack package;
+    private readonly Dictionary<string, ClipStore> stores = new(StringComparer.Ordinal);
+    private bool disposed;
+
+    public RgbaFrameRenderer(LoadedPetPack package)
     {
         this.package = package;
     }
 
-    public void RenderPbgra32(string clipId, int frameIndex, Span<byte> destination)
+    public (int Width, int Height, int Stride, int Bytes) FrameLayout(string clipId)
     {
-        if (destination.Length != BufferLength)
-        {
-            throw new ArgumentException($"Destination buffer must contain {BufferLength} bytes.", nameof(destination));
-        }
-        if (!package.Clips.TryGetValue(clipId, out var clip) || clip.Media is not { } media ||
-            media.CropRectPx is not [var cropX, var cropY, var cropWidth, var cropHeight] ||
-            media.FrameByteCount is not { } frameByteCount || frameIndex < 0 || frameIndex >= clip.Frames.Length)
-        {
-            throw new ArgumentOutOfRangeException(nameof(frameIndex), "Unknown clip or invalid frame index.");
-        }
-
-        destination.Clear();
-        var source = ArrayPool<byte>.Shared.Rent(frameByteCount);
-        try
-        {
-            var stream = GetStream(media.Src);
-            stream.Position = checked((long)frameIndex * frameByteCount);
-            stream.ReadExactly(source.AsSpan(0, frameByteCount));
-
-            var targetX = cropX;
-            var targetY = cropY;
-            if (targetX < 0 || targetY < 0 || targetX + cropWidth > CanvasWidth || targetY + cropHeight > CanvasHeight)
-            {
-                throw new InvalidDataException($"Frame {clipId}:{frameIndex} falls outside the package canvas.");
-            }
-
-            for (var row = 0; row < cropHeight; row++)
-            {
-                var sourceRow = source.AsSpan(row * cropWidth * 4, cropWidth * 4);
-                var targetRow = destination.Slice(((targetY + row) * CanvasWidth + targetX) * 4, cropWidth * 4);
-                for (var column = 0; column < cropWidth; column++)
-                {
-                    var offset = column * 4;
-                    targetRow[offset] = sourceRow[offset + 2];
-                    targetRow[offset + 1] = sourceRow[offset + 1];
-                    targetRow[offset + 2] = sourceRow[offset];
-                    targetRow[offset + 3] = sourceRow[offset + 3];
-                }
-            }
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(source);
-        }
+        var store = Store(clipId);
+        return (store.Representation.WidthPx, store.Representation.HeightPx,
+            store.Representation.BytesPerRow, store.FrameBytes);
     }
 
-    public static bool IsOpaqueEnough(ReadOnlySpan<byte> pbgraBuffer, int width, int height, int x, int y, byte threshold = 12)
-    {
-        if (x < 0 || y < 0 || x >= width || y >= height || pbgraBuffer.Length != checked(width * height * 4))
-        {
-            return false;
-        }
-        return pbgraBuffer[(y * width + x) * 4 + 3] >= threshold;
-    }
+    public void Preload(string clipId) => _ = Store(clipId);
+
+    public void RenderPbgra32(string clipId, int frameIndex, Span<byte> destination) =>
+        Store(clipId).RenderPbgra32(frameIndex, destination);
+
+    public double Alpha(string clipId, int frameIndex, int canvasX, int canvasY) =>
+        Store(clipId).Alpha(frameIndex, canvasX, canvasY);
 
     public void Dispose()
     {
-        foreach (var stream in streams.Values)
+        if (disposed)
         {
-            stream.Dispose();
+            return;
         }
-        streams.Clear();
+        disposed = true;
+        foreach (var store in stores.Values)
+        {
+            store.Dispose();
+        }
+        stores.Clear();
     }
 
-    private FileStream GetStream(string relativePath)
+    private ClipStore Store(string clipId)
     {
-        if (streams.TryGetValue(relativePath, out var existing))
+        ObjectDisposedException.ThrowIf(disposed, this);
+        if (stores.TryGetValue(clipId, out var existing))
         {
             return existing;
         }
-        var path = PetPackageLoader.ResolveRegularFile(package.RootPath, relativePath);
-        var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024,
-            FileOptions.RandomAccess);
-        streams.Add(relativePath, stream);
-        return stream;
+        if (!package.Clips.TryGetValue(clipId, out var clip))
+        {
+            throw Invalid("missing_clip", "runtime requested a missing clip");
+        }
+        var store = new ClipStore(package, clip);
+        stores.Add(clipId, store);
+        return store;
     }
+
+    private static PetPackException Invalid(string code, string detail) => new(code, detail);
 }

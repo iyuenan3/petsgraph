@@ -20,64 +20,35 @@ internal sealed partial class PetWindow : Window, IDisposable
     private static readonly IntPtr HtClient = new(1);
     private static readonly IntPtr HtTransparent = new(-1);
 
-    private readonly LoadedPetPackage package;
-    private readonly QuietBehaviorSession session;
+    private readonly LoadedPetPack package;
+    private readonly PassiveBehaviorSession session;
     private readonly RgbaFrameRenderer renderer;
-    private readonly WriteableBitmap bitmap;
-    private readonly byte[] pixels;
     private readonly System.Windows.Controls.Canvas surface;
     private readonly System.Windows.Controls.Image image;
-    private readonly IReadOnlyDictionary<string, SquareViewport> viewports;
     private readonly DispatcherTimer timer;
+    private WriteableBitmap? bitmap;
+    private byte[] pixels = [];
+    private string? renderedClipId;
+    private int renderedFrameIndex = -1;
+    private double scale = 1;
+    private double anchorX;
+    private double anchorY;
+    private bool petVisible;
     private bool closingForExit;
     private bool pointerDown;
     private bool dragged;
     private NativePoint dragStartCursor;
-    private double dragStartCanvasLeft;
-    private double dragStartCanvasTop;
-    private string? renderedClipId;
-    private int renderedFrameIndex = -1;
-    private double scale = 1;
-    private double pixelScale;
-    private double canvasOriginLeft;
-    private double canvasOriginTop;
-    private double behaviorRootMotionXPt;
-    private double presentationOffsetX;
-    private double temporaryBoundaryOffsetDip;
-    private SquareViewport activeViewport;
+    private double dragStartAnchorX;
+    private double dragStartAnchorY;
 
-    public event EventHandler? PositionChanged;
-    public event EventHandler<Exception>? Faulted;
-
-    public string PetId => package.Manifest.Pet.Id;
-    public string DisplayName => package.Manifest.Pet.DisplayName;
-    public string CurrentNodeId => session.CurrentNodeId;
-    public QuietInteractionState InteractionState => session.State;
-    public double PersistentCanvasLeft => canvasOriginLeft + behaviorRootMotionXPt * scale;
-    public double CanvasTop => canvasOriginTop;
-    public IReadOnlyList<GraphNode> SleepPoses { get; }
-
-    public PetWindow(LoadedPetPackage package)
+    public PetWindow(LoadedPetPack package, double initialScale, double initialAnchorX, double initialAnchorY)
     {
         this.package = package;
-        session = new(package);
+        scale = PlayerState.NormalizeScale(initialScale);
+        anchorX = initialAnchorX;
+        anchorY = initialAnchorY;
+        session = new(package, UptimeSeconds());
         renderer = new(package);
-        pixels = new byte[renderer.BufferLength];
-        bitmap = new(renderer.CanvasWidth, renderer.CanvasHeight, 96, 96, PixelFormats.Pbgra32, null);
-        viewports = package.Clips.ToDictionary(
-            pair => pair.Key,
-            pair => SquareViewport.ForClip(pair.Value, package.Manifest.Art.CanvasPx),
-            StringComparer.Ordinal);
-        var defaultLoop = package.Graph.Nodes.FirstOrDefault(node => node.Id == package.Manifest.Art.DefaultNode)?.LoopClip;
-        if (defaultLoop is null || !viewports.TryGetValue(defaultLoop, out activeViewport))
-        {
-            throw new PetPackageValidationException("Invalid pet package: default node has no square viewport");
-        }
-        SleepPoses = package.Graph.Nodes
-            .Where(node => node.Role == "dwell" && node.AutonomousEligible == true)
-            .OrderBy(node => node.Scene, StringComparer.Ordinal)
-            .ThenBy(node => node.DisplayName, StringComparer.Ordinal)
-            .ToArray();
 
         Title = $"PetsGraph · {DisplayName}";
         WindowStyle = WindowStyle.None;
@@ -92,7 +63,6 @@ internal sealed partial class PetWindow : Window, IDisposable
         SnapsToDevicePixels = true;
         image = new System.Windows.Controls.Image
         {
-            Source = bitmap,
             Stretch = Stretch.Fill,
             SnapsToDevicePixels = true,
         };
@@ -103,74 +73,59 @@ internal sealed partial class PetWindow : Window, IDisposable
         };
         surface.Children.Add(image);
         Content = surface;
+        ApplyGeometry();
 
-        ApplyScale(1, preserveAnchor: false);
         SourceInitialized += OnSourceInitialized;
         PreviewMouseLeftButtonDown += OnPointerDown;
         PreviewMouseMove += OnPointerMove;
         PreviewMouseLeftButtonUp += OnPointerUp;
-
-        var now = UptimeSeconds();
-        session.Start(now);
-        Render(now);
         timer = new(DispatcherPriority.Render)
         {
-            Interval = TimeSpan.FromSeconds(1.0 / 24.0),
+            Interval = TimeSpan.FromSeconds(1.0 / 60.0),
         };
         timer.Tick += OnTimerTick;
+        Render(UptimeSeconds());
     }
 
-    public void Start() => timer.Start();
+    public event EventHandler? PositionChanged;
+    public event EventHandler<Exception>? Faulted;
 
-    public void SetScale(double value)
-    {
-        if (value is not (0.5 or 0.75 or 1 or 1.25 or 1.5 or 1.75 or 2))
-        {
-            value = 1;
-        }
-        ApplyScale(value, preserveAnchor: true);
-        PositionChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    public void SetInitialPosition(double? savedLeft, double? savedTop, double fallbackLeft, double fallbackGroundY)
-    {
-        if (savedLeft is { } left && savedTop is { } top)
-        {
-            canvasOriginLeft = left;
-            canvasOriginTop = top;
-        }
-        else
-        {
-            canvasOriginLeft = fallbackLeft - activeViewport.X * pixelScale;
-            canvasOriginTop = fallbackGroundY - package.Manifest.Art.GroundYPx * pixelScale;
-        }
-        UpdateWindowGeometry();
-        if (!IntersectsVirtualDesktop())
-        {
-            canvasOriginLeft = fallbackLeft - activeViewport.X * pixelScale;
-            canvasOriginTop = fallbackGroundY - package.Manifest.Art.GroundYPx * pixelScale;
-            UpdateWindowGeometry();
-        }
-    }
+    public string PackageId => package.Manifest.Package.Id;
+    public string DisplayName => package.Manifest.Pet.DisplayName;
+    public bool PetVisible => petVisible;
+    public double AnchorX => anchorX;
+    public double AnchorY => anchorY;
 
     public void ShowPet()
     {
+        session.SetVisible(true, UptimeSeconds());
+        petVisible = true;
         if (!IsVisible)
         {
             Show();
         }
-        Start();
+        timer.Start();
     }
 
     public void HidePet()
     {
-        timer.Stop();
+        session.SetVisible(false, UptimeSeconds());
+        petVisible = false;
         Hide();
+        if (session.ShouldTickWhenHidden)
+        {
+            timer.Start();
+        }
+        else
+        {
+            timer.Stop();
+        }
     }
 
-    public bool SelectSleepPose(string nodeId)
+    public void SetScale(double value)
     {
-        return session.SelectSleepPose(nodeId, UptimeSeconds());
+        scale = PlayerState.NormalizeScale(value);
+        ApplyGeometry();
     }
 
     public void Dispose()
@@ -196,8 +151,12 @@ internal sealed partial class PetWindow : Window, IDisposable
         try
         {
             Render(UptimeSeconds());
+            if (!petVisible && !session.ShouldTickWhenHidden)
+            {
+                timer.Stop();
+            }
         }
-        catch (Exception exception) when (exception is IOException or InvalidDataException or PetPackageValidationException)
+        catch (Exception exception) when (exception is PetPackException or IOException or UnauthorizedAccessException)
         {
             timer.Stop();
             Faulted?.Invoke(this, exception);
@@ -207,31 +166,64 @@ internal sealed partial class PetWindow : Window, IDisposable
     private void Render(double now)
     {
         var presentation = session.Update(now);
-        var clip = package.Clips[presentation.Sample.ClipId];
-        var frame = clip.Frames[presentation.Sample.SourceFrameIndex];
-        var nextViewport = viewports[presentation.Sample.ClipId];
-        activeViewport = nextViewport;
-        presentationOffsetX = frame.PresentationOffsetPx?[0] ?? 0;
-        behaviorRootMotionXPt = presentation.TotalRootMotionXPt;
-        ConstrainVisibleContent(frame);
-        UpdateWindowGeometry();
-        if (presentation.Sample.ClipId == renderedClipId && presentation.Sample.SourceFrameIndex == renderedFrameIndex)
+        foreach (var clipId in presentation.PreloadClipIds)
+        {
+            renderer.Preload(clipId);
+        }
+        if (renderedClipId == presentation.ClipId && renderedFrameIndex == presentation.FrameIndex)
         {
             return;
         }
-        renderer.RenderPbgra32(presentation.Sample.ClipId, presentation.Sample.SourceFrameIndex, pixels);
-        bitmap.WritePixels(new Int32Rect(0, 0, renderer.CanvasWidth, renderer.CanvasHeight), pixels, renderer.CanvasWidth * 4, 0);
-        renderedClipId = presentation.Sample.ClipId;
-        renderedFrameIndex = presentation.Sample.SourceFrameIndex;
+        var clip = package.Clips[presentation.ClipId];
+        var layout = renderer.FrameLayout(clip.Id);
+        if (bitmap is null || bitmap.PixelWidth != layout.Width || bitmap.PixelHeight != layout.Height)
+        {
+            bitmap = new(layout.Width, layout.Height, 96, 96, PixelFormats.Pbgra32, null);
+            image.Source = bitmap;
+            pixels = new byte[layout.Bytes];
+        }
+        renderer.RenderPbgra32(clip.Id, presentation.FrameIndex, pixels);
+        bitmap.WritePixels(new Int32Rect(0, 0, layout.Width, layout.Height), pixels, layout.Stride, 0);
+        var pixelScale = PixelScale();
+        image.Width = layout.Width * pixelScale;
+        image.Height = layout.Height * pixelScale;
+        System.Windows.Controls.Canvas.SetLeft(image, clip.Geometry.CropPx[0] * pixelScale);
+        System.Windows.Controls.Canvas.SetTop(image, clip.Geometry.CropPx[1] * pixelScale);
+        renderedClipId = clip.Id;
+        renderedFrameIndex = presentation.FrameIndex;
     }
+
+    private void ApplyGeometry()
+    {
+        var canvas = package.Manifest.Stage.ReferenceCanvasPx;
+        var pixelScale = PixelScale();
+        Width = canvas[0] * pixelScale;
+        Height = canvas[1] * pixelScale;
+        Left = anchorX - Width / 2;
+        Top = anchorY - Height;
+        surface.Width = Width;
+        surface.Height = Height;
+        if (renderedClipId is { } clipId)
+        {
+            var clip = package.Clips[clipId];
+            var layout = renderer.FrameLayout(clipId);
+            image.Width = layout.Width * pixelScale;
+            image.Height = layout.Height * pixelScale;
+            System.Windows.Controls.Canvas.SetLeft(image, clip.Geometry.CropPx[0] * pixelScale);
+            System.Windows.Controls.Canvas.SetTop(image, clip.Geometry.CropPx[1] * pixelScale);
+        }
+    }
+
+    private double PixelScale() =>
+        package.Manifest.Stage.BaseDisplayHeight * scale / package.Manifest.Stage.ReferenceCanvasPx[1];
 
     private void OnSourceInitialized(object? sender, EventArgs eventArgs)
     {
-        var source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
-        source?.AddHook(WindowProcedure);
+        HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(WindowProcedure);
     }
 
-    private IntPtr WindowProcedure(IntPtr window, int message, IntPtr wordParameter, IntPtr longParameter, ref bool handled)
+    private IntPtr WindowProcedure(IntPtr window, int message, IntPtr wordParameter, IntPtr longParameter,
+        ref bool handled)
     {
         if (message != WmNcHitTest || !GetCursorPos(out var cursor))
         {
@@ -244,30 +236,14 @@ internal sealed partial class PetWindow : Window, IDisposable
 
     private bool IsOpaqueAt(WpfPoint local)
     {
-        if (ActualWidth <= 0 || ActualHeight <= 0)
+        if (!petVisible || renderedClipId is null || renderedFrameIndex < 0 || ActualWidth <= 0 || ActualHeight <= 0)
         {
             return false;
         }
-        var x = (int)Math.Floor(activeViewport.X + local.X / ActualWidth * activeViewport.Side);
-        var y = (int)Math.Floor(activeViewport.Y + local.Y / ActualHeight * activeViewport.Side);
-        if (!RgbaFrameRenderer.IsOpaqueEnough(pixels, renderer.CanvasWidth, renderer.CanvasHeight, x, y))
-        {
-            return false;
-        }
-        if (renderedClipId is null || renderedFrameIndex < 0 ||
-            package.Clips[renderedClipId].Frames[renderedFrameIndex].Collision.PetHitEllipsePx is not [var ellipseX, var ellipseY, var ellipseWidth, var ellipseHeight])
-        {
-            return true;
-        }
-        var radiusX = ellipseWidth / 2;
-        var radiusY = ellipseHeight / 2;
-        if (radiusX <= 0 || radiusY <= 0)
-        {
-            return false;
-        }
-        var normalizedX = (x - (ellipseX + radiusX)) / radiusX;
-        var normalizedY = (y - (ellipseY + radiusY)) / radiusY;
-        return normalizedX * normalizedX + normalizedY * normalizedY <= 1;
+        var canvas = package.Manifest.Stage.ReferenceCanvasPx;
+        var x = Math.Clamp((int)Math.Floor(local.X / ActualWidth * canvas[0]), 0, canvas[0] - 1);
+        var y = Math.Clamp((int)Math.Floor(local.Y / ActualHeight * canvas[1]), 0, canvas[1] - 1);
+        return renderer.Alpha(renderedClipId, renderedFrameIndex, x, y) > 0.05;
     }
 
     private void OnPointerDown(object sender, MouseButtonEventArgs eventArgs)
@@ -283,19 +259,15 @@ internal sealed partial class PetWindow : Window, IDisposable
             var screen = PointToScreen(eventArgs.GetPosition(this));
             dragStartCursor = new() { X = (int)Math.Round(screen.X), Y = (int)Math.Round(screen.Y) };
         }
-        dragStartCanvasLeft = canvasOriginLeft;
-        dragStartCanvasTop = canvasOriginTop;
+        dragStartAnchorX = anchorX;
+        dragStartAnchorY = anchorY;
         CaptureMouse();
         eventArgs.Handled = true;
     }
 
     private void OnPointerMove(object sender, WpfMouseEventArgs eventArgs)
     {
-        if (!pointerDown || eventArgs.LeftButton != MouseButtonState.Pressed)
-        {
-            return;
-        }
-        if (!GetCursorPos(out var current))
+        if (!pointerDown || eventArgs.LeftButton != MouseButtonState.Pressed || !GetCursorPos(out var current))
         {
             return;
         }
@@ -306,9 +278,10 @@ internal sealed partial class PetWindow : Window, IDisposable
         {
             dragged = true;
         }
-        canvasOriginLeft = dragStartCanvasLeft + deltaX;
-        canvasOriginTop = dragStartCanvasTop + deltaY;
-        UpdateWindowGeometry();
+        anchorX = dragStartAnchorX + deltaX;
+        anchorY = dragStartAnchorY + deltaY;
+        ClampAnchor();
+        ApplyGeometry();
         eventArgs.Handled = true;
     }
 
@@ -324,89 +297,18 @@ internal sealed partial class PetWindow : Window, IDisposable
         {
             PositionChanged?.Invoke(this, EventArgs.Empty);
         }
-        else
-        {
-            session.HandlePetClick(UptimeSeconds());
-        }
         eventArgs.Handled = true;
     }
 
-    private void ApplyScale(double value, bool preserveAnchor)
+    private void ClampAnchor()
     {
-        var anchor = CurrentGroundAnchor();
-        var oldAnchorX = canvasOriginLeft + behaviorRootMotionXPt * scale + presentationOffsetX * pixelScale +
-            temporaryBoundaryOffsetDip + anchor.X * pixelScale;
-        var oldAnchorY = canvasOriginTop + anchor.Y * pixelScale;
-        scale = value;
-        pixelScale = package.Manifest.Art.BaseHeightPt / renderer.CanvasHeight * value;
-        temporaryBoundaryOffsetDip = 0;
-        if (preserveAnchor && double.IsFinite(oldAnchorX) && double.IsFinite(oldAnchorY))
-        {
-            canvasOriginLeft = oldAnchorX - behaviorRootMotionXPt * scale - presentationOffsetX * pixelScale -
-                anchor.X * pixelScale;
-            canvasOriginTop = oldAnchorY - anchor.Y * pixelScale;
-        }
-        UpdateWindowGeometry();
+        var left = SystemParameters.VirtualScreenLeft;
+        var top = SystemParameters.VirtualScreenTop;
+        var right = left + SystemParameters.VirtualScreenWidth;
+        var bottom = top + SystemParameters.VirtualScreenHeight;
+        anchorX = Math.Clamp(anchorX, left + Width / 2, right - Width / 2);
+        anchorY = Math.Clamp(anchorY, top + Height, bottom);
     }
-
-    private (double X, double Y) CurrentGroundAnchor()
-    {
-        if (renderedClipId is not null && renderedFrameIndex >= 0 &&
-            package.Clips[renderedClipId].Frames[renderedFrameIndex].AnchorsPx.Ground is [var x, var y])
-        {
-            return (x, y);
-        }
-        return (renderer.CanvasWidth / 2.0, package.Manifest.Art.GroundYPx);
-    }
-
-    private void UpdateWindowGeometry()
-    {
-        var side = activeViewport.Side * pixelScale;
-        Width = side;
-        Height = side;
-        Left = canvasOriginLeft + behaviorRootMotionXPt * scale + (activeViewport.X + presentationOffsetX) * pixelScale +
-            temporaryBoundaryOffsetDip;
-        Top = canvasOriginTop + activeViewport.Y * pixelScale;
-        surface.Width = side;
-        surface.Height = side;
-        image.Width = renderer.CanvasWidth * pixelScale;
-        image.Height = renderer.CanvasHeight * pixelScale;
-        System.Windows.Controls.Canvas.SetLeft(image, -activeViewport.X * pixelScale);
-        System.Windows.Controls.Canvas.SetTop(image, -activeViewport.Y * pixelScale);
-    }
-
-    private void ConstrainVisibleContent(ClipFrame frame)
-    {
-        temporaryBoundaryOffsetDip = 0;
-        var contentLeft = canvasOriginLeft + behaviorRootMotionXPt * scale + presentationOffsetX * pixelScale +
-            frame.ContentBoundsPx[0] * pixelScale;
-        var contentRight = contentLeft + frame.ContentBoundsPx[2] * pixelScale;
-        var desktopLeft = SystemParameters.VirtualScreenLeft;
-        var desktopRight = desktopLeft + SystemParameters.VirtualScreenWidth;
-        var adjustment = contentLeft < desktopLeft
-            ? desktopLeft - contentLeft
-            : contentRight > desktopRight
-                ? desktopRight - contentRight
-                : 0;
-        if (Math.Abs(adjustment) < 0.000001)
-        {
-            return;
-        }
-        if (Math.Abs(presentationOffsetX) < 0.000001)
-        {
-            canvasOriginLeft += adjustment;
-        }
-        else
-        {
-            temporaryBoundaryOffsetDip = adjustment;
-        }
-    }
-
-    private bool IntersectsVirtualDesktop() =>
-        Left + Width > SystemParameters.VirtualScreenLeft &&
-        Left < SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth &&
-        Top + Height > SystemParameters.VirtualScreenTop &&
-        Top < SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight;
 
     private static double UptimeSeconds() => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
 

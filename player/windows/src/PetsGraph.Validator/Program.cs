@@ -3,53 +3,44 @@ using PetsGraph.Core;
 
 Console.OutputEncoding = Encoding.UTF8;
 
-if (args.Length is < 1 or > 2 || args[0] is "--help" or "-h")
+if (args.Length == 0 || args[0] is "--help" or "-h" or "/?")
 {
-    Console.WriteLine("Usage: PetsGraph.Validator <pets-directory> [--verify-integrity]");
-    return args.Length > 0 && args[0] is "--help" or "-h" ? 0 : 2;
+    Console.WriteLine("Usage: PetsGraph.Validator <file.petpack> [more.petpack ...]");
+    return args.Length == 0 ? 2 : 0;
 }
 
-var petsDirectory = Path.GetFullPath(args[0]);
-var verifyIntegrity = args.Length == 2 && args[1] == "--verify-integrity";
-if (args.Length == 2 && !verifyIntegrity)
+var validator = new PetPackValidator();
+foreach (var argument in args)
 {
-    Console.Error.WriteLine($"Unknown option: {args[1]}");
-    return 2;
-}
-
-try
-{
-    var paths = PetPackageLoader.FindPackages(petsDirectory).ToArray();
-    if (paths.Length == 0)
+    var source = Path.GetFullPath(argument);
+    var temporary = Path.Combine(Path.GetTempPath(), $"petsgraph-validator-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(temporary);
+    try
     {
-        throw new DirectoryNotFoundException($"No .petsgraph-pet package found in {petsDirectory}");
+        var validated = validator.ValidateAndExtract(source, temporary);
+        var report = validated.Report;
+        Console.WriteLine(
+            $"valid {Path.GetFileName(source)} sha256={report.ArchiveSha256} clips={report.ClipCount} nodes={report.NodeCount} edges={report.EdgeCount}");
     }
-
-    var loader = new PetPackageLoader();
-    var totalClips = 0;
-    var totalFrames = 0;
-    foreach (var path in paths)
+    catch (Exception exception) when (exception is PetPackException or IOException or UnauthorizedAccessException)
     {
-        var package = loader.Load(path, verifyIntegrity);
-        using var renderer = new RgbaFrameRenderer(package);
-        var buffer = new byte[renderer.BufferLength];
-        foreach (var clip in package.Clips.Values)
+        Console.Error.WriteLine(exception is PetPackException petPack
+            ? $"invalid {Path.GetFileName(source)}: {petPack.Code}"
+            : $"invalid {Path.GetFileName(source)}: local_io_error");
+        return 1;
+    }
+    finally
+    {
+        try
         {
-            renderer.RenderPbgra32(clip.Id, 0, buffer);
-            if (clip.Frames.Length > 1)
-            {
-                renderer.RenderPbgra32(clip.Id, clip.Frames.Length - 1, buffer);
-            }
-            totalFrames += clip.Frames.Length;
+            Directory.Delete(temporary, recursive: true);
         }
-        totalClips += package.Clips.Count;
-        Console.WriteLine($"validated {package.Manifest.Pet.Id}: {package.Clips.Count} clips");
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
-    Console.WriteLine($"PetsGraph package validation passed: {paths.Length} pets, {totalClips} clips, {totalFrames} frames");
-    return 0;
 }
-catch (Exception exception) when (exception is IOException or PetPackageValidationException)
-{
-    Console.Error.WriteLine(exception.Message);
-    return 1;
-}
+return 0;

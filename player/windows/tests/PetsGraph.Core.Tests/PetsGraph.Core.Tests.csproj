@@ -11,4 +11,9 @@
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="../../../../petpack/fixtures/synthetic-cat-v1.petpack"
+          Link="synthetic-cat-v1.petpack"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

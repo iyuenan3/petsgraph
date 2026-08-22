@@ -1,68 +1,142 @@
 using System.IO;
 using System.Text.Json;
+using PetsGraph.Core;
 
 namespace PetsGraph.App.Runtime;
 
-internal sealed record PetSettings
+internal sealed class SettingsStore(string root)
 {
-    public bool Visible { get; set; } = true;
-    public double? Left { get; set; }
-    public double? Top { get; set; }
-}
+    private readonly string path = Path.Combine(root, "settings.json");
 
-internal sealed record AppSettings
-{
-    public double Scale { get; set; } = 1;
-    public Dictionary<string, PetSettings> Pets { get; init; } = new(StringComparer.Ordinal);
-}
-
-internal sealed class SettingsStore
-{
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    public PlayerState Load(IReadOnlyCollection<LoadedPetPack> packages)
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = true,
-    };
-
-    private readonly string path = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "PetsGraph",
-        "settings.json");
-
-    public AppSettings Load()
-    {
-        try
-        {
-            return File.Exists(path)
-                ? JsonSerializer.Deserialize<AppSettings>(File.ReadAllBytes(path), JsonOptions) ?? new()
-                : new();
-        }
-        catch (IOException)
+        if (!File.Exists(path))
         {
             return new();
         }
-        catch (JsonException)
+        try
+        {
+            var data = File.ReadAllBytes(path);
+            try
+            {
+                var state = StrictJson.Decode<PlayerState>(data, "settings.json");
+                if (state.FormatVersion == PlayerState.CurrentFormatVersion)
+                {
+                    return Normalize(state, packages);
+                }
+            }
+            catch (PetPackException)
+            {
+            }
+            return MigrateLegacy(data, packages);
+        }
+        catch (Exception exception) when (exception is IOException or JsonException)
         {
             return new();
         }
     }
 
-    public void Save(AppSettings settings)
+    public void Save(PlayerState state)
     {
-        var directory = Path.GetDirectoryName(path)!;
-        Directory.CreateDirectory(directory);
-        var temporaryPath = Path.Combine(directory, $"settings-{Guid.NewGuid():N}.tmp");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var temporary = Path.Combine(Path.GetDirectoryName(path)!, $"settings-{Guid.NewGuid():N}.tmp");
         try
         {
-            File.WriteAllBytes(temporaryPath, JsonSerializer.SerializeToUtf8Bytes(settings, JsonOptions));
-            File.Move(temporaryPath, path, overwrite: true);
+            state.FormatVersion = PlayerState.CurrentFormatVersion;
+            state.GlobalScale = PlayerState.NormalizeScale(state.GlobalScale);
+            var data = JsonSerializer.SerializeToUtf8Bytes(state, StrictJson.WriteOptions);
+            using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                       bufferSize: 64 * 1024, FileOptions.WriteThrough))
+            {
+                stream.Write(data);
+                stream.Flush(flushToDisk: true);
+            }
+            File.Move(temporary, path, overwrite: true);
         }
         finally
         {
-            if (File.Exists(temporaryPath))
+            try
             {
-                File.Delete(temporaryPath);
+                File.Delete(temporary);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
             }
         }
+    }
+
+    private static PlayerState Normalize(PlayerState state, IReadOnlyCollection<LoadedPetPack> packages)
+    {
+        var validIds = packages.Select(static package => package.Manifest.Package.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        state.GlobalScale = PlayerState.NormalizeScale(state.GlobalScale);
+        foreach (var id in state.Pets.Keys.Where(id => !validIds.Contains(id)).ToArray())
+        {
+            state.Pets.Remove(id);
+        }
+        foreach (var pair in state.Pets)
+        {
+            if (pair.Value.AnchorX is { } x && !double.IsFinite(x))
+            {
+                pair.Value.AnchorX = null;
+            }
+            if (pair.Value.AnchorY is { } y && !double.IsFinite(y))
+            {
+                pair.Value.AnchorY = null;
+            }
+        }
+        return state;
+    }
+
+    private static PlayerState MigrateLegacy(byte[] data, IReadOnlyCollection<LoadedPetPack> packages)
+    {
+        var state = new PlayerState();
+        try
+        {
+            using var document = JsonDocument.Parse(data);
+            var root = document.RootElement;
+            if (root.TryGetProperty("scale", out var scale) && scale.TryGetDouble(out var value))
+            {
+                state.GlobalScale = PlayerState.NormalizeScale(value);
+            }
+            if (!root.TryGetProperty("pets", out var pets) || pets.ValueKind != JsonValueKind.Object)
+            {
+                return state;
+            }
+            foreach (var package in packages)
+            {
+                var id = package.Manifest.Package.Id;
+                if (!pets.TryGetProperty(id, out var legacy) || legacy.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+                var pet = new PetPlayerState();
+                if (legacy.TryGetProperty("visible", out var visible) &&
+                    visible.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                {
+                    pet.Visible = visible.GetBoolean();
+                }
+                var canvas = package.Manifest.Stage.ReferenceCanvasPx;
+                var pixelScale = package.Manifest.Stage.BaseDisplayHeight * state.GlobalScale / canvas[1];
+                if (legacy.TryGetProperty("left", out var left) && left.TryGetDouble(out var oldLeft) &&
+                    double.IsFinite(oldLeft))
+                {
+                    pet.AnchorX = oldLeft + canvas[0] * pixelScale / 2;
+                }
+                if (legacy.TryGetProperty("top", out var top) && top.TryGetDouble(out var oldTop) &&
+                    double.IsFinite(oldTop))
+                {
+                    pet.AnchorY = oldTop + canvas[1] * pixelScale;
+                }
+                state.Pets[id] = pet;
+            }
+        }
+        catch (JsonException)
+        {
+        }
+        return state;
     }
 }

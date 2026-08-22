@@ -1,8 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.6.0",
-    [string]$OutputDirectory = "",
-    [string]$PetsDirectory = ""
+    [string]$Version = "0.7.0-dev",
+    [string]$OutputDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,12 +9,13 @@ Set-StrictMode -Version Latest
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../../..")).Path
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $RepoRoot "dist"
+    $OutputDirectory = Join-Path $RepoRoot ".local/dist/builds"
 }
 $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 $StageRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("petsgraph-windows-" + [Guid]::NewGuid().ToString("N"))
 $PublishDirectory = Join-Path $StageRoot "PetsGraph"
-$ZipPath = Join-Path $OutputDirectory "PetsGraph-v$Version-Windows-x64-runtime.zip"
+$ZipPath = Join-Path $OutputDirectory "PetsGraph-v$Version-Windows-x64.zip"
+$Fixture = Join-Path $RepoRoot "petpack/fixtures/synthetic-cat-v1.petpack"
 
 if (Test-Path $ZipPath) {
     throw "Refusing to overwrite $ZipPath"
@@ -27,7 +27,9 @@ try {
         --configuration Release `
         --runtime win-x64 `
         --self-contained true `
+        --no-restore `
         -p:PublishSingleFile=false `
+        -p:NuGetAudit=false `
         -p:RestoreLockedMode=true `
         -p:Version=$Version `
         --output $PublishDirectory
@@ -37,18 +39,16 @@ try {
 
     Copy-Item (Join-Path $RepoRoot "player/windows/README-Windows.md") $PublishDirectory
     Set-Content -Path (Join-Path $PublishDirectory "VERSION.txt") -Value $Version -Encoding utf8NoBOM
-
-    if (-not [string]::IsNullOrWhiteSpace($PetsDirectory)) {
-        $PetsDirectory = (Resolve-Path $PetsDirectory).Path
-        $Packages = @(Get-ChildItem -Path $PetsDirectory -Directory -Filter "*.petsgraph-pet" | Sort-Object Name)
-        if ($Packages.Count -lt 1) {
-            throw "No .petsgraph-pet package found in $PetsDirectory"
-        }
-        $DestinationPets = Join-Path $PublishDirectory "Pets"
-        New-Item -ItemType Directory -Path $DestinationPets | Out-Null
-        foreach ($Package in $Packages) {
-            Copy-Item -Path $Package.FullName -Destination $DestinationPets -Recurse
-        }
+    $Executable = Join-Path $PublishDirectory "PetsGraph.exe"
+    & $Executable --validate-only $Fixture
+    if ($LASTEXITCODE -ne 0) {
+        throw "native PetPack validation failed with exit code $LASTEXITCODE"
+    }
+    if (Test-Path (Join-Path $PublishDirectory "Pets")) {
+        throw "zero-pet Player must not contain a Pets directory"
+    }
+    if (Get-ChildItem -Path $PublishDirectory -Recurse -File -Filter "*.petpack") {
+        throw "zero-pet Player must not contain PetPack media"
     }
 
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null

@@ -30,20 +30,15 @@ internal static partial class Program
             Console.WriteLine(CommandLineOptions.HelpText);
             return 0;
         }
+        if (options.ValidationPaths.Count != 0)
+        {
+            AttachParentConsole();
+            return Validate(options.ValidationPaths);
+        }
 
         try
         {
-            var petsDirectory = PackageCatalog.ResolvePetsDirectory(options.PetsDirectory);
-            var packages = PackageCatalog.LoadAll(petsDirectory, options.VerifyIntegrity);
-            if (options.ValidateOnly)
-            {
-                AttachParentConsole();
-                ValidateRenderableFrames(packages);
-                Console.WriteLine($"PetsGraph validation passed: {packages.Length} package(s), {petsDirectory}");
-                return 0;
-            }
-
-            using var singleInstance = new Mutex(initiallyOwned: false, @"Local\PetsGraph.Win11.x64");
+            using var singleInstance = new Mutex(initiallyOwned: false, @"Local\PetsGraph.Player.Win.x64");
             bool ownsMutex;
             try
             {
@@ -55,12 +50,14 @@ internal static partial class Program
             }
             if (!ownsMutex)
             {
-                System.Windows.MessageBox.Show("PetsGraph 已经在运行，请查看系统托盘。", "PetsGraph", MessageBoxButton.OK, MessageBoxImage.Information);
+                System.Windows.MessageBox.Show("PetsGraph 已经在运行，请查看系统托盘。", "PetsGraph",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
                 return 0;
             }
             try
             {
-                using var application = new PetsGraphApplication(packages);
+                var library = new CanonicalPetLibrary();
+                using var application = new PetsGraphApplication(library);
                 return application.Run();
             }
             finally
@@ -68,36 +65,59 @@ internal static partial class Program
                 singleInstance.ReleaseMutex();
             }
         }
-        catch (Exception exception) when (exception is ArgumentException or IOException or InvalidDataException or PetPackageValidationException)
+        catch (Exception exception) when (exception is PetPackException or IOException or UnauthorizedAccessException)
         {
-            if (options.ValidateOnly)
-            {
-                AttachParentConsole();
-                Console.Error.WriteLine(exception.Message);
-            }
-            else
-            {
-                System.Windows.MessageBox.Show(exception.Message, "PetsGraph 启动失败", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            var detail = exception is PetPackException petPack
+                ? petPack.Detail
+                : "无法读取 PetsGraph 本地数据。";
+            System.Windows.MessageBox.Show(detail, "PetsGraph 启动失败", MessageBoxButton.OK, MessageBoxImage.Error);
             return 1;
         }
     }
 
-    private static void ValidateRenderableFrames(IEnumerable<LoadedPetPackage> packages)
+    private static int Validate(IReadOnlyList<string> paths)
     {
-        foreach (var package in packages)
+        var validator = new PetPackValidator();
+        foreach (var item in paths)
         {
-            using var renderer = new RgbaFrameRenderer(package);
-            var buffer = new byte[renderer.BufferLength];
-            foreach (var clip in package.Clips.Values)
+            var source = Path.GetFullPath(item);
+            var temporary = Path.Combine(Path.GetTempPath(), $"petsgraph-app-validate-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(temporary);
+            try
             {
-                renderer.RenderPbgra32(clip.Id, 0, buffer);
-                if (clip.Frames.Length > 1)
+                var validated = validator.ValidateAndExtract(source, temporary);
+                using var renderer = new RgbaFrameRenderer(validated.Package);
+                foreach (var clip in validated.Package.Clips.Values)
                 {
-                    renderer.RenderPbgra32(clip.Id, clip.Frames.Length - 1, buffer);
+                    var layout = renderer.FrameLayout(clip.Id);
+                    var buffer = new byte[layout.Bytes];
+                    renderer.RenderPbgra32(clip.Id, 0, buffer);
+                    renderer.RenderPbgra32(clip.Id, clip.FrameCount - 1, buffer);
+                }
+                Console.WriteLine($"valid {Path.GetFileName(source)} sha256={validated.Report.ArchiveSha256}");
+            }
+            catch (Exception exception) when (exception is PetPackException or IOException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine(exception is PetPackException petPack
+                    ? $"invalid {Path.GetFileName(source)}: {petPack.Code}"
+                    : $"invalid {Path.GetFileName(source)}: local_io_error");
+                return 1;
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(temporary, recursive: true);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
                 }
             }
         }
+        return 0;
     }
 
     private static void AttachParentConsole()
@@ -113,50 +133,31 @@ internal static partial class Program
     private static partial bool AttachConsole(uint processId);
 }
 
-internal sealed record CommandLineOptions(
-    bool ValidateOnly,
-    bool VerifyIntegrity,
-    bool ShowHelp,
-    string? PetsDirectory)
+internal sealed record CommandLineOptions(bool ShowHelp, IReadOnlyList<string> ValidationPaths)
 {
     public const string HelpText = """
-        PetsGraph for Windows
+        PetsGraph Player for Windows x64
 
         用法：
-          PetsGraph.exe [--pets-dir <目录>]
-          PetsGraph.exe --validate-only [--verify-integrity] [--pets-dir <目录>]
+          PetsGraph.exe
+          PetsGraph.exe --validate-only <file.petpack> [more.petpack ...]
         """;
 
     public static CommandLineOptions Parse(string[] args)
     {
-        var validateOnly = false;
-        var verifyIntegrity = false;
-        var showHelp = false;
-        string? petsDirectory = null;
-        for (var index = 0; index < args.Length; index++)
+        if (args.Length == 0)
         {
-            switch (args[index])
-            {
-                case "--validate-only":
-                    validateOnly = true;
-                    break;
-                case "--verify-integrity":
-                    verifyIntegrity = true;
-                    break;
-                case "--pets-dir" when index + 1 < args.Length:
-                    petsDirectory = args[++index];
-                    break;
-                case "--help" or "-h" or "/?":
-                    showHelp = true;
-                    break;
-                default:
-                    throw new ArgumentException($"未知参数：{args[index]}");
-            }
+            return new(false, []);
         }
-        if (verifyIntegrity && !validateOnly)
+        if (args.Length == 1 && args[0] is "--help" or "-h" or "/?")
         {
-            throw new ArgumentException("--verify-integrity 只能与 --validate-only 一起使用。");
+            return new(true, []);
         }
-        return new(validateOnly, verifyIntegrity, showHelp, petsDirectory);
+        if (args.Length >= 2 && args[0] == "--validate-only" &&
+            args.Skip(1).All(static path => !path.StartsWith("-", StringComparison.Ordinal)))
+        {
+            return new(false, args.Skip(1).ToArray());
+        }
+        throw new ArgumentException("参数无效。使用 --help 查看用法。");
     }
 }
