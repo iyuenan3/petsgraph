@@ -8,12 +8,12 @@ on:
       - codex/windows-win11-x64
     paths:
       - "player/windows/**"
-      - "assets/app-icon/**"
+      - "assets/brand/**"
       - ".github/workflows/windows.yml"
   pull_request:
     paths:
       - "player/windows/**"
-      - "assets/app-icon/**"
+      - "assets/brand/**"
       - ".github/workflows/windows.yml"
 
 permissions:

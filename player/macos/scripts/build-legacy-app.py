@@ -14,7 +14,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
-APP_ICON = ROOT / "assets" / "app-icon" / "macos" / "PetsGraph.icns"
+APP_ICON = ROOT / "assets" / "brand" / "macos" / "PetsGraph.icns"
 SIGNING_DETRITUS_XATTRS = {
     "com.apple.FinderInfo",
     "com.apple.ResourceFork",
@@ -114,7 +114,7 @@ def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     if not APP_ICON.is_file():
         raise FileNotFoundError(
-            "missing macOS app icon; run tools/generate-app-icons.sh first"
+            "missing macOS app icon; run assets/brand/scripts/generate-app-icons.sh first"
         )
 
     environment = os.environ.copy()

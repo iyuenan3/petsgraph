@@ -13,7 +13,7 @@
     <RootNamespace>PetsGraph.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
-    <ApplicationIcon>../../../../assets/app-icon/windows/PetsGraph.ico</ApplicationIcon>
+    <ApplicationIcon>../../../../assets/brand/windows/PetsGraph.ico</ApplicationIcon>
     <Version>0.6.0</Version>
     <FileVersion>0.6.0.0</FileVersion>
     <AssemblyVersion>0.6.0.0</AssemblyVersion>
@@ -21,6 +21,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../PetsGraph.Core/PetsGraph.Core.csproj" />
-    <EmbeddedResource Include="../../../../assets/app-icon/windows/PetsGraph.ico" LogicalName="PetsGraph.ico" />
+    <EmbeddedResource Include="../../../../assets/brand/windows/PetsGraph.ico" LogicalName="PetsGraph.ico" />
   </ItemGroup>
 </Project>

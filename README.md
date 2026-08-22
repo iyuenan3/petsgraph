@@ -1,6 +1,6 @@
 # PetsGraph
 
-<img src="assets/app-icon/petsgraph-logo.png" alt="PetsGraph 图标" width="128" height="128">
+<img src="assets/brand/petsgraph-logo.png" alt="PetsGraph 图标" width="128" height="128">
 
 PetsGraph 正在重构为面向宠物离世纪念场景的开源多宠播放器。主人不需要与宠物互动，只会在桌面固定位置看到熟悉的宠物按照自己的节奏睡觉、换姿、吃饭、舔毛或看向窗外。
 
