@@ -5,9 +5,9 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 version="${PETSGRAPH_VERSION:-0.6.0}"
 pets_dir="${PETSGRAPH_PETS_DIR:-}"
 if [[ -n "$pets_dir" ]]; then
-  default_zip="$repo_root/dist/PetsGraph-v${version}-Windows-x64.zip"
+  default_zip="$repo_root/.local/dist/builds/PetsGraph-v${version}-Windows-x64.zip"
 else
-  default_zip="$repo_root/dist/PetsGraph-v${version}-Windows-x64-runtime.zip"
+  default_zip="$repo_root/.local/dist/builds/PetsGraph-v${version}-Windows-x64-runtime.zip"
 fi
 output_zip="${PETSGRAPH_OUTPUT_ZIP:-$default_zip}"
 dotnet_bin="${DOTNET_BIN:-dotnet}"

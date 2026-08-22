@@ -70,7 +70,7 @@ PetsGraph 正在重构为面向宠物离世纪念场景的开源多宠播放器�
 
 正式动作不使用骨骼、精灵图、RIFE、光流、自动补间、跨节点倒放或交叉淡化。播放器也不会用硬切和补帧修补不合格素材。
 
-Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公开母片和未来正式 PetPack 属于私有 Studio，不属于开源 Player 的目标仓库边界。当前仓库仍保留历史制作工具以及已经公开的五百与飞流素材，后续重构会按文档计划完成公开与私有边界迁移，同时保留其历史与原有限定授权。
+Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公开母片和未来正式 PetPack 属于私有 Studio，不属于开源 Player 的公开仓库边界。历史制作工具、宠物事实源、旧包工作区和 Codex 私有重建记录已经迁入根 Git 忽略的职责目录，同时保留其历史与原有限定授权。
 
 `studio/` 是根公开 Git 完整忽略的本机私有目录，不创建单独 Git 仓库。五百与飞流先使用已经批准的 `cropped-rgba-clips` 媒体离线转换为 PetPack 1.0；新 Player 不长期承载旧 schema `0.4.0` 运行时。小葵当前只整理已有资料，本轮不继续生成、抠图或制作 PetPack。
 
@@ -126,7 +126,10 @@ Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公
 - `player/windows/src/PetsGraph.Core/`：当前 C# 包校验、动作图、时间线和媒体转换。
 - `player/windows/src/PetsGraph.App/`：当前 Windows x64 WPF 透明窗口和托盘。
 - `studio/`：本机私有制作工具、provider 配置和环境模板，整个目录被根 Git 忽略，不存在于公开 clone。
+- `pets/`：本机私有宠物唯一事实源，保存参考资料、批准素材和生产履历。
+- `petpacks/`：本机私有旧包、PetPack 转换工作区和交付记录，不作为原始资料事实源。
 - `codexpets/packages/public/`：当前五百与飞流的 Codex v2 小型图集导出，不是 PetsGraph 连续视频 PetPack。
+- `.local/`：本机缓存、虚拟环境、构建候选和已发布附件的可下载副本。
 - `AIREADME/`：产品、架构、PetPack 契约、迁移与发布真相源。
 
 目标仍以本仓库为整个项目唯一根目录，收敛为 `player/`、`petpack/`、`studio/`、`pets/`、`petpacks/`、`codexpets/` 与 `.local/`。其中 Player 子树和安装包不包含真实宠物素材；单独授权的 Codex 公开图集可以保存在 `codexpets/packages/public/`。详细职责、根 Git 跟踪范围和安全迁移门禁见 [`AIREADME/DIRECTORY.md`](AIREADME/DIRECTORY.md)。

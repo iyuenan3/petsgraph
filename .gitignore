@@ -1,6 +1,5 @@
 .DS_Store
 .build/
-dist/
 .cache/
 .venv-*/
 __pycache__/
@@ -18,9 +17,6 @@ petpacks/
 codexpets/workspaces/
 codexpets/packages/private/
 codexpets/manifests/private.json
-
-# Private pet references, provider job records, and unapproved generations.
-workspaces/
 
 # Transient public brand build intermediates. Private candidates live in studio/.
 assets/brand/macos/PetsGraph.iconset/
