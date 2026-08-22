@@ -11,6 +11,8 @@ from pathlib import Path
 import shutil
 import struct
 import tempfile
+import re
+import unicodedata
 from datetime import datetime, timezone
 from typing import Any
 
@@ -19,6 +21,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ASSET_ROOT = REPOSITORY_ROOT / "codexpets" / "packages" / "public"
 DEFAULT_MANIFEST = REPOSITORY_ROOT / "codexpets" / "manifests" / "public.json"
 PACKAGE_FILES = {"pet.json", "spritesheet.webp"}
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class ValidationError(ValueError):
@@ -102,7 +105,7 @@ def validate_file(path: Path, expected: dict[str, Any]) -> None:
     expected_hash = expected.get("sha256")
     if not isinstance(expected_bytes, int) or expected_bytes < 0:
         raise ValidationError(f"invalid byte count in manifest for {path.name}")
-    if not isinstance(expected_hash, str) or len(expected_hash) != 64:
+    if not isinstance(expected_hash, str) or SHA256_RE.fullmatch(expected_hash) is None:
         raise ValidationError(f"invalid SHA-256 in manifest for {path.name}")
     actual_bytes = path.stat().st_size
     if actual_bytes != expected_bytes:
@@ -178,6 +181,15 @@ def validate_repository(root: Path, manifest_path: Path) -> list[dict[str, Any]]
             raise ValidationError(f"directory, manifest id, and pet.json id differ for {pet_id}")
         if pet.get("displayName") != record.get("displayName"):
             raise ValidationError(f"displayName mismatch for {pet_id}")
+        display_name = pet.get("displayName")
+        if (
+            not isinstance(display_name, str)
+            or not display_name
+            or len(display_name) > 80
+            or unicodedata.normalize("NFC", display_name) != display_name
+            or any(ord(character) < 32 or ord(character) == 127 for character in display_name)
+        ):
+            raise ValidationError(f"invalid displayName for {pet_id}")
         if pet.get("spriteVersionNumber") != contract.get("spriteVersionNumber"):
             raise ValidationError(f"sprite version mismatch for {pet_id}")
         if pet.get("spritesheetPath") != "spritesheet.webp":
@@ -268,36 +280,46 @@ def install_packages(
 
     pets_root.mkdir(parents=True, exist_ok=True)
     backup_root: Path | None = None
-    for pet_id, source, target, action in plans:
-        if action == "unchanged":
-            print(f"unchanged {pet_id}: {target}")
-            continue
+    applied: list[tuple[Path, Path | None]] = []
+    try:
+        for pet_id, source, target, action in plans:
+            if action == "unchanged":
+                print(f"unchanged {pet_id}: {target}")
+                continue
 
-        staging = Path(tempfile.mkdtemp(prefix=f".{pet_id}.install-", dir=pets_root))
-        try:
-            for filename in PACKAGE_FILES:
-                shutil.copy2(source / filename, staging / filename)
-
-            backup: Path | None = None
-            if action == "replace":
-                if backup_root is None:
-                    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
-                    backup_root = codex_home / "pets-backups" / stamp
-                    backup_root.mkdir(parents=True, exist_ok=False)
-                backup = backup_root / pet_id
-                target.rename(backup)
-
+            staging = Path(tempfile.mkdtemp(prefix=f".{pet_id}.install-", dir=pets_root))
             try:
-                staging.rename(target)
-            except Exception:
-                if backup is not None and not target.exists():
-                    backup.rename(target)
-                raise
-            verb = "replaced" if action == "replace" else "installed"
-            print(f"{verb} {pet_id}: {target}")
-        finally:
-            if staging.exists():
-                shutil.rmtree(staging)
+                for filename in PACKAGE_FILES:
+                    shutil.copy2(source / filename, staging / filename)
+
+                backup: Path | None = None
+                if action == "replace":
+                    if backup_root is None:
+                        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+                        backup_root = codex_home / "pets-backups" / stamp
+                        backup_root.mkdir(parents=True, exist_ok=False)
+                    backup = backup_root / pet_id
+                    target.rename(backup)
+
+                try:
+                    staging.rename(target)
+                except Exception:
+                    if backup is not None and not target.exists():
+                        backup.rename(target)
+                    raise
+                applied.append((target, backup))
+                verb = "replaced" if action == "replace" else "installed"
+                print(f"{verb} {pet_id}: {target}")
+            finally:
+                if staging.exists():
+                    shutil.rmtree(staging)
+    except Exception:
+        for target, backup in reversed(applied):
+            if target.is_dir() and not target.is_symlink():
+                shutil.rmtree(target)
+            if backup is not None and backup.exists() and not target.exists():
+                backup.rename(target)
+        raise
 
 
 def parse_args() -> argparse.Namespace:
