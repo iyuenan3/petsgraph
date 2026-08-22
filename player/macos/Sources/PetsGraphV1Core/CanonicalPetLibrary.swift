@@ -229,8 +229,12 @@ public final class CanonicalPetLibrary: @unchecked Sendable {
     guard registry.formatVersion == 1,
       Set(registry.packages.map(\.packageID)).count == registry.packages.count,
       registry.packages.allSatisfy({
-        $0.packageID == $0.petID && $0.archiveBytes > 0
-          && $0.archiveSHA256.count == 64
+        Self.isValidPackageID($0.packageID) && $0.packageID == $0.petID
+          && Self.isValidDisplayName($0.displayName)
+          && ($0.species == "cat" || $0.species == "dog")
+          && $0.archiveBytes > 0
+          && UInt64($0.archiveBytes) <= ZipArchiveLimits().maxArchiveBytes
+          && Self.isValidSHA256($0.archiveSHA256)
       })
     else { throw PetPackError("registry_corrupt", "the installed-pet registry is invalid") }
     return registry
@@ -301,5 +305,35 @@ public final class CanonicalPetLibrary: @unchecked Sendable {
     lock.lock()
     defer { lock.unlock() }
     return try body()
+  }
+
+  private static func isValidPackageID(_ value: String) -> Bool {
+    guard !value.isEmpty, value.count <= 80 else { return false }
+    var priorWasHyphen = true
+    for byte in value.utf8 {
+      if byte == 45 {
+        if priorWasHyphen { return false }
+        priorWasHyphen = true
+      } else {
+        guard (byte >= 48 && byte <= 57) || (byte >= 97 && byte <= 122) else {
+          return false
+        }
+        priorWasHyphen = false
+      }
+    }
+    return !priorWasHyphen
+  }
+
+  private static func isValidDisplayName(_ value: String) -> Bool {
+    !value.isEmpty && value.count <= 80
+      && value.precomposedStringWithCanonicalMapping == value
+      && value.unicodeScalars.allSatisfy { $0.value >= 32 && $0.value != 127 }
+  }
+
+  private static func isValidSHA256(_ value: String) -> Bool {
+    value.count == 64
+      && value.utf8.allSatisfy {
+        ($0 >= 48 && $0 <= 57) || ($0 >= 97 && $0 <= 102)
+      }
   }
 }

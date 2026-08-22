@@ -58,6 +58,7 @@ final class PetPackValidatorTests: XCTestCase {
       try XCTUnwrap(SemanticVersion("1.0.0-alpha.1")), try XCTUnwrap(SemanticVersion("1.0.0")))
     XCTAssertLessThan(
       try XCTUnwrap(SemanticVersion("1.0.0")), try XCTUnwrap(SemanticVersion("1.0.1")))
+    XCTAssertNil(SemanticVersion("1.0.0+\(String(repeating: "a", count: 81))"))
   }
 
   func testPlayerStateUsesOneBoundedGlobalScale() {
@@ -123,6 +124,34 @@ final class PetPackValidatorTests: XCTestCase {
 
     XCTAssertEqual(packages.count, 1)
     XCTAssertNotNil(packages[0].mediaURL(for: "rest-secondary-loop"))
+  }
+
+  func testCanonicalLibraryRejectsUnsafeRegistryIdentity() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("petsgraph-unsafe-registry-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let library = try CanonicalPetLibrary(rootURL: root)
+    let registry = """
+      {
+        "formatVersion": 1,
+        "packages": [
+          {
+            "packageID": "../../outside",
+            "petID": "../../outside",
+            "displayName": "Unsafe",
+            "species": "cat",
+            "contentVersion": "1.0.0",
+            "archiveSHA256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "archiveBytes": 1
+          }
+        ]
+      }
+      """
+    try Data(registry.utf8).write(to: root.appendingPathComponent("registry.json"))
+
+    XCTAssertThrowsError(try library.installedPets()) { error in
+      XCTAssertEqual((error as? PetPackError)?.code, "registry_corrupt")
+    }
   }
 
   func testPassiveBehaviorUsesACompleteDirectedTransition() throws {

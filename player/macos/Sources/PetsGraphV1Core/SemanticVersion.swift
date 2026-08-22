@@ -8,6 +8,7 @@ public struct SemanticVersion: Comparable, Codable, Hashable, Sendable {
   public let build: String?
 
   public init?(_ value: String) {
+    guard !value.isEmpty, value.count <= 80 else { return nil }
     let halves = value.split(separator: "+", maxSplits: 1, omittingEmptySubsequences: false)
     guard halves.count <= 2, halves.allSatisfy({ !$0.isEmpty }) else { return nil }
     let coreAndPrerelease = halves[0].split(
