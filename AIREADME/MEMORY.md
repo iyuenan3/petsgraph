@@ -196,3 +196,9 @@
 - 现象: 单独观看睡眠、坐起或场景片段都可能自然，拼成完整链后仍出现呼吸相位重置、体型跳变、道具变化、位置闪动和身份漂移。
 - 根因: 独立生成片段没有共享完整的时间、承重、光线和道具历史。运行时硬切、淡入淡出或后期定位只能遮挡接缝，不能恢复缺失的物理连续性。
 - 结论/避免: 优先生成较长连续生活链，并只在稳定帧、完整呼吸周期、自然遮挡或完全离场处切分。每个合法连接必须有独立生成和正常速度人工通过的有向边；未抠图完整图先通过，再统一抠图和固定几何。连接可见时重新生成或重新切分，不把修补责任交给 Player。
+
+## CommandLineTools 编译器与 SDK 小版本漂移会制造 Swift 假失败 · 2026-08-23
+
+- 现象: `xcode-select` 指向 CommandLineTools 时，`swift test` 同时出现用户模块缓存不可写，以及 Swift 6.3.3 编译器无法加载由 Swift 6.3.2 构建的 macOS 26.5 SDK。代码未变化，测试却在 manifest 编译阶段失败。
+- 根因: 裸 `swift` 选中了 CommandLineTools 中已经更新的编译器，但其 SDK 与编译器构建号没有同步；受限执行环境又不允许默认写入用户模块缓存。版本主次号接近不代表工具链内部一定匹配。
+- 结论/避免: 测试显式设置 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`，并把 `CLANG_MODULE_CACHE_PATH` 与 `SWIFTPM_MODULECACHE_OVERRIDE` 指向任务专用临时目录。遇到 manifest 或 `SwiftShims` 错误先核对编译器与 SDK 构建号，不把环境失败归因于 Player 源码。

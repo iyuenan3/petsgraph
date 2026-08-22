@@ -1,8 +1,8 @@
 # ROADMAP：PetsGraph
 
-## Completed（目录、PetPack、双宠候选与 macOS 机械实现）
+## Completed（目录、PetPack、双宠候选与双平台机械实现）
 
-1. 提交最新产品、目录、PetPack 和迁移文档，直接在 `main` 上形成可回滚基线并及时 push。
+1. 最新产品、目录、PetPack、迁移和 Player 改造已经直接在 `main` 上形成小切片可回滚本地提交；远端 push 尚未执行，必须在目标仓库获得明确授权后进行并回读 SHA。
 2. 只读盘点 Swift、WPF、旧 schema `0.4.0`、制作工具、素材工作区、发布物和未提交文件，记录文件数、字节数、摘要和处置分类。
 3. 将明确失败的大型媒体、字节完全重复副本、可重建缓存和临时产物连同审计清单移入系统回收站；保留小型任务记录、摘要、失败原因和评审结论。
 4. 已建立并验证 `player/`、`petpack/`、`codexpets/`、`assets/brand/`、私有 `studio/`、`pets/`、`petpacks/` 与 `.local/` 边界；边界检查必须持续阻止私有内容进入公开 Git。
@@ -14,15 +14,17 @@
 10. 已实现 PetPack `formatVersion=1.0.0` 的五份 schema、标准库参考验证器、确定性合成包和 24 项合法包与动态坏包回归；公开 CI 覆盖 macOS 与 Windows，真实宠物媒体未进入夹具。
 11. 已用私有离线转换器生成五百与飞流 PetPack 1.0 候选，排除 interaction、交互边、网关停留循环和窗口 root motion，保留自主睡眠与场景过渡；旧媒体与新媒体摘要逐项一致，两个大包均可确定性重建。
 12. 已重构 Apple Silicon macOS `0.7.0-dev`，实现严格原生 PetPack 校验、canonical 库、幂等导入与升级边界、每宠独立行为、固定舞台、拖动、持久可见状态、统一大小和目标菜单；构建物不含真实宠物媒体。
-13. 已用公开 store 与 deflate 测试包、五百和飞流真实候选验证 Swift 原生加载器，并完成严格编译、8 项测试、arm64 App、ad-hoc 签名和零素材检查。真实桌面观看尚未通过，不能提升为发布结论。
+13. 已用公开 store 与 deflate 测试包、五百和飞流真实候选验证 Swift 原生加载器，并完成严格编译、9 项测试、arm64 App、ad-hoc 签名和零素材检查。真实桌面观看尚未通过，不能提升为发布结论。
+14. 已重构 Windows x64 `0.7.0-dev`，实现严格原生 PetPack 校验、canonical 库、幂等导入与升级边界、每宠独立行为、固定舞台、拖动、持久可见状态、统一大小和目标托盘菜单；旧点击、指定动作、root motion、内嵌宠物发现和 schema `0.4.0` 直接加载已从当前 main 删除。
+15. 已用公开 store 与 deflate 测试包、五百和飞流真实候选验证 C# 原生加载器，并完成 18 项测试、全解决方案零警告构建、self-contained AMD64 ZIP 和零素材检查。两个平台的安装索引均增加路径身份防护。真实 Windows GUI 和远端 Windows CI 尚未通过，不能提升为发布结论。
 
-## Now（Windows x64 与同包一致性）
+## Now（双平台真实桌面与同包验收）
 
-1. 重构 Windows x64 Player，复现 macOS 已实现的安全装载、canonical 库、原子更新、卸载、每宠独立行为、固定舞台、拖动、跨启动可见状态、统一 `0.5` 至 `2.0` 缩放和既定托盘菜单。
-2. 从 Windows 新目标运行时删除点击坐立、指定睡姿、动作菜单、窗口 root motion、内嵌宠物发现和旧 schema `0.4.0` 直接加载；历史能力只由 `v0.6.0` 标签与 Release 保存。
-3. 让 Windows 原生加载器消费公开 PetPack 合成向量，并与 Swift 对 ZIP、ZIP64、store、deflate、路径安全、JSON 严格性、完整性、更新和行为状态机给出一致结论。
-4. 补齐重复包冲突、升级失败、卸载全部、应用升级、多宠 2/4/8 并发、隐藏过渡和 cache 重建回归。
-5. 完成 Apple Silicon macOS 真实桌面验收，再完成 Windows x64 同包验收；通过后才把双宠候选移入 approved 与 delivery，最后发布首个正式 `1.0.0`。
+1. 获得明确远端目标授权后，把当前 `main` 推送到 `git@github.com:iyuenan3/petsgraph.git`，回读远端 SHA，并确认 macOS、Windows 与 PetPack 工作流实际运行结果。
+2. 在 Apple Silicon macOS 上使用五百和飞流候选完成真实桌面验收：零宠启动、单包与多包导入、目标菜单、透明命中拖动、隐藏过渡、重启恢复、cache 重建、更新、卸载和正常速度长时间观看。
+3. 在真实 Windows 11 x64 上对同两个包完成相同验收，并增加 SmartScreen、DPI、多显示器、托盘、PE 运行、PowerShell 打包入口和应用目录替换后的宠物库保留检查。
+4. 补齐更新失败回滚、应用升级、多宠 2、4、8 只并发和同时过渡的机械与人工回归，记录两个平台的 CPU、内存、卡帧、闪动和连接观察，不能用单元测试替代视觉结论。
+5. 两个平台都明确通过后，才把五百与飞流候选移入 approved 与 delivery，冻结交付摘要和安装说明，最后构建并发布首个正式 `1.0.0`。
 
 ## Later
 

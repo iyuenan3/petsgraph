@@ -1,6 +1,6 @@
 # DIRECTORY：PetsGraph 项目目录与 Git 边界
 
-> Target: 本文件定义下一代目录结构和迁移护栏。As-built: 公开源码、私有 Studio、宠物事实源、旧包、Codex 工作区与本地产物均已迁入职责目录；PetPack 1.0 公开契约和 macOS Player 已实现，Windows 新行为尚待实现。
+> Target: 本文件定义下一代目录结构和迁移护栏。As-built: 公开源码、私有 Studio、宠物事实源、旧包、Codex 工作区与本地产物均已迁入职责目录；PetPack 1.0 公开契约和双平台 Player 已完成机械实现，真实桌面验收尚待完成。
 
 ## 1. 根目录原则
 
@@ -350,6 +350,6 @@ codexpets/
 
 ## 15. 当前状态
 
-状态为 `macos-player-implemented / windows-player-next`。
+状态为 `dual-platform-player-implemented / desktop-acceptance-next`。
 
-目标目录和 Git 边界已经确认。公开源码、私有 Studio、宠物事实源、旧包、Codex 私有工作区、清理审计、v0.6.0 本地发布副本、Python 环境与模型缓存均已迁移并验证；全部旧根入口已经退出。公开 `petpack/` 已实现 1.0 schema、参考验证器、合成夹具和安全回归。五百与飞流私有候选已经机械验证。macOS Player 已实现原生装载、canonical 库、被动行为、固定舞台和目标菜单，Windows 仍为 v0.6.0 as-built；两个平台的真实桌面验收和正式交付仍待实现。任何后续报告必须逐子树说明实际状态，不能把代码、契约或候选包验证写成桌面视觉已经完成。
+目标目录和 Git 边界已经确认。公开源码、私有 Studio、宠物事实源、旧包、Codex 私有工作区、清理审计、v0.6.0 本地发布副本、Python 环境与模型缓存均已迁移并验证；全部旧根入口已经退出。公开 `petpack/` 已实现 1.0 schema、参考验证器、合成夹具和安全回归。五百与飞流私有候选已经机械验证。macOS 与 Windows Player 均已实现原生装载、canonical 库、被动行为、固定舞台和目标菜单；两个平台的真实桌面验收、同包一致性和正式交付仍待完成。任何后续报告必须逐子树说明实际状态，不能把代码、契约或候选包验证写成桌面视觉已经完成。

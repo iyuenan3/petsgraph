@@ -8,7 +8,7 @@ PetsGraph 正在重构为面向宠物离世纪念场景的开源多宠播放器�
 
 ## 当前状态
 
-产品方向已经完成文档决策。PetPack 1.0 的公开 schema、标准库验证器、合成夹具和安全回归已经实现。五百与飞流已经从旧批准包确定性转换出私有候选 `.petpack`，媒体字节保持不变。Apple Silicon macOS `0.7.0-dev` 已实现原生 PetPack 校验、canonical 宠物库、被动行为会话、固定舞台、多宠窗口和目标菜单，并能构建零宠物素材 App；真实桌面人工验收、Windows x64 重构和正式交付仍未完成。
+产品方向已经完成文档决策。PetPack 1.0 的公开 schema、标准库验证器、合成夹具和安全回归已经实现。五百与飞流已经从旧批准包确定性转换出私有候选 `.petpack`，媒体字节保持不变。Apple Silicon macOS 与 Windows x64 `0.7.0-dev` 均已实现原生 PetPack 校验、canonical 宠物库、被动行为会话、固定舞台、多宠窗口和目标菜单，并能构建零宠物素材应用；两个平台的真实桌面人工验收、候选包批准和正式交付仍未完成。
 
 当前公开的 `v0.6.0` 仍是历史双宠架构：
 
@@ -108,7 +108,7 @@ Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公
 3. 双击 `PetsGraph.exe`。当前版本没有代码签名，可能出现 SmartScreen 提示。
 4. SHA-256：`90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`。
 
-更多当前版本说明见 [`player/windows/README-Windows.md`](player/windows/README-Windows.md)。
+下一代 Windows 开发版说明见 [`player/windows/README-Windows.md`](player/windows/README-Windows.md)。
 
 ### Apple Silicon macOS
 
@@ -119,12 +119,12 @@ Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公
 
 ## 当前仓库结构与目标目录
 
-下一代目录迁移已经完成。Codex 公开包、Player 平台源码、私有 Studio、宠物事实源、旧包和本地产物均已完成路径切换。macOS 已切入 PetPack 1.0 开发实现，Windows 运行时仍保持 v0.6.0 as-built：
+下一代目录迁移已经完成。Codex 公开包、Player 平台源码、私有 Studio、宠物事实源、旧包和本地产物均已完成路径切换。macOS 与 Windows 都已切入 PetPack 1.0 开发实现：
 
 - `player/macos/Sources/PetsGraphV1Core/`：PetPack 1.0 原生 ZIP、完整性、canonical 库、独立时钟和持久状态核心。
 - `player/macos/Sources/PetsGraphV1App/`：零素材 AppKit Player、固定透明舞台、拖动与目标菜单。
-- `player/windows/src/PetsGraph.Core/`：当前 C# 包校验、动作图、时间线和媒体转换。
-- `player/windows/src/PetsGraph.App/`：当前 Windows x64 WPF 透明窗口和托盘。
+- `player/windows/src/PetsGraph.Core/`：PetPack 1.0 原生 ZIP、完整性、canonical 库、独立时钟、持久状态和 RGBA 到 PBGRA 渲染核心。
+- `player/windows/src/PetsGraph.App/`：零素材 Windows x64 WPF Player、固定透明舞台、拖动与目标托盘菜单。
 - `studio/`：本机私有制作工具、provider 配置和环境模板，整个目录被根 Git 忽略，不存在于公开 clone。
 - `pets/`：本机私有宠物唯一事实源，保存参考资料、批准素材和生产履历。
 - `petpacks/`：本机私有旧包、PetPack 转换工作区和交付记录，不作为原始资料事实源。
@@ -161,7 +161,7 @@ DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet test player/windows/
 DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet build player/windows/PetsGraph.slnx -c Release
 ```
 
-Swift 命令验证 macOS `0.7.0-dev` 的 PetPack 1.0 原生装载、canonical 库、行为状态机和零素材 App 构建，但不替代真实桌面人工观看。Windows 命令当前仍验证 `v0.6.0` as-built。下一步重构路线见 [`AIREADME/ROADMAP.md`](AIREADME/ROADMAP.md)。
+Swift 与 Windows 命令分别验证两个 `0.7.0-dev` Player 的 PetPack 1.0 原生装载、canonical 库、行为状态机和零素材构建，但都不替代真实桌面人工观看。下一步验收路线见 [`AIREADME/ROADMAP.md`](AIREADME/ROADMAP.md)。
 
 ## Codex 宠物导出
 

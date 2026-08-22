@@ -422,3 +422,12 @@
 - Added: 每只宠物使用独立被动行为会话、随机时钟、固定透明舞台、可见状态与位置；菜单只提供装载、显示、隐藏、卸载、全局七档大小和退出，单击不触发动作，视频不推动窗口。
 - Added: 新构建器生成 Apple Silicon `0.7.0-dev` ad-hoc 签名 App，强制不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体；独立 macOS CI 运行公开 PetPack 回归、Swift 测试和零素材构建。
 - Review: 严格警告编译与 8 项 Swift 测试通过。公开 store 合成包、临时 deflate 合成包、五百与飞流真实候选均由原生加载器验证，零素材 App 架构和签名检查通过。真实 macOS 桌面菜单、拖动、透明命中、多宠长时性能、隐藏恢复、应用升级保留和正常速度视觉验收仍未完成。
+
+## Unreleased Windows PetPack 1.0 Player · 2026-08-23
+
+- Changed: Windows x64 主线从历史 schema `0.4.0` 内嵌双宠运行时切换到 PetPack `formatVersion=1.0.0` 零素材 Player，不保留旧路径或旧包直接加载兼容层；历史实现继续由 `v0.6.0` 标签和 Release 保存。
+- Added: C# 原生实现普通 ZIP 与 ZIP64、store 与 deflate、安全路径、严格 JSON、完整性、RGBA 媒体长度、canonical 库、幂等导入、升级确认、降级拒绝、cache 重建和卸载。WPF 渲染显式把包内预乘 RGBA 转换为 `Pbgra32`。
+- Added: 每只宠物使用独立被动行为会话、随机时钟、固定透明舞台、可见状态与位置；托盘菜单只提供装载、显示、隐藏、卸载、全局七档大小和退出，单击不触发动作，视频不推动窗口。
+- Added: Windows 打包入口生成 `0.7.0-dev` self-contained AMD64 ZIP，强制不包含 `Pets/`、`.petpack` 或真实宠物媒体；Windows CI 定义覆盖锁定还原、测试、WPF 构建、零素材 ZIP、PE 架构和内容边界。
+- Security: Windows 安装索引重新验证包 ID、宠物 ID、版本、物种、摘要与归档预算；macOS 同步增加对应校验，损坏或手工改写的索引不能把 canonical 路径导向数据根之外。
+- Review: 24 项 Python 回归、18 项 MSTest、9 项 Swift 测试、Windows 全解决方案零警告构建和 Swift 格式检查通过。Windows 原生加载器验证公开 store、临时 deflate、五百和飞流候选，零素材 ZIP 为 PE32+ x86-64 且不含宠物包。真实 Windows 11 GUI、双平台正常速度观看、应用升级、多宠长时性能、远端 CI 和正式发布仍未完成。

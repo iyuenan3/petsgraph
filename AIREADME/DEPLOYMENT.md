@@ -2,7 +2,7 @@
 
 ## 状态与下一代分发目标
 
-当前可下载的 `v0.6.0` 仍是内嵌五百与飞流的历史正式版，下面的安装、摘要和双平台发布流程继续作为该版本的事实与回滚依据。Apple Silicon macOS `0.7.0-dev` 已实现零素材 Player、外部 `.petpack` 装载和内部宠物库，但尚未完成真实桌面人工验收或正式发布；Windows x64 新 Player 尚未实现。不能用开发实现替换当前公开安装说明。
+当前可下载的 `v0.6.0` 仍是内嵌五百与飞流的历史正式版，下面的安装、摘要和双平台发布流程继续作为该版本的事实与回滚依据。Apple Silicon macOS 与 Windows x64 `0.7.0-dev` 均已实现零素材 Player、外部 `.petpack` 装载和内部宠物库，但尚未完成真实桌面人工验收或正式发布。不能用开发实现替换当前公开安装说明。
 
 下一代发布边界：
 
@@ -14,7 +14,7 @@
 - 普通卸载 Player 默认保留内部宠物库；彻底删除用户数据必须单独确认。卸载某只宠物则删除内部包及其本地状态，之后需要原始 `.petpack` 才能恢复。
 - 当前不构建 iPadOS、电视端、Intel Mac、Windows on Arm 或 32 位 Windows，但 PetPack 1.0 不能包含桌面窗口、平台路径或特定 OS 行为。
 
-下一代应用继续使用名称 `PetsGraph`，macOS 保留 Bundle ID `com.maxwell.petsgraph`，Windows 保留 `PetsGraph` 应用身份。macOS 数据根为 `~/Library/Application Support/PetsGraph/`，Windows 数据根为 `%LOCALAPPDATA%\PetsGraph\`；其中 `library/` 保存 canonical PetPack，`cache/` 可重建，`settings/` 保存 Player 与每宠状态。开发阶段版本使用 `0.7.0-dev`，五百、飞流和双平台 Player 通过后发布 `1.0.0`。
+下一代应用继续使用名称 `PetsGraph`，macOS 保留 Bundle ID `com.maxwell.petsgraph`，Windows 保留 `PetsGraph` 应用身份。macOS 数据根为 `~/Library/Application Support/PetsGraph/`，Windows 数据根为 `%LOCALAPPDATA%\PetsGraph\`；两个平台都分离 canonical PetPack、可重建 cache、`registry.json` 和 `settings.json`。开发阶段版本使用 `0.7.0-dev`，五百、飞流和双平台 Player 通过后发布 `1.0.0`。
 
 PetPack 1.0 使用普通 ZIP 容器和必需的 `cropped-rgba-clips` 基础表示。五百与飞流首批包只有完整性哈希，不带官方签名；签名、公证、Windows 代码签名和可选紧凑媒体均属于后续增强。历史 `v0.6.0` 路径和摘要不因新方向而改写。
 
@@ -114,11 +114,11 @@ python3 player/macos/scripts/build-app.py \
   --version 0.7.0-dev
 ```
 
-当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。它在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 24 项公开 PetPack 回归、8 项 Swift 测试并上传保留 7 天的代码开发 App。
+当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。它在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 24 项公开 PetPack 回归、9 项 Swift 测试并上传保留 7 天的代码开发 App。
 
 本地已验证：
 
-- Swift 严格警告编译与 8 项测试通过。
+- Swift 严格警告编译与 9 项测试通过。
 - 公开 store 合成包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
 - App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
 - App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
@@ -149,35 +149,38 @@ python3 player/macos/scripts/build-app.py \
 
 DMG 使用本机 `/usr/bin/hdiutil create` 从冻结 App 构建。GitHub Actions 不重新编译媒体或 App。公开后的 macOS 工作流只使用 `contents: read` 下载、校验和挂载已发布附件，不具备发布权限。本机受限沙箱可能让 `hdiutil` 报“设备未配置”，此时必须确认没有残留半成品，再以明确的磁盘映像权限重跑同一确定性命令。
 
-## Windows 构建与验证
+## Windows `0.7.0-dev` 构建与验证
 
-仓库用 `player/windows/global.json` 锁定 .NET SDK `10.0.400`。macOS arm64 本机 SDK 安装在 `~/.dotnet`，未修改用户全局 PATH。核心命令：
+仓库用 `player/windows/global.json` 锁定 .NET SDK `10.0.400`。macOS arm64 本机 SDK 安装在 `~/.dotnet`，未修改用户全局 PATH。依赖先按锁文件还原，核心命令：
 
 ```bash
 DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
   ~/.dotnet/dotnet test player/windows/tests/PetsGraph.Core.Tests/PetsGraph.Core.Tests.csproj \
-  --no-restore --disable-build-servers -m:1 -p:UseSharedCompilation=false
+  --configuration Release --no-restore --disable-build-servers -m:1 \
+  -p:UseSharedCompilation=false -p:NuGetAudit=false
 
 DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
   ~/.dotnet/dotnet build player/windows/PetsGraph.slnx \
-  --no-restore --disable-build-servers -m:1 \
-  -p:UseSharedCompilation=false -p:RestoreLockedMode=true
+  --configuration Release --no-restore --disable-build-servers -m:1 \
+  -p:UseSharedCompilation=false -p:NuGetAudit=false
 
-PETSGRAPH_PETS_DIR=/path/to/approved/Pets \
 DOTNET_BIN=~/.dotnet/dotnet \
 DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
   bash player/windows/scripts/build-portable.sh
 ```
 
-`build-portable.sh` 拒绝覆盖同名 ZIP，先交叉发布 `win-x64` self-contained 应用，再用 .NET 校验器检查真实宠物包，复制完整包后生成 ZIP，最后执行解压测试与 SHA-256。发布前还必须检查：
+`build-portable.sh` 拒绝覆盖同名 ZIP，先用 C# 原生验证器检查公开合成 PetPack，再交叉发布 `win-x64` self-contained 应用，强制产物不含 `Pets/` 或 `.petpack`，最后执行 ZIP 解压测试与 SHA-256。当前本地机械证据：
 
-- 7 项 MSTest，覆盖 RGBA 到 PBGRA 转换、鼠标 alpha、点击往返、左右 root motion、时间线和方形视口。
-- WPF 与全解决方案零警告、零错误编译。
-- 五百 53 clip、飞流 31 clip，共 12,013 帧的结构、批准状态、媒体长度、首尾帧渲染和 SHA-256 完整性。
-- ZIP 可完整解压，主程序为 AMD64 PE32+ GUI，包含两个 `.petsgraph-pet`，不包含 macOS 元数据。
-- 真实 Windows 11 x64 上的透明、DPI、命中、拖动、托盘、边界、锁屏恢复和长时运行人工闸门。
+- 18 项 MSTest 通过，覆盖 store、deflate、尾随载荷、重复 JSON key、路径越界、大小写冲突、符号链接、摘要不符、canonical copy、cache 重建、同版本不同字节冲突、卸载全部、不安全安装索引、独立行为、隐藏过渡、RGBA 到 PBGRA、全局大小和语义版本。
+- WPF 与全解决方案 Release 构建为 0 警告、0 错误；`dotnet format` 空白校验通过。
+- C# 原生验证器通过公开 store 合成包、临时 deflate 合成包、五百和飞流真实候选，四个包的 SHA-256 分别与参考验证器和私有转换记录一致。
+- 本地临时零素材 ZIP 的 SHA-256 为 `8204056ea3d0a2f95721b19596147103dccd686cb75e6f55e288ac5d486131ff`。该 ZIP 可完整解压，主程序由 `file` 识别为 `PE32+ executable (GUI) x86-64`，内部没有 `Pets/` 或 `.petpack`。它只是当前机械证明，不是冻结交付物或 Release 附件。
+- `.github/workflows/windows.yml` 已配置在 `windows-2025` 上执行锁定还原、18 项测试、WPF 构建、零素材 self-contained ZIP、AMD64 PE 与内容检查；当前内容提交尚无对应远端 CI 运行，不能把工作流定义写成已通过。
+- 真实 Windows 11 x64 上的透明命中、DPI、拖动、托盘、多显示器、隐藏恢复、应用升级保留和长时间正常速度观看仍是人工闸门。
 
-GitHub 推送到 `codex/windows-win11-x64`、`main` 或相关 Pull Request 时，`.github/workflows/windows.yml` 在 `windows-2025` 上重新执行锁定还原、测试、WPF 编译、代码运行 ZIP、AMD64 PE 和 ZIP 结构检查。该 artifact 不含私有宠物媒体，仅保留 7 天。内容提交 `2b539a6` 对应运行 `32114691048`，全部步骤通过。
+当前开发 ZIP 没有代码签名，可能触发 SmartScreen。正式 `1.0.0` 之前还必须在真实 Windows x64 机器运行 PowerShell 打包入口和 GUI 验收，冻结人类看过的候选，再决定是否增加代码签名或安装器。
+
+### Windows `v0.6.0` 历史 Release 复验
 
 `.github/workflows/windows-release-verify.yml` 只验证已上传到草稿 Release 的 Windows ZIP，它不创建标签、不上传附件、不发布草稿。GitHub 会对只有 `contents: read` 的工作流 token 隐藏草稿 Release，因此该工作流经发布所有者明确授权使用 `contents: write`，但步骤只允许 `gh release view` 与 `gh release download`。流程从默认分支读取双平台清单，确认不可移动标签是当前发布契约的祖先且 Windows 源码相对标签没有变化，要求草稿附件集合与清单严格一致，并核对字节数、SHA-256、版本、AMD64 PE、双包数量和运行时完整性。
 

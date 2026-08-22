@@ -6,8 +6,8 @@
 
 | 层 | 状态 | 含义 |
 |---|---|---|
-| 目标产品 | 部分实现 | PetPack 1.0、双宠私有候选和 macOS 零素材 Player 已实现；Windows、正式交付与双平台验收仍待实现 |
-| PetPack 1.0 公开核心 | 已实现，macOS 已接入 | schema、标准库验证器、合成夹具、确定性构建与安全回归；Swift 原生实现通过同一合法夹具与真实候选 |
+| 目标产品 | 部分实现 | PetPack 1.0、双宠私有候选和双平台零素材 Player 已实现；正式交付与双平台人工验收仍待实现 |
+| PetPack 1.0 公开核心 | 已实现，双平台已接入 | schema、标准库验证器、合成夹具、确定性构建与安全回归；Swift 与 C# 原生实现通过同一合法夹具与真实候选 |
 | 五百与飞流 PetPack 候选 | 已机械验证、待运行时验收 | 旧批准媒体逐字节转换，排除交互与窗口 root motion，尚未进入 approved 或 delivery |
 | 当前公开版 | 已实现、已发布 | `v0.6.0` 内嵌五百与飞流，使用 schema `0.4.0` `.petsgraph-pet` |
 | 第三只宠物 | 部分素材完成 | 小葵已有身份与部分连续动作基础，尚未形成 PetPack 1.0 可交付包 |
@@ -66,7 +66,7 @@ Studio 输出纯数据 `.petpack`。Player 不调用 Studio，也不知道 provi
 
 macOS 与 Windows 可以使用不同语言实现，但必须通过同一批 PetPack 测试向量和状态机一致性用例。共享的是公开契约与验证证据，不强求共用 UI 或渲染代码。
 
-当前 `petpack/` 已实现普通 ZIP 容器预算、跨平台安全路径、完整性覆盖、固定舞台、clip、动作图、被动行为和原始 RGBA 媒体长度验证，并提供不含真实身份的确定性合成包。macOS 原生实现已经接入同一契约，完成 canonical 库、更新事务、原始 RGBA 映射、被动行为会话和固定舞台渲染；Windows 尚未接入。原生校验、测试和 App 构建通过仍不等于真实桌面视觉验收通过。
+当前 `petpack/` 已实现普通 ZIP 容器预算、跨平台安全路径、完整性覆盖、固定舞台、clip、动作图、被动行为和原始 RGBA 媒体长度验证，并提供不含真实身份的确定性合成包。macOS 与 Windows 原生实现都已接入同一契约，完成 canonical 库、更新事务、原始 RGBA 映射、被动行为会话和固定舞台渲染。原生校验、测试和应用构建通过仍不等于真实桌面视觉验收通过。
 
 ## 3. 目标数据流
 
@@ -221,17 +221,18 @@ Application
   Player binary and resources
 
 User Data
-  library/<package-id>.petpack
-  cache/<package-id>/...
-  settings/player.json
-  settings/pets/<package-id>.json
+  library-or-Library/<package-id>/<content-version>/<archive-sha>.petpack
+  cache-or-Cache/<package-id>/<content-version>/<archive-sha>/...
+  staging-or-Staging/...
+  registry.json
+  settings.json
 ```
 
 - Player 更新只能替换应用二进制和可重建 cache，不能修改 canonical copy。
 - 普通卸载 Player 默认保留宠物库；彻底删除数据必须单独确认。
 - 相同 package ID 的新版包原子替换，更新失败继续使用旧版。
 - 位置与可见状态按 package ID 保存，全局大小按设备保存。
-- macOS 数据根为 `~/Library/Application Support/PetsGraph/`，Windows 数据根为 `%LOCALAPPDATA%\PetsGraph\`。上述 `library/`、`cache/` 和 `settings/` 位于各自数据根内，路径不能写入包。
+- macOS 数据根为 `~/Library/Application Support/PetsGraph/`，内部目录使用 `Library/`、`Cache/` 和 `Staging/`；Windows 数据根为 `%LOCALAPPDATA%\PetsGraph\`，内部目录使用 `library/`、`cache/` 和 `staging/`。两个平台都在数据根保存 `registry.json` 与 `settings.json`，这些平台路径不能写入包。
 
 ## 11. 安全与信任边界
 
@@ -244,18 +245,22 @@ User Data
 
 ## 12. 当前实现与历史 `v0.6.0`
 
-已发布的 `v0.6.0` 和尚未重构的 Windows 代码仍具有这些旧行为：
+已发布的 `v0.6.0` 仍具有这些旧行为：
 
-- `v0.6.0` 的 Swift/AppKit 与 .NET/WPF 都从安装包内发现五百、飞流 `.petsgraph-pet`；当前 main 只保留 Windows 旧加载器，新 Swift 实现不再直接加载旧包。
+- `v0.6.0` 的 Swift/AppKit 与 .NET/WPF 都从安装包内发现五百、飞流 `.petsgraph-pet`；当前 main 的两个新 Player 都不再直接加载旧包。
 - schema `0.4.0` 使用固定 clip 裁剪的预乘 RGBA 连续帧流。
 - 每只宠物已有独立窗口、行为会话、随机时钟和位置，全局七档倍率已经存在。
 - 菜单仍包含宠物装载、点击坐立和指定睡姿等旧交互。
-- Windows 核心仍包含 root motion、点击命中、历史 interaction 节点和窗口位移逻辑；macOS 新实现已经删除这些目标外能力。
+- 两个平台的历史标签代码都包含 root motion、点击交互或指定动作；当前 main 的新实现已经删除这些目标外能力。
 - Windows `v0.6.0` 是 .NET 10 WPF self-contained x64 ZIP，macOS 是 Apple Silicon DMG。
 
 这些能力继续由历史 Release、测试和 Git 保护。新重构不能把旧发布物改写成不存在，也不能因删除目标交互而删除批准媒体与生产履历。
 
-macOS `0.7.0-dev` 当前机械实现包括严格 ZIP 与 ZIP64 校验、store 与 deflate、完整性和媒体长度校验、不可变 canonical copy、可重建 cache、幂等导入、升级确认、降级拒绝、卸载、每宠独立行为会话、隐藏到稳定节点后暂停、固定舞台、透明命中拖动、全局七档倍率、动态菜单和状态持久化。它已经构建为不含 `.petpack` 的 Apple Silicon ad-hoc 签名 App，并用公开合成包和两个私有真实候选完成原生校验。真实桌面正常速度观看、菜单操作、多宠长时性能和应用升级保留仍需人工验收。
+macOS `0.7.0-dev` 当前机械实现包括严格 ZIP 与 ZIP64 校验、store 与 deflate、完整性和媒体长度校验、不可变 canonical copy、可重建 cache、幂等导入、升级确认、降级拒绝、卸载、每宠独立行为会话、隐藏到稳定节点后暂停、固定舞台、透明命中拖动、全局七档倍率、动态菜单和状态持久化。它已经构建为不含 `.petpack` 的 Apple Silicon ad-hoc 签名 App，并用公开合成包和两个私有真实候选完成原生校验。
+
+Windows x64 `0.7.0-dev` 已用 C# 与 WPF 实现相同边界，并增加 RGBA 到 WPF `Pbgra32` 的显式通道转换、单实例托盘宿主、零宠物启动、多包导入和 self-contained AMD64 便携 ZIP。18 项 MSTest、全解决方案 Release 构建、公开 store 与 deflate 合成包、两个私有真实候选的原生校验，以及零宠物 ZIP 结构和 PE 架构检查均已通过。两个平台的安装索引都会重新验证包 ID、版本和摘要，损坏索引不能把内部路径导向数据根之外。
+
+以上都是机械证据。真实桌面正常速度观看、菜单操作、透明命中、DPI、多显示器、多宠长时性能、隐藏恢复、应用升级保留和双平台同包视觉一致性仍需人工验收。
 
 ## 13. 迁移边界
 
@@ -267,7 +272,7 @@ macOS `0.7.0-dev` 当前机械实现包括严格 ZIP 与 ZIP64 校验、store �
 - macOS 与 Windows 原生透明窗口、菜单入口、位置持久化和全局倍率。
 - 已批准媒体、生产履历、双平台测试与 Release 回滚事实。
 
-Windows 仍需要重构，macOS 已完成相应机械实现：
+macOS 与 Windows 已完成以下机械切换，后续工作转入人工验收和发布加固：
 
 - 内嵌宠物发现改为外部 `.petpack` 导入与内部宠物库。
 - 点击、指定睡姿和 interaction 命令改为纯自主行为。
