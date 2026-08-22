@@ -1,12 +1,12 @@
 # DIRECTORY：PetsGraph 项目目录与 Git 边界
 
-> Target: 本文件定义下一代目录结构和迁移护栏。As-built: 公开源码、私有 Studio、宠物事实源、旧包、Codex 工作区与本地产物均已迁入职责目录；PetPack 1.0 与新 Player 行为尚待实现。
+> Target: 本文件定义下一代目录结构和迁移护栏。As-built: 公开源码、私有 Studio、宠物事实源、旧包、Codex 工作区与本地产物均已迁入职责目录；PetPack 1.0 公开契约已经实现，新 Player 行为尚待实现。
 
 ## 1. 根目录原则
 
 - `/Users/maxwell/Desktop/Projects/petsgraph` 是整个 PetsGraph 项目的唯一物理根目录。
 - Player、PetPack 公开契约、私有 Studio、宠物事实源、PetPack 产物和 Codex 宠物都位于该根目录下。
-- 边界通过明确子树、Git 跟踪规则、私有仓库和备份策略实现，不把 PetsGraph 资产拆到项目根之外。
+- 边界通过明确子树、Git 跟踪规则、私有目录和备份策略实现，不把 PetsGraph 资产拆到项目根之外。
 - 根 Git 继续承担公开项目历史、Player、公开规范、公开 Codex 宠物、品牌和发布文档。
 - `studio/` 是不创建独立 Git 仓库的本机私有目录；根 Git 必须忽略整个 `studio/`，也不得把它记录为 submodule 或 gitlink。
 - `pets/` 是宠物素材唯一事实源。`petpacks/` 和 `codexpets/` 只保存面向具体运行时的衍生工作区与交付产物，不复制形成第二套原始资料真相源。
@@ -123,12 +123,14 @@ player/
 
 ```text
 petpack/
-├── schema/
+├── README.md
+├── schema/                    # 五份公开 JSON Schema
 ├── fixtures/
-│   ├── valid/
-│   └── invalid/
-├── test-vectors/
-└── validator/
+│   ├── README.md
+│   └── synthetic-cat-v1.petpack
+├── tools/                     # 确定性合成包构建器
+├── validator/                 # 标准库参考验证器与 CLI
+└── tests/                     # 合法包与动态坏包安全回归
 ```
 
 - 保存公开、平台无关的 PetPack 契约和安全测试。
@@ -158,7 +160,7 @@ studio/
 └── .env.local
 ```
 
-- 保存 provider 适配、提示约束、抠图、固定几何、评审、包编译、签名和私有测试。
+- 保存 provider 适配、提示约束、抠图、固定几何、评审、包编译、未来签名和私有测试。
 - 不把大体积宠物媒体复制进 `studio/`；工具通过受控相对路径和清单读取 `pets/`、写入 `petpacks/` 或 `codexpets/workspaces/`。
 - `studio/` 不建立独立 Git 历史，工具和配置由本机私有备份保护；根公开 Git 只记录旧公开工作副本的移除，不记录迁入后的内容。
 - `.env.local` 只保存真实凭据并由 Studio 自己的忽略规则保护。日志、任务记录和错误不得输出完整凭据或临时签名 URL。
@@ -349,6 +351,6 @@ codexpets/
 
 ## 15. 当前状态
 
-状态为 `directory-migration-complete / petpack-implementation-next`。
+状态为 `petpack-contract-implemented / wubai-feiliu-conversion-next`。
 
-目标目录和 Git 边界已经确认。公开源码、私有 Studio、宠物事实源、旧包、Codex 私有工作区、清理审计、v0.6.0 本地发布副本、Python 环境与模型缓存均已迁移并验证；全部旧根入口已经退出。Player 行为仍为 v0.6.0 as-built，PetPack 1.0 和新运行时尚待实现。任何后续报告必须逐子树说明实际状态，不能把路径迁移写成新运行时已经完成。
+目标目录和 Git 边界已经确认。公开源码、私有 Studio、宠物事实源、旧包、Codex 私有工作区、清理审计、v0.6.0 本地发布副本、Python 环境与模型缓存均已迁移并验证；全部旧根入口已经退出。公开 `petpack/` 已实现 1.0 schema、参考验证器、合成夹具和安全回归。Player 行为仍为 v0.6.0 as-built，五百与飞流正式包、新 Player 装载和新运行时仍待实现。任何后续报告必须逐子树说明实际状态，不能把契约验证器写成桌面运行时已经完成。

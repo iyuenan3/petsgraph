@@ -1,26 +1,26 @@
 # ROADMAP：PetsGraph
 
-## Now（目录、清理与迁移基线）
+## Now（PetPack 契约已实现，双宠转换准备）
 
 1. 提交最新产品、目录、PetPack 和迁移文档，直接在 `main` 上形成可回滚基线并及时 push。
 2. 只读盘点 Swift、WPF、旧 schema `0.4.0`、制作工具、素材工作区、发布物和未提交文件，记录文件数、字节数、摘要和处置分类。
 3. 将明确失败的大型媒体、字节完全重复副本、可重建缓存和临时产物连同审计清单移入系统回收站；保留小型任务记录、摘要、失败原因和评审结论。
-4. 已建立并验证 `player/`、`codexpets/`、`assets/brand/`、私有 `studio/`、`pets/`、`petpacks/` 与 `.local/` 边界；继续实现公开 `petpack/`，边界检查必须持续阻止私有内容进入公开 Git。
+4. 已建立并验证 `player/`、`petpack/`、`codexpets/`、`assets/brand/`、私有 `studio/`、`pets/`、`petpacks/` 与 `.local/` 边界；边界检查必须持续阻止私有内容进入公开 Git。
 5. 已完成 `codex-pets/` 到 `codexpets/` 的小切片迁移，公开包 ID、媒体字节、摘要、安装和备份替换语义均保持。
 6. 已完成 macOS 与 Windows 源码及测试的机械迁移，`v0.6.0` as-built 的 67 项 Swift 测试、7 项 Windows 测试和 WPF 构建保持可运行，后续再开始产品行为重写。
 7. 已将 provider、抠图、评审和包编译工具及 dotenv 配置一次性迁入根 Git 忽略的 `studio/`，没有创建独立 Git，也没有保留根目录或 `petsdesk` 旧路径兼容。
 8. 已分职责迁移五百、飞流的事实源、旧包和 Codex 私有工作区，并整理小葵及其他现有宠物资料；小葵本轮不继续生成、抠图或制作 PetPack。
 9. 已把通用制作、精细抠图和 Seedance 环境迁入 `.local/environments/`，把 rembg 模型迁入 `.local/cache/`，并保存精确依赖快照。旧根 Swift 构建缓存移入系统回收站。
+10. 已实现 PetPack `formatVersion=1.0.0` 的五份 schema、标准库参考验证器、确定性合成包和 24 项合法包与动态坏包回归；公开 CI 覆盖 macOS 与 Windows，真实宠物媒体未进入夹具。
 
 ## Next（PetPack 1.0 与双平台 Player）
 
-1. 实现普通 ZIP `.petpack`、`cropped-rgba-clips` 基础表示、路径安全、完整性、版本更新、动作图与合成测试向量。
-2. 用离线转换器将五百和飞流批准媒体分别导出为 PetPack 1.0，只保留自主睡眠、换姿和已批准自主活动，不带签名、interaction、步行或窗口 root motion。
-3. 实现 Player 内部 canonical 库、幂等装载、原子更新、坏包隔离、卸载和应用升级保留。
-4. 重构 macOS 与 Windows x64 Player，使发布物零宠物素材并实现多宠独立时钟、固定拖动位置、跨启动可见状态、统一 `0.5` 至 `2.0` 缩放和既定菜单。
-5. 从新目标运行时删除点击坐立、指定睡姿、动作菜单、窗口 root motion 和旧 schema `0.4.0` 直接加载；历史能力只由 `v0.6.0` 标签与 Release 保存。
-6. 建立合法包、坏包、重复包、升级失败、卸载全部、应用升级、多宠 2/4/8 并发和双平台状态机一致性回归。
-7. 先完成 Apple Silicon macOS 真实桌面验收，再完成 Windows x64 同包验收，最后发布首个正式 `1.0.0`。
+1. 用离线转换器将五百和飞流批准媒体分别导出为 PetPack 1.0，只保留自主睡眠、换姿和已批准自主活动，不带签名、interaction、步行或窗口 root motion，并用公开参考验证器回读。
+2. 实现 Player 内部 canonical 库、幂等装载、原子更新、坏包隔离、卸载和应用升级保留。
+3. 重构 macOS 与 Windows x64 Player，使发布物零宠物素材并实现多宠独立时钟、固定拖动位置、跨启动可见状态、统一 `0.5` 至 `2.0` 缩放和既定菜单。
+4. 从新目标运行时删除点击坐立、指定睡姿、动作菜单、窗口 root motion 和旧 schema `0.4.0` 直接加载；历史能力只由 `v0.6.0` 标签与 Release 保存。
+5. 建立重复包、升级失败、卸载全部、应用升级、多宠 2/4/8 并发和双平台状态机一致性回归，并让平台加载器消费公开 PetPack 测试向量。
+6. 先完成 Apple Silicon macOS 真实桌面验收，再完成 Windows x64 同包验收，最后发布首个正式 `1.0.0`。
 
 ## Later
 

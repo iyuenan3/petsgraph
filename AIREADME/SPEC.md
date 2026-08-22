@@ -1,6 +1,6 @@
 # SPEC：PetsGraph Player 与 PetPack
 
-> Target: PetPack 1.0 的产品语义、ZIP 容器和 `cropped-rgba-clips` 长期兼容媒体基线已经确定，公开 schema、验证器与 Player 尚待实现。As-built: 当前 `v0.6.0` 仍加载 schema `0.4.0` 的 `.petsgraph-pet` 并内嵌五百与飞流。两者不得混写成同一已实现状态。
+> Target: PetPack 1.0 的产品语义、ZIP 容器和 `cropped-rgba-clips` 长期兼容媒体基线已经确定。As-built: 公开 schema、标准库参考验证器、合成包与安全回归已经实现，下一代 Player 尚未接入；当前 `v0.6.0` 仍加载 schema `0.4.0` 的 `.petsgraph-pet` 并内嵌五百与飞流。三者不得混写成同一已实现状态。
 
 ## 1. 契约范围
 
@@ -41,12 +41,11 @@ PetPack 是私有制作系统与公开 PetsGraph Player 之间唯一的运行时
   clips/
     <clip-id>.json
   integrity.json
-  signature.json          # 可选，证明来源与内容身份，不是 DRM
 ```
 
-容器冻结为普通 ZIP，文件扩展名为 `.petpack`。归档根直接包含上述清单，不增加一层同名目录。条目名使用 UTF-8 与 `/` 分隔符；禁止加密、分卷、绝对路径、`..`、符号链接、重复规范路径和大小写折叠后冲突。条目压缩只允许 store 或 deflate，允许 ZIP64，以容纳大型长期媒体。Player 必须先验证中央目录、路径和展开后大小预算，再把内容复制到内部 canonical 库或解包到可重建 cache。
+容器冻结为普通 ZIP，文件扩展名为 `.petpack`。归档必须从 ZIP 本地文件头开始，并在 ZIP 结束记录处结束，不能包含前置或尾随载荷。归档根直接包含上述清单，不增加一层同名目录。条目名使用 UTF-8、NFC Unicode 与 `/` 分隔符；禁止加密、分卷、绝对路径、`..`、反斜线、控制字符、符号链接、可执行权限、可执行内容、重复规范路径、Windows 保留名和大小写折叠后冲突。条目压缩只允许 store 或 deflate，允许 ZIP64，以容纳大型长期媒体。参考验证器的默认上限为 100,000 个条目、64 GiB 包文件、64 GiB 总展开大小、32 GiB 单条目、16 MiB 单 JSON 和 200 倍压缩比。Player 必须先验证中央目录、路径和展开后大小预算，再把内容复制到内部 canonical 库或解包到可重建 cache。
 
-PetPack 1.0 的必需透明媒体基线冻结为 `cropped-rgba-clips`：每个 clip 使用整段固定裁剪框、sRGB、预乘 `RGBA8` 和连续原始帧流，正式倍率为 `1.0x`。其他 representation 可以以后追加，但任何当前或未来 Player 都不能因此放弃基础表示的兼容性。
+首个 PetPack `formatVersion=1.0.0` 的必需透明媒体基线冻结为 `cropped-rgba-clips`：每个 clip 恰好包含一个整段固定裁剪框、sRGB、预乘 `RGBA8` 连续原始帧流，正式倍率为 `1.0x`。后续格式版本可以增加可选 representation，但任何未来 Player 都不能因此放弃对 1.0 基础表示的兼容性。
 
 禁止把客户原始照片、视频母片、提示词、任务记录、评审视频、生成凭据或私有制作目录装入正式包。
 
@@ -73,16 +72,19 @@ PetPack 1.0 的必需透明媒体基线冻结为 `cropped-rgba-clips`：每个 c
     "baseDisplayHeight": 180,
     "defaultNode": "rest.primary"
   },
+  "capabilities": {
+    "required": ["cropped-rgba-clips"],
+    "optional": []
+  },
   "graph": "graph.json",
   "behavior": "behavior.json",
-  "integrity": "integrity.json",
-  "signature": "signature.json"
+  "integrity": "integrity.json"
 }
 ```
 
 约束：
 
-- `package.id` 在同一宠物谱系中稳定，不能因为换平台而改变。
+- `package.id` 在同一宠物谱系中稳定，不能因为换平台而改变；首个 1.0 要求 `pet.id` 与它相同。
 - `contentVersion` 只在媒体、动作图、行为或包级显示事实改变时提升。
 - `pet.displayName` 用于菜单，Player 不写死具体宠物名称。
 - `species` 第一版允许 `cat` 与 `dog`，但动作语义和验收不因物种字段自动套模板。
@@ -146,7 +148,9 @@ PetPack 1.0 的必需透明媒体基线冻结为 `cropped-rgba-clips`：每个 c
   "defaultNode": "rest.primary",
   "timing": {
     "strategy": "independent-random-dwell",
-    "dwellRangesSeconds": [],
+    "dwellRangesSeconds": {
+      "rest.primary": [30, 60]
+    },
     "avoidImmediateRepeat": true
   },
   "nodeWeights": {},
@@ -171,7 +175,7 @@ PetPack 1.0 的必需透明媒体基线冻结为 `cropped-rgba-clips`：每个 c
 - `id`、`type`、原生帧率或逐帧时长、帧数和持续时间。
 - 固定参考画布、固定底部中心锚点和整段固定几何。
 - 循环的安全退出点，过渡的入口与出口节点。
-- 一个或多个媒体 `representations`，包含编码、分辨率、Alpha、色彩空间、帧率、字节数和 SHA-256。
+- 首个 1.0 恰好一个 `cropped-rgba-clips` 媒体 `representation`，包含编码、分辨率、Alpha、色彩空间、帧率、字节数和 SHA-256。
 - 原生连续帧状态、正式播放倍率和任何速度处理记录。
 - 对应批准配方与评审记录的私有摘要指针，不包含客户路径或提示词正文。
 
@@ -181,8 +185,9 @@ PetPack 1.0 的必需透明媒体基线冻结为 `cropped-rgba-clips`：每个 c
 - 同一 clip 内不能逐帧重新缩放、重定位或跟随 Alpha 包围盒裁切。
 - 固定裁剪只改变存储窗口，不能改变统一画布中的主体位置和锚点。
 - Alpha 与边缘处理必须在整段使用一致的背景色族模型，不能逐帧调参造成毛发闪烁。
-- Player 可以从多个 representation 中选择自己支持的版本，但不得通过降帧、改速或跳过过渡静默降级。
+- 首个 1.0 不进行 representation 选择。未来格式允许增加可选表示时，Player 也不得通过降帧、改速或跳过过渡静默降级。
 - PetPack 1.0 必须包含 `cropped-rgba-clips` 基础表示。它声明固定 crop、宽高、`bytesPerRow = width × 4`、帧数、帧率或逐帧时长、预期总字节数和 SHA-256；媒体长度必须与这些字段严格一致。
+- `presentationOffsetPx` 必须等于固定 crop 的左上角坐标，Player 据此把裁剪帧恢复到统一参考画布中的原位置。
 - 小葵以后可以验证更小的透明视频或图像 representation，但它只能作为附加能力，不能替换或废弃已经交付包的基础表示。
 
 ## 8. Player 多宠宿主契约
@@ -245,8 +250,8 @@ Player 不提供动作、睡姿、场景或声音菜单。
 
 ## 10. 版本与长期兼容
 
-- `formatVersion` 使用语义化版本。未知必需主版本拒绝并给出可读错误。
-- 同一主版本的新可选字段允许旧 Player 忽略；未知必需能力必须拒绝，不能静默错误播放。
+- 当前参考验证器严格接受 `formatVersion=1.0.0`，未知格式版本和未声明字段一律拒绝并给出可读错误。
+- 未知必需能力必须拒绝，未知可选能力可以忽略。新增结构或 representation 需要显式的新格式版本，不能在 1.0.0 中暗加字段。
 - 一旦某包在 Player 中成功装载，其基础动作图、时序、锚点和媒体必须在后续 Player 继续可用。
 - Player 升级不得把 canonical copy 放在应用安装目录，也不得在迁移时原位改写正式包。
 - 新功能只能通过 Player 兼容能力或新版 `.petpack` 增量提供。旧包缺少声音等新内容时继续静音播放。
@@ -254,13 +259,14 @@ Player 不提供动作、睡姿、场景或声音菜单。
 
 ## 11. 完整性、安全与隐私
 
-- `integrity.json` 为所有运行时文件保存规范相对路径、字节数、媒体类型和 SHA-256。
+- `integrity.json` 为除自身外的每个运行时文件保存规范相对路径、字节数、媒体类型和 SHA-256，并要求覆盖集合完全相等。
 - 包不得包含脚本、动态库、插件入口、绝对路径、符号链接、网络请求、provider token、签名 URL 或客户原始资料。
 - 路径使用 `/`、区分稳定大小写规则并做 Unicode 规范化，避免 macOS 与 Windows 解析差异。
 - 坏包、重复包、更新失败和解码失败不得让 Player 崩溃或替换当前可用宠物。
-- `signature.json` 可证明官方制作来源与内容身份。未签名合规包可以运行，但 Player 应明确显示其不是官方定制包。
-- 签名不限制复制、备份、离线播放或开源 Player 的实现。
-- 五百与飞流的首批 PetPack 1.0 只实现 `integrity.json`，不生成 `signature.json`。官方签名算法在装载、更新、卸载和双平台播放稳定后另行冻结。
+- 首个 `formatVersion=1.0.0` 不接受 `signature.json`。其中的哈希用于发现损坏和内部不一致，不证明制作来源，也不阻止能够同时改写内容与清单的人修改包。
+- 五百与飞流的首批 PetPack 1.0 只实现 `integrity.json`。官方签名算法、信任根和 UI 语义在装载、更新、卸载和双平台播放稳定后另行冻结，并通过后续显式格式契约加入。
+- 未来签名只证明来源与内容身份，不限制复制、备份、离线播放或开源 Player 的实现。
+- 参考验证器成功报告不输出本机完整路径或 `pet.displayName`，失败报告不回显包内容、客户路径或私有制作记录。
 
 ## 12. 制作与验收契约
 

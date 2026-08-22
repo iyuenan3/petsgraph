@@ -397,3 +397,12 @@
 - Changed: 178,648,008-byte 的 rembg `isnet-general-use.onnx` 模型迁入 `.local/cache/rembg/`，SHA-256 保持 `60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a`。300 个私有可执行脚本切换到新职责路径，历史 JSON、提示词和评审记录不改写。
 - Removed: 旧根 Swift `.build/` 缓存共 2,991 个文件、304,741,588 bytes，已移入 `/Users/maxwell/.Trash/PetsGraph-refactor-20260823-022143/root-swift-build-cache` 等待用户复查，inode 集合摘要保持 `5a67252d8c0b5b9e3ab9bff8fe7abb46dd83c16d25e5e470bbfd6ce2a42f0305`。
 - Review: 三套环境的核心依赖导入、五个通用制作入口、两个 Seedance 入口、全量私有 Python 语法和 Shell 语法检查通过。rembg 的程序化导入通过；原环境未安装可选 CLI extras，该项不作为迁移回归。
+
+## Unreleased PetPack 1.0 contract · 2026-08-23
+
+- Added: 公开 `petpack/` 提供 manifest、graph、behavior、clip 与 integrity 五份 JSON Schema，标准库参考验证器与 CLI，以及不含真实宠物身份的确定性合成包构建器。
+- Added: PetPack `formatVersion=1.0.0` 冻结普通 ZIP、单一 `cropped-rgba-clips` 基线、固定底部中心舞台、被动自主行为、完整有向图、required capabilities 与首版无签名语义。
+- Added: 独立公开 CI 在 macOS 与 Windows 运行契约、安全回归、合成包验证和逐字节确定性重建，不读取私有 Studio 或真实宠物包。
+- Fixed: 验证器在读取包内容前限制条目、归档、展开大小、单文件、JSON 和压缩比，拒绝前置或尾随载荷、路径越界、跨平台名称冲突、加密、符号链接、可执行内容、重复 JSON key、完整性缺口、媒体长度不符和不可达动作图。
+- Security: 成功报告只输出包文件名，不输出完整本机路径或 `pet.displayName`；失败报告使用稳定错误码，不回显包内容、客户路径或生产记录。
+- Review: 24 项回归、Python 编译、CLI 验证、store 与 deflate、确定性重建和 Git 差异检查通过。提交夹具共 12 个文件、11,806 bytes，SHA-256 为 `812f0459fe444ff4cf657908d3c9b235be21f591d796ac7d0f02e50f564ac2c1`。本切片不表示五百、飞流正式包或新 Player 已完成。

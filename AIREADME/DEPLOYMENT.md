@@ -18,6 +18,19 @@
 
 PetPack 1.0 使用普通 ZIP 容器和必需的 `cropped-rgba-clips` 基础表示。五百与飞流首批包只有完整性哈希，不带官方签名；签名、公证、Windows 代码签名和可选紧凑媒体均属于后续增强。历史 `v0.6.0` 路径和摘要不因新方向而改写。
 
+### PetPack 1.0 公开契约验证
+
+公开契约已经实现，当前不依赖私有 Studio、真实宠物包或第三方 Python 包：
+
+```bash
+python3 -m unittest discover -s petpack/tests -v
+python3 -m petpack.validator petpack/fixtures/synthetic-cat-v1.petpack
+python3 -m petpack.tools.build_fixture /tmp/petsgraph-synthetic-cat-v1.petpack
+cmp petpack/fixtures/synthetic-cat-v1.petpack /tmp/petsgraph-synthetic-cat-v1.petpack
+```
+
+当前回归为 24 项。提交的合成包共 12 个文件、11,806 bytes，SHA-256 为 `812f0459fe444ff4cf657908d3c9b235be21f591d796ac7d0f02e50f564ac2c1`，只包含程序生成的 2×2 RGBA 像素。通过这些检查只证明公开容器与语义契约，不证明五百、飞流转换、Player 导入、平台解码或真实桌面表现。
+
 ## macOS v0.6.0 发布基线
 
 PetsGraph `0.6.0` 是 Apple 芯片专用双宠正式版，最低支持 macOS 14。App 名称为 `PetsGraph`，Bundle ID 为 `com.maxwell.petsgraph`，使用 ad-hoc 签名，尚未使用 Developer ID 或 Apple 公证。App 使用新的双猫相伴 Logo，继续内嵌已经验收的两个 `0.5.10` 宠物包。
