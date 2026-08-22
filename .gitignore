@@ -7,7 +7,6 @@ __pycache__/
 *.pyc
 .env
 .env.*
-!.env.example
 
 # Local-only production, pet sources, private packages, and rebuildable outputs.
 studio/

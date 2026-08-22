@@ -125,7 +125,7 @@ Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公
 - `player/macos/Sources/PetsGraphApp/`：当前 AppKit 透明窗口、菜单和渲染。
 - `player/windows/src/PetsGraph.Core/`：当前 C# 包校验、动作图、时间线和媒体转换。
 - `player/windows/src/PetsGraph.App/`：当前 Windows x64 WPF 透明窗口和托盘。
-- `tools/`：当前构建、制作、校验和历史 provider 工具，后续按公开 Player 与私有 Studio 边界迁移。
+- `studio/`：本机私有制作工具、provider 配置和环境模板，整个目录被根 Git 忽略，不存在于公开 clone。
 - `codexpets/packages/public/`：当前五百与飞流的 Codex v2 小型图集导出，不是 PetsGraph 连续视频 PetPack。
 - `AIREADME/`：产品、架构、PetPack 契约、迁移与发布真相源。
 
