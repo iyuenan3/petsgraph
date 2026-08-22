@@ -1,5 +1,7 @@
 # PetsGraph for Windows
 
+> 本文记录当前 v0.6.0 历史发行包的使用方式。该版本仍内置五百与飞流，并保留点击切换姿势等旧交互。下一代 PetsGraph Player 将改为零宠物素材发行，通过用户持有的 `.petpack` 装载宠物，且不再提供宠物点击交互或动作菜单。新产品契约见 [AIREADME](../AIREADME/INDEX.md)。
+
 v0.6.0 面向 Windows 11 x64，采用免安装便携包，不使用 MSIX，也不包含代码签名。
 
 [从 GitHub Release 下载 PetsGraph v0.6.0](https://github.com/iyuenan3/petsgraph/releases/download/v0.6.0/PetsGraph-v0.6.0-Windows-x64.zip)
