@@ -328,7 +328,9 @@ class PetPackValidator:
         folded: dict[str, str] = {}
         total = 0
         for info in infos:
-            normalized = _safe_archive_path(info.filename, directory=info.is_dir())
+            # On Windows, ZipInfo.filename replaces backslashes with forward slashes.
+            # orig_filename preserves the archive entry exactly as encoded.
+            normalized = _safe_archive_path(info.orig_filename, directory=info.is_dir())
             collision_key = unicodedata.normalize("NFC", normalized).casefold()
             if normalized in info_by_path:
                 _fail("duplicate_path", f"duplicate ZIP entry {normalized}")

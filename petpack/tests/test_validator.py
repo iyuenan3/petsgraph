@@ -11,6 +11,7 @@ import warnings
 import zipfile
 from pathlib import Path
 from typing import Callable
+from unittest import mock
 
 from petpack.tools.build_fixture import canonical_json, fixture_entries, write_fixture
 from petpack.validator import PetPackLimits, PetPackValidationError, PetPackValidator
@@ -46,19 +47,22 @@ def write_entries(
     extras: list[tuple[str, bytes, int]] | None = None,
     comment: bytes = b"",
 ) -> None:
+    def raw_info(path: str, mode: int) -> zipfile.ZipInfo:
+        # ZipInfo normalizes backslashes on Windows. Assign the stored name after
+        # construction so security tests exercise the exact archive bytes on every OS.
+        info = zipfile.ZipInfo("placeholder", (2026, 1, 1, 0, 0, 0))
+        info.orig_filename = path
+        info.filename = path
+        info.create_system = 3
+        info.external_attr = mode << 16
+        info.compress_type = compression
+        return info
+
     with zipfile.ZipFile(output, "w", compression=compression, allowZip64=True) as archive:
         for path, data in sorted(entries.items()):
-            info = zipfile.ZipInfo(path, (2026, 1, 1, 0, 0, 0))
-            info.create_system = 3
-            info.external_attr = 0o100644 << 16
-            info.compress_type = compression
-            archive.writestr(info, data)
+            archive.writestr(raw_info(path, 0o100644), data)
         for path, data, mode in extras or []:
-            info = zipfile.ZipInfo(path, (2026, 1, 1, 0, 0, 0))
-            info.create_system = 3
-            info.external_attr = mode << 16
-            info.compress_type = compression
-            archive.writestr(info, data)
+            archive.writestr(raw_info(path, mode), data)
         archive.comment = comment
 
 
@@ -145,7 +149,13 @@ class PetPackValidatorTests(unittest.TestCase):
             fixture_entries(),
             extras=[("media\\escape.rgba", b"x", stat.S_IFREG | 0o644)],
         )
-        self.assert_failure(package, "unsafe_path")
+        with zipfile.ZipFile(package) as archive:
+            self.assertIn(
+                "media\\escape.rgba",
+                [info.orig_filename for info in archive.infolist()],
+            )
+        with mock.patch.object(zipfile.os, "sep", "\\"):
+            self.assert_failure(package, "unsafe_path")
 
     def test_rejects_casefold_collision(self) -> None:
         package = self.root / "casefold.petpack"
