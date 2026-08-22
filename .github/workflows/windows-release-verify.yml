@@ -4,14 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Semantic version tag whose draft Windows ZIP should be verified
+        description: Semantic version tag whose public Windows ZIP should be verified
         required: true
         type: string
 
 permissions:
-  # GitHub hides draft releases from GITHUB_TOKEN unless contents has write access.
-  # Every step below remains read-only; publishing stays outside this workflow.
-  contents: write
+  contents: read
 
 concurrency:
   group: petsgraph-windows-release-${{ inputs.tag }}
@@ -65,26 +63,22 @@ jobs:
           if ($zipArtifacts.Count -ne 1) {
             throw "Expected exactly one portable ZIP artifact"
           }
-
-          git diff --quiet $tagCommit HEAD -- global.json windows
-          if ($LASTEXITCODE -ne 0) { throw "Windows release source changed after the immutable tag" }
-
-      - name: Download exact ZIP from draft release
+      - name: Download exact ZIP from public release
         shell: pwsh
         run: |
           $manifest = Get-Content -Raw "release/manifests/$env:RELEASE_TAG.json" | ConvertFrom-Json
           $asset = @($manifest.artifacts | Where-Object { $_.platform -eq "windows-11-x64" -and $_.kind -eq "portable-zip" })[0].file
           $isDraft = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isDraft --jq .isDraft
-          if ($LASTEXITCODE -ne 0 -or $isDraft -ne "true") { throw "Release must still be a draft" }
+          if ($LASTEXITCODE -ne 0 -or $isDraft -ne "false") { throw "Release must be public" }
 
           $declaredAssets = @($manifest.artifacts.file | Sort-Object)
           $actualAssets = @(gh release view $env:RELEASE_TAG `
             --repo $env:GITHUB_REPOSITORY `
             --json assets `
             --jq '.assets[].name' | Sort-Object)
-          if ($LASTEXITCODE -ne 0) { throw "Failed to read draft release assets" }
+          if ($LASTEXITCODE -ne 0) { throw "Failed to read public release assets" }
           if (@(Compare-Object $declaredAssets $actualAssets).Count -ne 0) {
-            throw "Draft release asset set does not match the manifest"
+            throw "Public release asset set does not match the manifest"
           }
 
           New-Item -ItemType Directory -Path "$env:RUNNER_TEMP/release-download" | Out-Null

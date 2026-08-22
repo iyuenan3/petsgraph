@@ -36,6 +36,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check out immutable release source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          path: release-source
+
       - name: Verify immutable tag and dual-platform manifest
         shell: bash
         run: |
@@ -59,12 +65,8 @@ jobs:
             and (([.artifacts[].platform] | sort) == ["macos-arm64", "windows-11-x64"])
             and all(.artifacts[]; (.file | endswith(".petsgraph-pet.zip") | not))
           ' "release/manifests/$RELEASE_TAG.json" >/dev/null
-
-          git diff --quiet "$tag_commit" HEAD -- \
-            Package.swift Package.resolved Sources Tests assets/app-icon tools/build-macos-app.py \
-            global.json windows
-
       - name: Run the full Swift test baseline
+        working-directory: release-source
         run: bash tools/test-swift.sh
 
       - name: Confirm the release is public
