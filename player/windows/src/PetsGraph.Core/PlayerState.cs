@@ -17,4 +17,11 @@ public sealed record PlayerState
     public Dictionary<string, PetPlayerState> Pets { get; init; } = new(StringComparer.Ordinal);
 
     public static double NormalizeScale(double value) => AllowedScales.Contains(value) ? value : 1;
+
+    public static PetPlayerState MigratedLegacyPet(double? anchorX, double? anchorY) => new()
+    {
+        Visible = true,
+        AnchorX = anchorX is { } x && double.IsFinite(x) ? x : null,
+        AnchorY = anchorY is { } y && double.IsFinite(y) ? y : null,
+    };
 }

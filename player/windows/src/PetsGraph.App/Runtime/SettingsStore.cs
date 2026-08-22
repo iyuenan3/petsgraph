@@ -113,25 +113,21 @@ internal sealed class SettingsStore(string root)
                 {
                     continue;
                 }
-                var pet = new PetPlayerState();
-                if (legacy.TryGetProperty("visible", out var visible) &&
-                    visible.ValueKind is JsonValueKind.True or JsonValueKind.False)
-                {
-                    pet.Visible = visible.GetBoolean();
-                }
                 var canvas = package.Manifest.Stage.ReferenceCanvasPx;
                 var pixelScale = package.Manifest.Stage.BaseDisplayHeight * state.GlobalScale / canvas[1];
+                double? anchorX = null;
+                double? anchorY = null;
                 if (legacy.TryGetProperty("left", out var left) && left.TryGetDouble(out var oldLeft) &&
                     double.IsFinite(oldLeft))
                 {
-                    pet.AnchorX = oldLeft + canvas[0] * pixelScale / 2;
+                    anchorX = oldLeft + canvas[0] * pixelScale / 2;
                 }
                 if (legacy.TryGetProperty("top", out var top) && top.TryGetDouble(out var oldTop) &&
                     double.IsFinite(oldTop))
                 {
-                    pet.AnchorY = oldTop + canvas[1] * pixelScale;
+                    anchorY = oldTop + canvas[1] * pixelScale;
                 }
-                state.Pets[id] = pet;
+                state.Pets[id] = PlayerState.MigratedLegacyPet(anchorX, anchorY);
             }
         }
         catch (JsonException)

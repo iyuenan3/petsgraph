@@ -38,4 +38,12 @@ public struct PlayerState: Codable, Equatable, Sendable {
   public static func normalizedScale(_ value: Double) -> Double {
     allowedScales.contains(value) ? value : 1
   }
+
+  public static func migratedLegacyPet(anchorX: Double?, anchorY: Double?) -> PetPlayerState {
+    PetPlayerState(
+      visible: true,
+      anchorX: anchorX.flatMap { $0.isFinite ? $0 : nil },
+      anchorY: anchorY.flatMap { $0.isFinite ? $0 : nil }
+    )
+  }
 }

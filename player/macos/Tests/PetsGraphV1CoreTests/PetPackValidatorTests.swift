@@ -83,6 +83,16 @@ final class PetPackValidatorTests: XCTestCase {
     XCTAssertEqual(PlayerState(globalScale: 1.1).globalScale, 1)
   }
 
+  func testLegacyMigrationKeepsOnlyPositionAndResetsVisibility() {
+    let migrated = PlayerState.migratedLegacyPet(anchorX: 123, anchorY: 456)
+
+    XCTAssertTrue(migrated.visible)
+    XCTAssertEqual(migrated.anchorX, 123)
+    XCTAssertEqual(migrated.anchorY, 456)
+    XCTAssertNil(PlayerState.migratedLegacyPet(anchorX: .infinity, anchorY: .nan).anchorX)
+    XCTAssertNil(PlayerState.migratedLegacyPet(anchorX: .infinity, anchorY: .nan).anchorY)
+  }
+
   func testCanonicalLibraryImportsIdempotentlyAndOwnsItsCopy() throws {
     let root = FileManager.default.temporaryDirectory
       .appendingPathComponent("petsgraph-library-\(UUID().uuidString)", isDirectory: true)

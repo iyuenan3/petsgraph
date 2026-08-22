@@ -313,6 +313,18 @@ public sealed class PetPackV1Tests
     }
 
     [TestMethod]
+    public void LegacyMigrationKeepsOnlyPositionAndResetsVisibility()
+    {
+        var migrated = PlayerState.MigratedLegacyPet(123, 456);
+
+        Assert.IsTrue(migrated.Visible);
+        Assert.AreEqual(123, migrated.AnchorX);
+        Assert.AreEqual(456, migrated.AnchorY);
+        Assert.IsNull(PlayerState.MigratedLegacyPet(double.PositiveInfinity, double.NaN).AnchorX);
+        Assert.IsNull(PlayerState.MigratedLegacyPet(double.PositiveInfinity, double.NaN).AnchorY);
+    }
+
+    [TestMethod]
     public void SemanticVersionOrderingFollowsPrereleaseRules()
     {
         Assert.IsTrue(SemanticVersion.Parse("1.0.0-alpha.1") < SemanticVersion.Parse("1.0.0"));

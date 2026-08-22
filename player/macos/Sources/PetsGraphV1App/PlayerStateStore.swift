@@ -40,11 +40,11 @@ final class PlayerStateStore {
   private func migrateLegacy(for packages: [LoadedPetPack]) -> PlayerState {
     let legacyScale = defaults.double(forKey: "petsgraph.global-scale.v1")
     let scale = PlayerState.normalizedScale(legacyScale == 0 ? 1 : legacyScale)
-    let legacyVisible = defaults.array(forKey: "petsgraph.loaded-pet-ids.v1") as? [String]
     var pets: [String: PetPlayerState] = [:]
     for package in packages {
       let id = package.manifest.package.id
-      var state = PetPlayerState(visible: legacyVisible?.contains(id) ?? true)
+      var anchorX: Double?
+      var anchorY: Double?
       if let value = defaults.dictionary(forKey: "petsgraph.pet-canvas-origin.v2.\(id)"),
         let originX = value["x"] as? Double,
         let originY = value["y"] as? Double,
@@ -53,10 +53,10 @@ final class PlayerStateStore {
       {
         let canvas = package.manifest.stage.referenceCanvasPx
         let pixelScale = package.manifest.stage.baseDisplayHeight * scale / Double(canvas[1])
-        state.anchorX = originX + Double(canvas[0]) * pixelScale / 2
-        state.anchorY = originY
+        anchorX = originX + Double(canvas[0]) * pixelScale / 2
+        anchorY = originY
       }
-      pets[id] = state
+      pets[id] = PlayerState.migratedLegacyPet(anchorX: anchorX, anchorY: anchorY)
     }
     return PlayerState(globalScale: scale, pets: pets)
   }
