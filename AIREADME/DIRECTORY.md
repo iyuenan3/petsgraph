@@ -1,6 +1,6 @@
 # DIRECTORY：PetsGraph 项目目录与 Git 边界
 
-> Target: 本文件定义下一代目录结构和迁移护栏。As-built: Codex 公开包已迁入 `codexpets/`，macOS 与 Windows 平台源码已迁入 `player/`；私有媒体仍位于 `workspaces/`，Studio、宠物事实源、PetPack 与本地产物继续按小切片迁移。
+> Target: 本文件定义下一代目录结构和迁移护栏。As-built: Codex 公开包已迁入 `codexpets/`，平台源码已迁入 `player/`，公开品牌已迁入 `assets/brand/`；私有媒体仍位于 `workspaces/`，Studio、宠物事实源、PetPack 与本地产物继续按小切片迁移。
 
 ## 1. 根目录原则
 
@@ -302,7 +302,7 @@ codexpets/
 | `codex-pets/` | `codexpets/packages/public/` | 已在 `76ad2ea` 完成；不保留旧路径兼容 |
 | `codex-pets/manifest.json` | `codexpets/manifests/public.json` | 已完成；公开条目增加 `public`、素材所有者和授权指针 |
 | `tools/manage-codex-pets.py` | `codexpets/tools/manage.py` | 已完成；安装、校验、冲突拒绝和可恢复备份语义保持 |
-| `assets/app-icon/` | `assets/brand/` | 只迁公开定稿；候选和 QA 进入私有或 `.local/` |
+| `assets/app-icon/` | `assets/brand/` | 已在 `90bfaa8` 完成；公开定稿哈希不变，7 个候选与 QA 文件迁入私有 `studio/brand/` |
 | `output/`、`tmp/`、`.cache/`、`.venv*` | `.local/` 或对应私有事实目录 | 先证明可重建，不能机械移动或删除 |
 | `dist/`、`workspaces/release-dist/` | `.local/dist/`、`petpacks/*/delivery/` 或私有归档 | 先核对远端 Release、摘要和唯一性 |
 | `workspaces/cleanup-audits/` | `pets/audit/` | 保留迁移、恢复位置、哈希和回读证据 |
@@ -349,4 +349,4 @@ codexpets/
 
 状态为 `directory-contract-frozen / migration-in-progress`。
 
-目标目录和 Git 边界已经确认。清理审计、`codexpets` 与 `player/` 源码路径已经迁移并验证；Player 行为仍为 v0.6.0 as-built，Studio、宠物事实源、PetPack 工作区和本地产物仍待切换。任何后续报告必须逐子树说明实际状态，不能把路径迁移写成新运行时已经完成。
+目标目录和 Git 边界已经确认。清理审计、`codexpets`、`player/` 源码路径和 `assets/brand/` 已迁移并验证；Player 行为仍为 v0.6.0 as-built，Studio 生产工具、宠物事实源、PetPack 工作区和本地产物仍待切换。任何后续报告必须逐子树说明实际状态，不能把路径迁移写成新运行时已经完成。

@@ -369,3 +369,9 @@
 - Changed: 根 `Package.swift`、`Sources/`、`Tests/`、`windows/` 与 `global.json` 一次性迁入 `player/macos/` 和 `player/windows/`，平台测试、旧 App 构建入口及日常 Windows CI 同步更新，不保留旧路径兼容入口。
 - Changed: 两个 v0.6.0 历史 Release 复验工作流保持发布时的源码差异门禁，目录迁移不修改其安全语义；新 1.0.0 Player 后续建立独立发布链。
 - Review: Swift 迁移前后均为 67 项测试通过。Windows 在重新生成锁定依赖资产后为 7 项测试通过，完整解决方案构建 0 警告、0 错误。`player/` 没有真实宠物图片、视频或图集。
+
+## Unreleased brand path migration · 2026-08-23
+
+- Changed: 公开 Logo、ICNS、ICO、PNG 和跨平台图标生成器迁入 `assets/brand/`，Player 与日常 Windows CI 同步使用新路径，不保留 `assets/app-icon/` 兼容入口。
+- Changed: 7 个未定稿品牌候选、提示记录和 QA 文件迁入根 Git 忽略的 `studio/brand/`，没有删除，也没有进入公开品牌目录。
+- Review: 私有品牌候选迁移前后共 7 个文件、5,378,099 bytes，纯内容摘要保持 `01b055d119af9b37e504cc31264db2e793a589227bd504595a1d59de6865e3e8`。四个公开定稿文件 SHA-256 不变，Windows 解决方案构建 0 警告、0 错误。
