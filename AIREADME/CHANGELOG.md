@@ -406,3 +406,11 @@
 - Fixed: 验证器在读取包内容前限制条目、归档、展开大小、单文件、JSON 和压缩比，拒绝前置或尾随载荷、路径越界、跨平台名称冲突、加密、符号链接、可执行内容、重复 JSON key、完整性缺口、媒体长度不符和不可达动作图。
 - Security: 成功报告只输出包文件名，不输出完整本机路径或 `pet.displayName`；失败报告使用稳定错误码，不回显包内容、客户路径或生产记录。
 - Review: 24 项回归、Python 编译、CLI 验证、store 与 deflate、确定性重建和 Git 差异检查通过。提交夹具共 12 个文件、11,806 bytes，SHA-256 为 `812f0459fe444ff4cf657908d3c9b235be21f591d796ac7d0f02e50f564ac2c1`。本切片不表示五百、飞流正式包或新 Player 已完成。
+
+## Unreleased two-pet PetPack conversion · 2026-08-23
+
+- Added: 私有 Studio 新增旧 schema `0.4.0` 到 PetPack `formatVersion=1.0.0` 的确定性流式转换器，先验证旧包完整性和最终运行时批准，再逐字节复用选中 RGBA 媒体并写入 ZIP64 候选。
+- Changed: 五百候选保留 10 个自主 dwell、2 个 gateway 和 26 条非交互边，共 36 个 clip；飞流候选保留 9 个自主 dwell 和 16 条非交互边，共 25 个 clip。旧 interaction 节点、关联边、交互循环、网关停留循环和窗口 root motion 不进入新契约。
+- Added: 每个候选旁保存私有 conversion record，记录旧 integrity、最终 review、逐 clip 配方、排除清单、窗口 root motion 处置、输出摘要和公开验证结果，不把私有路径或生产正文写入包内。
+- Review: 五百候选为 1,068,381,496 bytes、SHA-256 `14f719b67da95a4cf089500aedc7c67fb6c74c3a63a273052190856f99b3e0ef`；飞流候选为 596,024,359 bytes、SHA-256 `f0308cd322fbbd1ef1259e64ca3f93a8f7da58b202aa441baef5a26fe61aef25`。公开验证器、旧新媒体摘要映射和重复确定性构建均通过，旧包 integrity 摘要未改变。
+- Review: 两包仍为 `mechanically-validated-awaiting-player-runtime-review`，只位于私有 `candidates/`。在新 Player 的 Apple Silicon macOS 与 Windows x64 真实桌面验收前，不进入 `approved/`、`delivery/` 或公开发布物。

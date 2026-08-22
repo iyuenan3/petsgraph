@@ -1,6 +1,6 @@
 # SPEC：PetsGraph Player 与 PetPack
 
-> Target: PetPack 1.0 的产品语义、ZIP 容器和 `cropped-rgba-clips` 长期兼容媒体基线已经确定。As-built: 公开 schema、标准库参考验证器、合成包与安全回归已经实现，下一代 Player 尚未接入；当前 `v0.6.0` 仍加载 schema `0.4.0` 的 `.petsgraph-pet` 并内嵌五百与飞流。三者不得混写成同一已实现状态。
+> Target: PetPack 1.0 的产品语义、ZIP 容器和 `cropped-rgba-clips` 长期兼容媒体基线已经确定。As-built: 公开 schema、标准库参考验证器、合成包与安全回归已经实现，五百与飞流已经形成私有机械验证候选，下一代 Player 尚未接入；当前 `v0.6.0` 仍加载 schema `0.4.0` 的 `.petsgraph-pet` 并内嵌两只宠物。各层不得混写成同一已实现状态。
 
 ## 1. 契约范围
 

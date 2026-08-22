@@ -31,6 +31,17 @@ cmp petpack/fixtures/synthetic-cat-v1.petpack /tmp/petsgraph-synthetic-cat-v1.pe
 
 当前回归为 24 项。提交的合成包共 12 个文件、11,806 bytes，SHA-256 为 `812f0459fe444ff4cf657908d3c9b235be21f591d796ac7d0f02e50f564ac2c1`，只包含程序生成的 2×2 RGBA 像素。通过这些检查只证明公开容器与语义契约，不证明五百、飞流转换、Player 导入、平台解码或真实桌面表现。
 
+### 五百与飞流 PetPack 1.0 私有候选
+
+私有 Studio 已从两个 `0.5.10` 旧批准包生成 `contentVersion=1.0.0` 候选：
+
+| 宠物 | 私有候选 | clip | 节点 | 边 | bytes | SHA-256 |
+|---|---|---:|---:|---:|---:|---|
+| 五百 | `petpacks/personal/wubai/candidates/wubai-quiet-companion-1.0.0.petpack` | 36 | 12 | 26 | 1,068,381,496 | `14f719b67da95a4cf089500aedc7c67fb6c74c3a63a273052190856f99b3e0ef` |
+| 飞流 | `petpacks/personal/feiliu/candidates/feiliu-quiet-companion-1.0.0.petpack` | 25 | 9 | 16 | 596,024,359 | `f0308cd322fbbd1ef1259e64ca3f93a8f7da58b202aa441baef5a26fe61aef25` |
+
+转换前完整回读旧 integrity，转换后公开验证器通过，旧媒体到新媒体的字节数与 SHA-256 不匹配数均为 0。两个候选分别重复构建一次，前后包级 SHA-256 不变。五百排除 2 个 interaction 节点、2 个网关停留循环及 15 个其他交互 clip，保留两条场景过渡的像素，但不携带其旧窗口 root motion；飞流排除 2 个 interaction 节点及 6 个交互 clip。候选状态均为 `mechanically-validated-awaiting-player-runtime-review`，尚未进入 `approved/` 或 `delivery/`，不能作为 Player 或真实桌面验收通过。
+
 ## macOS v0.6.0 发布基线
 
 PetsGraph `0.6.0` 是 Apple 芯片专用双宠正式版，最低支持 macOS 14。App 名称为 `PetsGraph`，Bundle ID 为 `com.maxwell.petsgraph`，使用 ad-hoc 签名，尚未使用 Developer ID 或 Apple 公证。App 使用新的双猫相伴 Logo，继续内嵌已经验收的两个 `0.5.10` 宠物包。
