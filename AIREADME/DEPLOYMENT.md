@@ -181,14 +181,14 @@ DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
 - WPF 与全解决方案 Release 构建为 0 警告、0 错误；`dotnet format` 空白校验通过。
 - C# 原生验证器通过公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选，五个包的 SHA-256 分别与参考验证器和私有转换记录一致。
 - 当前本地零素材 ZIP 为 75,267,412 bytes，SHA-256 为 `6d90aa7cada380a30d8a348cac1a5e3c6806ca67ca08be7a135b31da036abac8`。该 ZIP 可完整解压，主程序由 `file` 识别为 `PE32+ executable (GUI) x86-64`，内部没有 `Pets/` 或 `.petpack`。它只是当前机械证明，不是冻结交付物或 Release 附件。
-- `.github/workflows/windows.yml` 已配置在 `windows-2025` 上执行锁定还原、20 项测试、WPF 构建、零素材 self-contained ZIP、AMD64 PE 与内容检查；当前内容提交尚无对应远端 CI 运行，不能把工作流定义写成已通过。
+- `.github/workflows/windows.yml` 已在 `97485a0` 的 `windows-2025` Runner 上通过锁定还原、20 项测试、WPF 构建、零素材 self-contained ZIP、AMD64 PE、内容检查和代码开发产物上传。
 - 真实 Windows 11 x64 上的透明命中、DPI、拖动、托盘、多显示器、隐藏恢复、应用升级保留和长时间正常速度观看仍是人工闸门。
 
 当前开发 ZIP 没有代码签名，可能触发 SmartScreen。正式 `1.0.0` 之前还必须在真实 Windows x64 机器运行 PowerShell 打包入口和 GUI 验收，冻结人类看过的候选，再决定是否增加代码签名或安装器。
 
 本轮 12 项重构要求、清理恢复点、双平台产物摘要和逐项人工门禁统一记录在 `docs/audits/refactor-2026-08-23.md`。该记录明确保持 Goal 未完成，不得用自动化测试替代真实桌面批准。
 
-首次把重构提交推送到远端后，macOS Apple Silicon 工作流在 `a7c2cb5` 通过。PetPack contract 的 Windows job 暴露 Python `ZipInfo.filename` 会把原始反斜线规范化，Windows x64 job 另暴露 .NET `ZipArchive` 在 Windows 上不会自动把 Unix 权限位标记为 Unix 创建主机。`1937a03` 改为验证 `orig_filename` 并让测试写入真实原始路径，`f6b855f` 让 C# 恶意 symlink 测试包在所有平台固定中央目录创建主机。25 项 Python 与 20 项 MSTest 本地回归通过；远端再次运行前仍不能写成 CI 已通过。
+首次把重构提交推送到远端后，macOS Apple Silicon 工作流在 `a7c2cb5` 通过。PetPack contract 的 Windows job 暴露 Python `ZipInfo.filename` 会把原始反斜线规范化，Windows x64 job 另暴露 .NET `ZipArchive` 在 Windows 上不会自动把 Unix 权限位标记为 Unix 创建主机。`1937a03` 改为验证 `orig_filename` 并让测试写入真实原始路径，`f6b855f` 让 C# 恶意 symlink 测试包在所有平台固定中央目录创建主机。修复后远端 `main` 回读为 `97485a0c5ccc557748773738dac5e009cf221753`，PetPack contract 运行 `32596460282`、macOS 运行 `32596460260`、Windows 运行 `32596460309` 均通过。远端上传的 macOS 与 Windows 代码开发产物分别为 1,806,750 和 77,508,772 bytes，保留 7 天。完整步骤回读见 `docs/audits/refactor-2026-08-23.md`。
 
 ### Windows `v0.6.0` 历史 Release 复验
 

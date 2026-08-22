@@ -450,3 +450,9 @@
 - Fixed: Python 安全测试绕过 `ZipInfo` 写入阶段的主机分隔符规范化，明确断言归档实际包含反斜线；本地测试同时模拟 Windows `os.sep`，避免 macOS 假绿。
 - Fixed: C# 恶意 symlink 测试包固定最后一个中央目录条目的 Unix 创建主机标记，使 Unix mode 在 macOS 与 Windows Runner 上具有相同含义，不放宽生产验证器。
 - Review: 首次远端 push 的 macOS 工作流通过，PetPack contract 与 Windows x64 工作流分别暴露上述两个问题。修复后 25 项 Python、Python 编译、20 项 MSTest 与 `dotnet format` 本地通过；远端再次运行仍待回读。
+
+## Unreleased remote refactor CI verification · 2026-08-23
+
+- Fixed: 将 `1937a03`、`f6b855f` 与文档锚点推送到远端，未使用强制推送；远端 `main` 独立回读为 `97485a0c5ccc557748773738dac5e009cf221753`。
+- Review: PetPack contract 运行 `32596460282` 在 macOS 14 与 Windows 2025 上全部通过；macOS Apple Silicon 运行 `32596460260` 完成测试、零素材 App 构建和上传；Windows x64 运行 `32596460309` 完成锁定还原、20 项测试、WPF 构建、self-contained ZIP、AMD64 PE、零素材和上传。
+- Review: 远端 macOS 与 Windows 代码开发产物分别为 1,806,750 和 77,508,772 bytes，保留 7 天。这些 CI 产物不是正式 Release，真实双平台 GUI、同包正常速度观看和用户批准仍未完成。
