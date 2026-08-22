@@ -140,10 +140,11 @@ PetPack 1.0：
 
 ```bash
 python3 -m petpack.validator petpack/fixtures/synthetic-cat-v1.petpack
+python3 -m petpack.validator petpack/fixtures/synthetic-cat-forward-v1.petpack
 python3 -m unittest discover -s petpack/tests -v
 ```
 
-公开夹具只包含程序生成的 2×2 RGBA 像素，不具有真实宠物身份。验证器先检查 ZIP 路径、压缩和大小预算，再检查完整性、固定舞台、动作图、被动行为与媒体长度。
+两个公开夹具都只包含程序生成的 2×2 RGBA 像素，不具有真实宠物身份。基线包验证完整契约，前向兼容包额外证明未知可选能力会被忽略、缺省动作权重按 `1.0` 处理。验证器先检查 ZIP 路径、压缩和大小预算，再检查完整性、固定舞台、动作图、被动行为与媒体长度。
 
 Swift：
 
