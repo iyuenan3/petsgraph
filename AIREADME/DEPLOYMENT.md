@@ -85,7 +85,7 @@ bash player/macos/scripts/test.sh
 构建正式 App：
 
 ```bash
-.venv/bin/python player/macos/scripts/build-legacy-app.py \
+.local/environments/core/bin/python player/macos/scripts/build-legacy-app.py \
   --package petpacks/personal/wubai/legacy/runtime/wubai-quiet-companion-0.5.10.petsgraph-pet \
   --package petpacks/personal/feiliu/legacy/runtime/feiliu-quiet-companion-0.5.10.petsgraph-pet \
   --output .local/dist/builds/PetsGraph-0.6.0.app \
@@ -95,7 +95,7 @@ bash player/macos/scripts/test.sh
 构建唯一发布附件：
 
 ```bash
-.venv/bin/python studio/packaging/build-release-artifacts.py \
+.local/environments/core/bin/python studio/packaging/build-release-artifacts.py \
   --app .local/dist/builds/PetsGraph-0.6.0.app \
   --output .local/dist/builds/v0.6.0 \
   --version 0.6.0

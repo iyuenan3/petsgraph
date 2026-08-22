@@ -288,7 +288,7 @@ codexpets/
 
 - 新的临时脚本、生成预览、缓存、虚拟环境和候选发布物不再散落到根目录。已发布附件的本地副本位于 `dist/published/`，并以公开 Release 与 manifest 为事实源。
 - 只有具备已验证源文件、重建配方和摘要的内容才能归类为可重建。
-- 根 `output/`、`tmp/`、`dist/` 与 `workspaces/` 已完成审计并移除。`.cache/` 与 `.venv*` 仍须逐项证明可重建，再迁入 `.local/` 或清理。
+- 根 `output/`、`tmp/`、`dist/`、`workspaces/`、`.cache/` 与 `.venv*` 均已完成审计并退出。三个 Python 环境和 rembg 模型缓存位于 `.local/`，旧根 Swift `.build/` 缓存位于系统回收站等待用户复查。
 - 已成为正式评审证据、获批帧事实源或未上传正式发布物的文件必须进入对应 `pets/`、`petpacks/` 或归档位置。明确失败的大型媒体可以在审计记录完成后移入系统回收站。
 
 ## 12. 当前到目标的迁移映射
@@ -305,7 +305,7 @@ codexpets/
 | `codex-pets/manifest.json` | `codexpets/manifests/public.json` | 已完成；公开条目增加 `public`、素材所有者和授权指针 |
 | `tools/manage-codex-pets.py` | `codexpets/tools/manage.py` | 已完成；安装、校验、冲突拒绝和可恢复备份语义保持 |
 | `assets/app-icon/` | `assets/brand/` | 已在 `90bfaa8` 完成；公开定稿哈希不变，7 个候选与 QA 文件迁入私有 `studio/brand/` |
-| `output/`、`tmp/`、`.cache/`、`.venv*` | `.local/` 或对应私有事实目录 | `output/` 与 `tmp/` 已审计并移除；`.cache/` 与 `.venv*` 仍须先证明可重建 |
+| `output/`、`tmp/`、`.cache/`、`.venv*` | `.local/` 或对应私有事实目录 | 已完成；三套环境有精确依赖快照、导入与命令入口回归，rembg 模型 SHA-256 不变 |
 | `dist/`、`workspaces/release-dist/` | `.local/dist/` | 已在 `90a5a7c` 完成边界切换；v0.6.0 双平台附件与 GitHub Release、公开清单摘要一致 |
 | `workspaces/cleanup-audits/` | `pets/audit/cleanup/` | 已完成，历史收据和审计清单保持字节不变 |
 
@@ -349,6 +349,6 @@ codexpets/
 
 ## 15. 当前状态
 
-状态为 `directory-contract-frozen / migration-in-progress`。
+状态为 `directory-migration-complete / petpack-implementation-next`。
 
-目标目录和 Git 边界已经确认。公开源码、私有 Studio、宠物事实源、旧包、Codex 私有工作区、清理审计和 v0.6.0 本地发布副本均已迁移并验证；根 `workspaces/`、`output/`、`tmp/` 与 `dist/` 已退出。Player 行为仍为 v0.6.0 as-built，PetPack 1.0、`.local` 环境收口和新运行时尚待实现。任何后续报告必须逐子树说明实际状态，不能把路径迁移写成新运行时已经完成。
+目标目录和 Git 边界已经确认。公开源码、私有 Studio、宠物事实源、旧包、Codex 私有工作区、清理审计、v0.6.0 本地发布副本、Python 环境与模型缓存均已迁移并验证；全部旧根入口已经退出。Player 行为仍为 v0.6.0 as-built，PetPack 1.0 和新运行时尚待实现。任何后续报告必须逐子树说明实际状态，不能把路径迁移写成新运行时已经完成。

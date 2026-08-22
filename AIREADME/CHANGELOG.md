@@ -390,3 +390,10 @@
 - Changed: 现行 Studio 脚本已切换到新路径；历史生产 JSON、提示词和评审记录保留当时写入的旧路径，由 `pets/audit/migrations/` 解析新旧位置，不篡改生产证据。
 - Review: 五百 30,496 个文件、7,709,788,770 bytes 与飞流 45,931 个文件、12,977,884,119 bytes 完成完整内容摘要；六个目标组的 inode 集合、文件数与字节数回读一致。小葵 369 个文件只迁移位置，没有生成、抠图或制作 PetPack。
 - Review: 五百与飞流 `0.5.10` 完整性文件 SHA-256 分别保持 `59aad356993f6b9cc1f338095bc417cb47090b58e06d46035bb3d7820053529e` 与 `8c4762914b4bfd95b8dc7c9c58d47714f10ac61289774a2f446e7857f4e51516`。GitHub Release 回读确认双平台附件文件名、字节数和 SHA-256 与公开清单一致。
+
+## Unreleased local environment migration · 2026-08-23
+
+- Changed: 通用制作、精细抠图和 Seedance 三个 Python 环境迁入 `.local/environments/`，环境内活动 shebang 与路径记录同步更新；精确安装版本快照保存在私有 `studio/environments/`。
+- Changed: 178,648,008-byte 的 rembg `isnet-general-use.onnx` 模型迁入 `.local/cache/rembg/`，SHA-256 保持 `60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a`。300 个私有可执行脚本切换到新职责路径，历史 JSON、提示词和评审记录不改写。
+- Removed: 旧根 Swift `.build/` 缓存共 2,991 个文件、304,741,588 bytes，已移入 `/Users/maxwell/.Trash/PetsGraph-refactor-20260823-022143/root-swift-build-cache` 等待用户复查，inode 集合摘要保持 `5a67252d8c0b5b9e3ab9bff8fe7abb46dd83c16d25e5e470bbfd6ce2a42f0305`。
+- Review: 三套环境的核心依赖导入、五个通用制作入口、两个 Seedance 入口、全量私有 Python 语法和 Shell 语法检查通过。rembg 的程序化导入通过；原环境未安装可选 CLI extras，该项不作为迁移回归。
