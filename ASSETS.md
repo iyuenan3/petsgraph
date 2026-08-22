@@ -10,11 +10,11 @@ PetsGraph Player 的目标发行包不包含任何宠物素材。播放器代码
 
 ## 现有五百与飞流素材
 
-以下说明适用于当前 v0.6.0 历史发行包、GitHub Release 中的五百与飞流素材，以及仓库 `codex-pets/` 中现有的 Codex 宠物素材。目标目录迁移后，公开 Codex 包位于 `codexpets/packages/public/`。它们都不是下一代零素材 Player 的默认内容。
+以下说明适用于当前 v0.6.0 历史发行包、GitHub Release 中的五百与飞流素材，以及仓库 `codexpets/packages/public/` 中现有的 Codex 宠物素材。它们都不是下一代零素材 Player 的默认内容。
 
 仓库中的程序代码按 [MIT License](LICENSE) 开源。
 
-GitHub Release 中发布的五百与飞流照片衍生帧、动作帧、枕头、猫窝和宠物素材包，以及当前 Git 仓库 `codex-pets/`、未来 `codexpets/packages/public/` 中维护的 Codex 自定义宠物图集，由宠物主人 Maxwell 授权 petsgraph 项目公开分发，目的是让喜欢它们的朋友在个人电脑上安装和使用这些桌面宠物。
+GitHub Release 中发布的五百与飞流照片衍生帧、动作帧、枕头、猫窝和宠物素材包，以及当前 Git 仓库 `codexpets/packages/public/` 中维护的 Codex 自定义宠物图集，由宠物主人 Maxwell 授权 petsgraph 项目公开分发，目的是让喜欢它们的朋友在个人电脑上安装和使用这些桌面宠物。
 
 这些宠物素材可以随 petsgraph 的官方 Release 或本仓库下载、备份和在个人设备上使用。未经宠物主人另行书面许可，不得把五百或飞流的形象用于商业广告、模型训练、身份冒充、独立素材转售，或与 petsgraph 无关的再发布。
 

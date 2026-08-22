@@ -9,6 +9,17 @@ __pycache__/
 .env.*
 !.env.example
 
+# Local-only production, pet sources, private packages, and rebuildable outputs.
+studio/
+pets/
+petpacks/
+.local/
+
+# Public Codex packages remain tracked; every private Codex area is ignored.
+codexpets/workspaces/
+codexpets/packages/private/
+codexpets/manifests/private.json
+
 # Private pet references, provider job records, and unapproved generations.
 workspaces/
 

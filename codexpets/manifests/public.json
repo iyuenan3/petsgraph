@@ -15,6 +15,9 @@
       "id": "wubai-v0",
       "displayName": "五百",
       "directory": "wubai-v0",
+      "public": true,
+      "assetOwner": "Maxwell",
+      "licenseRef": "ASSETS.md",
       "files": {
         "pet.json": {
           "bytes": 230,
@@ -30,6 +33,9 @@
       "id": "feiliu-hatch-native-v1",
       "displayName": "飞流",
       "directory": "feiliu-hatch-native-v1",
+      "public": true,
+      "assetOwner": "Maxwell",
+      "licenseRef": "ASSETS.md",
       "files": {
         "pet.json": {
           "bytes": 226,

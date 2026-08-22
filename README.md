@@ -119,14 +119,14 @@ Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公
 
 ## 当前仓库结构与目标目录
 
-当前目录仍是 v0.6.0 as-built，尚未执行下一代目录迁移：
+下一代目录迁移已经开始。Codex 公开包已完成切换，Player 源码仍保持 v0.6.0 as-built 路径：
 
 - `Sources/PetsGraphCore/`：当前 Swift 包加载、动作图、时间线和行为核心。
 - `Sources/PetsGraphApp/`：当前 AppKit 透明窗口、菜单和渲染。
 - `windows/src/PetsGraph.Core/`：当前 C# 包校验、动作图、时间线和媒体转换。
 - `windows/src/PetsGraph.App/`：当前 Windows x64 WPF 透明窗口和托盘。
 - `tools/`：当前构建、制作、校验和历史 provider 工具，后续按公开 Player 与私有 Studio 边界迁移。
-- `codex-pets/`：当前五百与飞流的 Codex v2 小型图集导出，不是 PetsGraph 连续视频 PetPack。
+- `codexpets/packages/public/`：当前五百与飞流的 Codex v2 小型图集导出，不是 PetsGraph 连续视频 PetPack。
 - `AIREADME/`：产品、架构、PetPack 契约、迁移与发布真相源。
 
 目标仍以本仓库为整个项目唯一根目录，收敛为 `player/`、`petpack/`、`studio/`、`pets/`、`petpacks/`、`codexpets/` 与 `.local/`。其中 Player 子树和安装包不包含真实宠物素材；单独授权的 Codex 公开图集可以保存在 `codexpets/packages/public/`。详细职责、根 Git 跟踪范围和安全迁移门禁见 [`AIREADME/DIRECTORY.md`](AIREADME/DIRECTORY.md)。
@@ -153,13 +153,13 @@ DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet build windows/PetsGr
 仓库另行维护五百和飞流的 Codex v2 自定义宠物图集：
 
 ```bash
-python3 tools/manage-codex-pets.py validate
-python3 tools/manage-codex-pets.py install
+python3 codexpets/tools/manage.py validate
+python3 codexpets/tools/manage.py install
 ```
 
 它们是 Codex 专用小型图集，不属于 PetsGraph Player 的连续视频路线，也不继承 PetPack 的动作图和生命感批准。
 
-上述命令继续使用当前 `codex-pets/`。目标目录名已经确定为 `codexpets/`，但在公开包、清单、工具和文档同时迁移并通过前，不提前切换命令。
+公开包、公开清单和管理工具已经一次性切换到 `codexpets/`。原 `codex-pets/` 和 `tools/manage-codex-pets.py` 不再作为兼容入口。
 
 ## License
 

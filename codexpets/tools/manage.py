@@ -15,9 +15,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_ASSET_ROOT = REPOSITORY_ROOT / "codex-pets"
-MANIFEST_NAME = "manifest.json"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_ASSET_ROOT = REPOSITORY_ROOT / "codexpets" / "packages" / "public"
+DEFAULT_MANIFEST = REPOSITORY_ROOT / "codexpets" / "manifests" / "public.json"
 PACKAGE_FILES = {"pet.json", "spritesheet.webp"}
 
 
@@ -116,11 +116,11 @@ def validate_file(path: Path, expected: dict[str, Any]) -> None:
         )
 
 
-def validate_repository(root: Path) -> list[dict[str, Any]]:
+def validate_repository(root: Path, manifest_path: Path) -> list[dict[str, Any]]:
     root = root.resolve()
     if not root.is_dir():
         raise ValidationError(f"asset root is not a directory: {root}")
-    manifest = read_json(root / MANIFEST_NAME)
+    manifest = read_json(manifest_path.resolve())
     if manifest.get("schemaVersion") != 1:
         raise ValidationError("manifest schemaVersion must be 1")
 
@@ -146,6 +146,12 @@ def validate_repository(root: Path) -> list[dict[str, Any]]:
         files = record.get("files")
         if not isinstance(pet_id, str) or not isinstance(directory, str):
             raise ValidationError("every pet needs string id and directory fields")
+        if record.get("public") is not True:
+            raise ValidationError(f"public manifest entry is not public: {pet_id}")
+        if not isinstance(record.get("assetOwner"), str) or not record["assetOwner"]:
+            raise ValidationError(f"assetOwner missing for {pet_id}")
+        if not isinstance(record.get("licenseRef"), str) or not record["licenseRef"]:
+            raise ValidationError(f"licenseRef missing for {pet_id}")
         if pet_id in seen_ids or directory in seen_directories:
             raise ValidationError(f"duplicate pet id or directory: {pet_id}")
         seen_ids.add(pet_id)
@@ -193,7 +199,7 @@ def validate_repository(root: Path) -> list[dict[str, Any]]:
             "manifest/package directory mismatch: "
             f"expected {sorted(seen_directories)}, got {sorted(top_level_directories)}"
         )
-    expected_entries = {MANIFEST_NAME, "README.md", *seen_directories}
+    expected_entries = seen_directories
     actual_entries = {entry.name for entry in root.iterdir()}
     if actual_entries != expected_entries:
         raise ValidationError(
@@ -301,6 +307,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--root", type=Path, default=DEFAULT_ASSET_ROOT, help="Codex pet asset root"
     )
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=DEFAULT_MANIFEST,
+        help="public Codex pet manifest",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("validate", help="validate manifest, hashes, and v2 atlas geometry")
 
@@ -323,7 +335,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
-        records = validate_repository(args.root)
+        records = validate_repository(args.root, args.manifest)
         if args.command == "validate":
             for record in records:
                 print(f"valid {record['id']}: {record['displayName']}")
