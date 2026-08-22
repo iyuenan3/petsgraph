@@ -85,8 +85,9 @@ def build_clip(
     return clip, media
 
 
-def fixture_entries() -> dict[str, bytes]:
+def fixture_entries(*, forward_compatible: bool = False) -> dict[str, bytes]:
     entries: dict[str, bytes] = {}
+    package_id = "synthetic-cat-forward-v1" if forward_compatible else "synthetic-cat-v1"
     clips = [
         ("rest-primary-loop", "loop", "rest.primary", "rest.primary", 1),
         ("rest-secondary-loop", "loop", "rest.secondary", "rest.secondary", 2),
@@ -113,18 +114,21 @@ def fixture_entries() -> dict[str, bytes]:
     entries["manifest.json"] = canonical_json(
         {
             "behavior": "behavior.json",
-            "capabilities": {"optional": [], "required": ["cropped-rgba-clips"]},
+            "capabilities": {
+                "optional": ["future-audio"] if forward_compatible else [],
+                "required": ["cropped-rgba-clips"],
+            },
             "formatVersion": "1.0.0",
             "graph": "graph.json",
             "integrity": "integrity.json",
             "package": {
                 "contentVersion": "1.0.0",
                 "createdAt": "2026-01-01T00:00:00+08:00",
-                "id": "synthetic-cat-v1",
+                "id": package_id,
             },
             "pet": {
                 "displayName": "Synthetic Cat",
-                "id": "synthetic-cat-v1",
+                "id": package_id,
                 "species": "cat",
             },
             "stage": {
@@ -176,9 +180,11 @@ def fixture_entries() -> dict[str, bytes]:
         {
             "defaultNode": "rest.primary",
             "formatVersion": "1.0.0",
-            "nodeWeights": {"rest.primary": 1.0, "rest.secondary": 1.0},
+            "nodeWeights": (
+                {} if forward_compatible else {"rest.primary": 1.0, "rest.secondary": 1.0}
+            ),
             "profile": "passive-memorial-companion",
-            "sceneWeights": {"floor": 1.0},
+            "sceneWeights": {} if forward_compatible else {"floor": 1.0},
             "timing": {
                 "avoidImmediateRepeat": True,
                 "dwellRangesSeconds": {
@@ -205,12 +211,17 @@ def fixture_entries() -> dict[str, bytes]:
     return entries
 
 
-def write_fixture(output: Path, *, compression: int = zipfile.ZIP_STORED) -> None:
+def write_fixture(
+    output: Path,
+    *,
+    compression: int = zipfile.ZIP_STORED,
+    forward_compatible: bool = False,
+) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():
         output.unlink()
     with zipfile.ZipFile(output, "w", compression=compression, allowZip64=True) as archive:
-        for path, data in sorted(fixture_entries().items()):
+        for path, data in sorted(fixture_entries(forward_compatible=forward_compatible).items()):
             info = zipfile.ZipInfo(path, FIXED_ZIP_TIME)
             info.create_system = 3
             info.external_attr = 0o100644 << 16
@@ -227,8 +238,17 @@ def main() -> int:
         default=Path("petpack/fixtures/synthetic-cat-v1.petpack"),
     )
     parser.add_argument("--deflate", action="store_true", help="use ZIP deflate instead of store")
+    parser.add_argument(
+        "--forward-compatible",
+        action="store_true",
+        help="include an unknown optional capability and sparse behavior weights",
+    )
     args = parser.parse_args()
-    write_fixture(args.output, compression=zipfile.ZIP_DEFLATED if args.deflate else zipfile.ZIP_STORED)
+    write_fixture(
+        args.output,
+        compression=zipfile.ZIP_DEFLATED if args.deflate else zipfile.ZIP_STORED,
+        forward_compatible=args.forward_compatible,
+    )
     print(f"{sha256(args.output.read_bytes())}  {args.output}")
     return 0
 

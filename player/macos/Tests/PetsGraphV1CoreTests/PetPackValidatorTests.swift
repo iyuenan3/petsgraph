@@ -28,6 +28,22 @@ final class PetPackValidatorTests: XCTestCase {
         atPath: result.package.mediaURL(for: "rest-primary-loop")!.path))
   }
 
+  func testLoadsForwardCompatibleSyntheticPetPack() throws {
+    let fixture = repositoryRoot()
+      .appendingPathComponent("petpack/fixtures/synthetic-cat-forward-v1.petpack")
+    let destination = FileManager.default.temporaryDirectory
+      .appendingPathComponent("petsgraph-swift-forward-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: false)
+    defer { try? FileManager.default.removeItem(at: destination) }
+
+    let result = try PetPackValidator().validateAndExtract(sourceURL: fixture, to: destination)
+
+    XCTAssertEqual(result.report.packageID, "synthetic-cat-forward-v1")
+    XCTAssertEqual(result.package.manifest.capabilities.optional, ["future-audio"])
+    XCTAssertTrue(result.package.behavior.nodeWeights.isEmpty)
+    XCTAssertTrue(result.package.behavior.sceneWeights.isEmpty)
+  }
+
   func testNativeLoaderRejectsTrailingArchivePayload() throws {
     let source = repositoryRoot().appendingPathComponent(
       "petpack/fixtures/synthetic-cat-v1.petpack")

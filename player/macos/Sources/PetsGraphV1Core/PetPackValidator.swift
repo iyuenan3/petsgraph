@@ -259,6 +259,9 @@ public struct PetPackValidator: Sendable {
       manifest.stage.defaultNode, kind: .node, where: "manifest.stage.defaultNode")
     let required = Set(manifest.capabilities.required)
     let optional = Set(manifest.capabilities.optional)
+    for capability in required.union(optional) {
+      try validateIdentifier(capability, kind: .capability, where: "manifest capability")
+    }
     guard
       required.count == manifest.capabilities.required.count,
       optional.count == manifest.capabilities.optional.count,
@@ -611,12 +614,12 @@ public struct PetPackValidator: Sendable {
   }
 }
 
-private enum IdentifierKind { case package, node, clip }
+private enum IdentifierKind { case package, node, clip, capability }
 
 private func validateIdentifier(_ value: String, kind: IdentifierKind, where location: String)
   throws
 {
-  let maximum = kind == .package ? 80 : (kind == .node ? 120 : 160)
+  let maximum = kind == .package ? 80 : (kind == .clip ? 160 : 120)
   try validateText(value, maximum: maximum, where: location)
   let separators: Set<Character> = kind == .node ? [".", "-"] : ["-"]
   var priorWasSeparator = true

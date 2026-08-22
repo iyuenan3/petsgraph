@@ -128,8 +128,16 @@ public sealed partial class PetPackValidator
             throw Invalid("invalid_stage", "manifest fixed stage is invalid");
         }
         ValidateIdentifier(manifest.Stage.DefaultNode, NodeIdPattern(), 120, "default node");
-        if (!manifest.Capabilities.Required.SequenceEqual([BaselineCapability], StringComparer.Ordinal) ||
-            manifest.Capabilities.Optional.Length != 0)
+        var requiredCapabilities = manifest.Capabilities.Required.ToHashSet(StringComparer.Ordinal);
+        var optionalCapabilities = manifest.Capabilities.Optional.ToHashSet(StringComparer.Ordinal);
+        foreach (var capability in requiredCapabilities.Concat(optionalCapabilities))
+        {
+            ValidateIdentifier(capability, PackageIdPattern(), 120, "capability");
+        }
+        if (requiredCapabilities.Count != manifest.Capabilities.Required.Length ||
+            optionalCapabilities.Count != manifest.Capabilities.Optional.Length ||
+            !requiredCapabilities.SetEquals([BaselineCapability]) ||
+            requiredCapabilities.Overlaps(optionalCapabilities))
         {
             throw Invalid("unsupported_capability", "PetPack 1.0 requires exactly the RGBA baseline capability");
         }
@@ -313,13 +321,12 @@ public sealed partial class PetPackValidator
         if (eligible.Count == 0 || manifest.Stage.DefaultNode != behavior.DefaultNode ||
             !eligible.Contains(manifest.Stage.DefaultNode) ||
             !eligible.SetEquals(behavior.Timing.DwellRangesSeconds.Keys) ||
-            !eligible.SetEquals(behavior.NodeWeights.Keys))
+            !behavior.NodeWeights.Keys.All(eligible.Contains))
         {
             throw Invalid("invalid_behavior", "autonomous behavior keys do not match eligible nodes");
         }
-        var eligibleScenes = nodes.Values.Where(static node => node.AutonomousEligible)
-            .Select(static node => node.Scene).ToHashSet(StringComparer.Ordinal);
-        if (!eligibleScenes.SetEquals(behavior.SceneWeights.Keys))
+        var scenes = nodes.Values.Select(static node => node.Scene).ToHashSet(StringComparer.Ordinal);
+        if (!behavior.SceneWeights.Keys.All(scenes.Contains))
         {
             throw Invalid("invalid_behavior", "scene weights do not match autonomous scenes");
         }

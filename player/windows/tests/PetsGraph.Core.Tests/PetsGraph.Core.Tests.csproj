@@ -15,5 +15,8 @@
     <None Include="../../../../petpack/fixtures/synthetic-cat-v1.petpack"
           Link="synthetic-cat-v1.petpack"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../../../petpack/fixtures/synthetic-cat-forward-v1.petpack"
+          Link="synthetic-cat-forward-v1.petpack"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

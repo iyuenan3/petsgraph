@@ -9,6 +9,8 @@ namespace PetsGraph.Core.Tests;
 public sealed class PetPackV1Tests
 {
     private static string FixturePath => Path.Combine(AppContext.BaseDirectory, "synthetic-cat-v1.petpack");
+    private static string ForwardFixturePath =>
+        Path.Combine(AppContext.BaseDirectory, "synthetic-cat-forward-v1.petpack");
 
     [TestMethod]
     public void LoadsPublicSyntheticPetPack()
@@ -37,6 +39,19 @@ public sealed class PetPackV1Tests
         var validated = new PetPackValidator().ValidateAndExtract(source, workspace.CreateDirectory("runtime"));
 
         Assert.AreEqual(4, validated.Report.ClipCount);
+    }
+
+    [TestMethod]
+    public void LoadsForwardCompatiblePetPack()
+    {
+        using var workspace = new TestWorkspace();
+        var validated = new PetPackValidator().ValidateAndExtract(
+            ForwardFixturePath, workspace.CreateDirectory("runtime"));
+
+        Assert.AreEqual("synthetic-cat-forward-v1", validated.Report.PackageId);
+        Assert.HasCount(0, validated.Package.Behavior.NodeWeights);
+        Assert.HasCount(0, validated.Package.Behavior.SceneWeights);
+        Assert.AreEqual("future-audio", validated.Package.Manifest.Capabilities.Optional.Single());
     }
 
     [TestMethod]

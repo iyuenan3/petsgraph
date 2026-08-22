@@ -101,6 +101,13 @@ class PetPackValidatorTests(unittest.TestCase):
     def test_valid_stored_fixture(self) -> None:
         self.assertEqual(PetPackValidator().validate(self.valid).clip_count, 4)
 
+    def test_accepts_unknown_optional_capability_and_sparse_weights(self) -> None:
+        package = self.root / "forward-compatible.petpack"
+        write_fixture(package, forward_compatible=True)
+        report = PetPackValidator().validate(package)
+        self.assertEqual(report.package_id, "synthetic-cat-forward-v1")
+        self.assertEqual(report.clip_count, 4)
+
     def test_fixture_build_is_deterministic(self) -> None:
         first = self.root / "first.petpack"
         second = self.root / "second.petpack"
