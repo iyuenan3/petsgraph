@@ -47,6 +47,8 @@ PetPack 是私有制作系统与公开 PetsGraph Player 之间唯一的运行时
 
 首个 PetPack `formatVersion=1.0.0` 的必需透明媒体基线冻结为 `cropped-rgba-clips`：每个 clip 恰好包含一个整段固定裁剪框、sRGB、预乘 `RGBA8` 连续原始帧流，正式倍率为 `1.0x`。后续格式版本可以增加可选 representation，但任何未来 Player 都不能因此放弃对 1.0 基础表示的兼容性。
 
+公开测试向量同时包含基线包 `synthetic-cat-v1.petpack` 与前向兼容包 `synthetic-cat-forward-v1.petpack`。后者声明 Player 未知的可选能力 `future-audio`，并省略节点与场景权重覆盖，用于证明未知可选能力不会阻止装载，缺失权重按 `1.0` 处理。Python 参考验证器、Swift 原生加载器与 C# 原生加载器必须对这两个语义保持一致；未知必需能力仍必须拒绝。
+
 禁止把客户原始照片、视频母片、提示词、任务记录、评审视频、生成凭据或私有制作目录装入正式包。
 
 ## 4. `manifest.json`

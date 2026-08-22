@@ -11,12 +11,12 @@
 7. 已将 provider、抠图、评审和包编译工具及 dotenv 配置一次性迁入根 Git 忽略的 `studio/`，没有创建独立 Git，也没有保留根目录或 `petsdesk` 旧路径兼容。
 8. 已分职责迁移五百、飞流的事实源、旧包和 Codex 私有工作区，并整理小葵及其他现有宠物资料；小葵本轮不继续生成、抠图或制作 PetPack。
 9. 已把通用制作、精细抠图和 Seedance 环境迁入 `.local/environments/`，把 rembg 模型迁入 `.local/cache/`，并保存精确依赖快照。旧根 Swift 构建缓存移入系统回收站。
-10. 已实现 PetPack `formatVersion=1.0.0` 的五份 schema、标准库参考验证器、确定性合成包和 24 项合法包与动态坏包回归；公开 CI 覆盖 macOS 与 Windows，真实宠物媒体未进入夹具。
+10. 已实现 PetPack `formatVersion=1.0.0` 的五份 schema、标准库参考验证器、确定性基线与前向兼容合成包，以及 25 项合法包与动态坏包回归；公开 CI 覆盖 macOS 与 Windows，真实宠物媒体未进入夹具。
 11. 已用私有离线转换器生成五百与飞流 PetPack 1.0 候选，排除 interaction、交互边、网关停留循环和窗口 root motion，保留自主睡眠与场景过渡；旧媒体与新媒体摘要逐项一致，两个大包均可确定性重建。
 12. 已重构 Apple Silicon macOS `0.7.0-dev`，实现严格原生 PetPack 校验、canonical 库、幂等导入与升级边界、每宠独立行为、固定舞台、拖动、持久可见状态、统一大小和目标菜单；构建物不含真实宠物媒体。
-13. 已用公开 store 与 deflate 测试包、五百和飞流真实候选验证 Swift 原生加载器，并完成严格编译、9 项测试、arm64 App、ad-hoc 签名和零素材检查。真实桌面观看尚未通过，不能提升为发布结论。
+13. 已用公开 store、前向兼容与 deflate 测试包、五百和飞流真实候选验证 Swift 原生加载器，并完成严格编译、10 项测试、arm64 App、ad-hoc 签名和零素材检查。真实桌面观看尚未通过，不能提升为发布结论。
 14. 已重构 Windows x64 `0.7.0-dev`，实现严格原生 PetPack 校验、canonical 库、幂等导入与升级边界、每宠独立行为、固定舞台、拖动、持久可见状态、统一大小和目标托盘菜单；旧点击、指定动作、root motion、内嵌宠物发现和 schema `0.4.0` 直接加载已从当前 main 删除。
-15. 已用公开 store 与 deflate 测试包、五百和飞流真实候选验证 C# 原生加载器，并完成 18 项测试、全解决方案零警告构建、self-contained AMD64 ZIP 和零素材检查。两个平台的安装索引均增加路径身份防护。真实 Windows GUI 和远端 Windows CI 尚未通过，不能提升为发布结论。
+15. 已用公开 store、前向兼容与 deflate 测试包、五百和飞流真实候选验证 C# 原生加载器，并完成 19 项测试、全解决方案零警告构建、self-contained AMD64 ZIP 和零素材检查。两个平台的安装索引均增加路径身份防护。真实 Windows GUI 和远端 Windows CI 尚未通过，不能提升为发布结论。
 
 ## Now（双平台真实桌面与同包验收）
 

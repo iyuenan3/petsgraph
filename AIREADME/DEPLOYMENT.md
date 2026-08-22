@@ -25,11 +25,16 @@ PetPack 1.0 使用普通 ZIP 容器和必需的 `cropped-rgba-clips` 基础表�
 ```bash
 python3 -m unittest discover -s petpack/tests -v
 python3 -m petpack.validator petpack/fixtures/synthetic-cat-v1.petpack
+python3 -m petpack.validator petpack/fixtures/synthetic-cat-forward-v1.petpack
 python3 -m petpack.tools.build_fixture /tmp/petsgraph-synthetic-cat-v1.petpack
 cmp petpack/fixtures/synthetic-cat-v1.petpack /tmp/petsgraph-synthetic-cat-v1.petpack
+python3 -m petpack.tools.build_fixture \
+  --forward-compatible /tmp/petsgraph-synthetic-cat-forward-v1.petpack
+cmp petpack/fixtures/synthetic-cat-forward-v1.petpack \
+  /tmp/petsgraph-synthetic-cat-forward-v1.petpack
 ```
 
-当前回归为 24 项。提交的合成包共 12 个文件、11,806 bytes，SHA-256 为 `812f0459fe444ff4cf657908d3c9b235be21f591d796ac7d0f02e50f564ac2c1`，只包含程序生成的 2×2 RGBA 像素。通过这些检查只证明公开容器与语义契约，不证明五百、飞流转换、Player 导入、平台解码或真实桌面表现。
+当前回归为 25 项。基线合成包共 12 个文件、11,806 bytes，SHA-256 为 `812f0459fe444ff4cf657908d3c9b235be21f591d796ac7d0f02e50f564ac2c1`；前向兼容合成包共 12 个文件、11,774 bytes，SHA-256 为 `d0f5273cbf930e2ddd12865a62311d0d2058c4a1749b07b33448d84411ca08dc`。两包只包含程序生成的 2×2 RGBA 像素，后者声明未知可选能力 `future-audio` 并省略节点与场景权重覆盖。通过这些检查只证明公开容器与语义契约，不证明五百、飞流转换、Player 导入、平台解码或真实桌面表现。
 
 ### 五百与飞流 PetPack 1.0 私有候选
 
@@ -114,12 +119,12 @@ python3 player/macos/scripts/build-app.py \
   --version 0.7.0-dev
 ```
 
-当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。它在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 24 项公开 PetPack 回归、9 项 Swift 测试并上传保留 7 天的代码开发 App。
+当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。它在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 25 项公开 PetPack 回归、10 项 Swift 测试并上传保留 7 天的代码开发 App。
 
 本地已验证：
 
-- Swift 严格警告编译与 9 项测试通过。
-- 公开 store 合成包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
+- Swift 严格警告编译与 10 项测试通过。
+- 公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
 - App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
 - App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
 
@@ -171,11 +176,11 @@ DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
 
 `build-portable.sh` 拒绝覆盖同名 ZIP，先用 C# 原生验证器检查公开合成 PetPack，再交叉发布 `win-x64` self-contained 应用，强制产物不含 `Pets/` 或 `.petpack`，最后执行 ZIP 解压测试与 SHA-256。当前本地机械证据：
 
-- 18 项 MSTest 通过，覆盖 store、deflate、尾随载荷、重复 JSON key、路径越界、大小写冲突、符号链接、摘要不符、canonical copy、cache 重建、同版本不同字节冲突、卸载全部、不安全安装索引、独立行为、隐藏过渡、RGBA 到 PBGRA、全局大小和语义版本。
+- 19 项 MSTest 通过，覆盖 store、deflate、未知可选能力与默认权重、尾随载荷、重复 JSON key、路径越界、大小写冲突、符号链接、摘要不符、canonical copy、cache 重建、同版本不同字节冲突、卸载全部、不安全安装索引、独立行为、隐藏过渡、RGBA 到 PBGRA、全局大小和语义版本。
 - WPF 与全解决方案 Release 构建为 0 警告、0 错误；`dotnet format` 空白校验通过。
-- C# 原生验证器通过公开 store 合成包、临时 deflate 合成包、五百和飞流真实候选，四个包的 SHA-256 分别与参考验证器和私有转换记录一致。
-- 本地临时零素材 ZIP 的 SHA-256 为 `8204056ea3d0a2f95721b19596147103dccd686cb75e6f55e288ac5d486131ff`。该 ZIP 可完整解压，主程序由 `file` 识别为 `PE32+ executable (GUI) x86-64`，内部没有 `Pets/` 或 `.petpack`。它只是当前机械证明，不是冻结交付物或 Release 附件。
-- `.github/workflows/windows.yml` 已配置在 `windows-2025` 上执行锁定还原、18 项测试、WPF 构建、零素材 self-contained ZIP、AMD64 PE 与内容检查；当前内容提交尚无对应远端 CI 运行，不能把工作流定义写成已通过。
+- C# 原生验证器通过公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选，五个包的 SHA-256 分别与参考验证器和私有转换记录一致。
+- 本地临时零素材 ZIP 的 SHA-256 为 `8ff625331bcd052f3d16fba111f9c2368603802e13602840e5954d9b267cf55c`。该 ZIP 可完整解压，主程序由 `file` 识别为 `PE32+ executable (GUI) x86-64`，内部没有 `Pets/` 或 `.petpack`。它只是当前机械证明，不是冻结交付物或 Release 附件。
+- `.github/workflows/windows.yml` 已配置在 `windows-2025` 上执行锁定还原、19 项测试、WPF 构建、零素材 self-contained ZIP、AMD64 PE 与内容检查；当前内容提交尚无对应远端 CI 运行，不能把工作流定义写成已通过。
 - 真实 Windows 11 x64 上的透明命中、DPI、拖动、托盘、多显示器、隐藏恢复、应用升级保留和长时间正常速度观看仍是人工闸门。
 
 当前开发 ZIP 没有代码签名，可能触发 SmartScreen。正式 `1.0.0` 之前还必须在真实 Windows x64 机器运行 PowerShell 打包入口和 GUI 验收，冻结人类看过的候选，再决定是否增加代码签名或安装器。

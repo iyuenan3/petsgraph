@@ -431,3 +431,9 @@
 - Added: Windows 打包入口生成 `0.7.0-dev` self-contained AMD64 ZIP，强制不包含 `Pets/`、`.petpack` 或真实宠物媒体；Windows CI 定义覆盖锁定还原、测试、WPF 构建、零素材 ZIP、PE 架构和内容边界。
 - Security: Windows 安装索引重新验证包 ID、宠物 ID、版本、物种、摘要与归档预算；macOS 同步增加对应校验，损坏或手工改写的索引不能把 canonical 路径导向数据根之外。
 - Review: 24 项 Python 回归、18 项 MSTest、9 项 Swift 测试、Windows 全解决方案零警告构建和 Swift 格式检查通过。Windows 原生加载器验证公开 store、临时 deflate、五百和飞流候选，零素材 ZIP 为 PE32+ x86-64 且不含宠物包。真实 Windows 11 GUI、双平台正常速度观看、应用升级、多宠长时性能、远端 CI 和正式发布仍未完成。
+
+## Unreleased PetPack forward compatibility alignment · 2026-08-23
+
+- Fixed: Windows Player 不再拒绝未知可选能力或缺失的节点与场景权重覆盖，缺失权重统一按 `1.0` 处理；macOS 同步验证能力标识格式。未知必需能力仍由三个实现拒绝。
+- Added: 新增确定性前向兼容测试包 `synthetic-cat-forward-v1.petpack`，共 12 个文件、11,774 bytes，SHA-256 为 `d0f5273cbf930e2ddd12865a62311d0d2058c4a1749b07b33448d84411ca08dc`。原基线包逐字节重建摘要保持不变。
+- Review: 25 项 Python 回归、10 项 Swift 测试、19 项 MSTest、Windows Release 零警告构建、`dotnet format` 与 `swift-format lint` 通过。C# 原生验证器顺序验证基线、前向兼容、deflate、五百和飞流五个包；临时零素材 Windows x64 ZIP 的 SHA-256 为 `8ff625331bcd052f3d16fba111f9c2368603802e13602840e5954d9b267cf55c`。真实双平台 GUI、正常速度视觉与远端 CI 仍待验收。

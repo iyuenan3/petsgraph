@@ -1,6 +1,6 @@
 # PetsGraph · AIREADME
 > 面向宠物离世纪念的开源多宠 Player 与私有定制 PetPack 体系 ｜ 生命周期: implementation-in-progress
-> last-synced: 5ce3f73 · 2026-08-23
+> last-synced: 2945bc6 · 2026-08-23
 > phase: dual-platform-player-implemented / desktop-acceptance-next
 
 当前公开 `v0.6.0` 仍是内嵌五百与飞流的旧架构发布版。PetPack 1.0 公开 schema、参考验证器、合成包与安全回归已经实现，五百与飞流已经形成私有机械验证候选。Apple Silicon macOS 与 Windows x64 `0.7.0-dev` 均已实现零素材 Player、原生 PetPack 校验、canonical 库、被动行为会话、固定舞台与目标菜单；真实桌面人工验收、双平台视觉与性能一致性、候选批准和可交付正式包尚未完成。后续报告仍必须显式区分 Target、机械实现、人工验收、候选包与已发布 As-built。
@@ -36,4 +36,4 @@
 - 复盘实际失败 → `MEMORY.md`，重大取舍另向 `DECISIONS.md` 追加
 - 维护 Codex 宠物导出 → `DIRECTORY.md` 第 10 节 + `SPEC.md` 第 14 节 + `DEPLOYMENT.md` 的 Codex 章节
 
-同步锚点指向已审阅并提交的双平台实现与根 README 状态提交 `5ce3f73`，其中 Windows 主实现提交为 `f785412`，macOS 安装索引加固提交为 `7689031`。AIREADME 锚点随后单独提交；公开契约、五百飞流私有候选和双平台机械实现已经完成，但真实 macOS 与 Windows 桌面人工验收、同包视觉与性能一致性、正式交付和 `1.0.0` 发布仍未完成。
+同步锚点指向已审阅并提交的前向兼容测试说明 `2945bc6`，其对应实现提交为 `59f8ce9`，Windows 主实现提交为 `f785412`。AIREADME 锚点随后单独提交；公开契约、五百飞流私有候选和双平台机械实现已经完成，但真实 macOS 与 Windows 桌面人工验收、同包视觉与性能一致性、正式交付和 `1.0.0` 发布仍未完成。
