@@ -1,16 +1,15 @@
 using System.IO;
 using System.Text.Json;
-using PetsGraph.Core;
+namespace PetsGraph.Core;
 
-namespace PetsGraph.App.Runtime;
-
-internal sealed class SettingsStore(string root)
+public sealed class PlayerStateStore(string root)
 {
     private readonly string path = Path.Combine(root, "settings.json");
+    public string? LoadWarning { get; private set; }
 
     public PlayerState Load(IReadOnlyCollection<LoadedPetPack> packages)
     {
-        if (!File.Exists(path))
+        if (!File.Exists(path) && !Directory.Exists(path))
         {
             return new();
         }
@@ -28,11 +27,39 @@ internal sealed class SettingsStore(string root)
             catch (PetPackException)
             {
             }
-            return MigrateLegacy(data, packages);
+            if (IsLegacy(data))
+            {
+                return MigrateLegacy(data, packages);
+            }
+            return FailSafe(packages);
         }
-        catch (Exception exception) when (exception is IOException or JsonException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
-            return new();
+            return FailSafe(packages);
+        }
+    }
+
+    private PlayerState FailSafe(IReadOnlyCollection<LoadedPetPack> packages)
+    {
+        LoadWarning = "设置文件无法安全读取。为避免投屏时宠物意外出现，本次启动已将全部宠物设为隐藏。";
+        return PlayerState.HiddenFailSafe(packages.Select(static package => package.Manifest.Package.Id));
+    }
+
+    private static bool IsLegacy(byte[] data)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(data);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object || root.TryGetProperty("formatVersion", out _))
+            {
+                return false;
+            }
+            return root.EnumerateObject().All(static property => property.Name is "scale" or "pets");
+        }
+        catch (JsonException)
+        {
+            return false;
         }
     }
 

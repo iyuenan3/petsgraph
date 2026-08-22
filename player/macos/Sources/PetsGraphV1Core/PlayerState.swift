@@ -46,4 +46,12 @@ public struct PlayerState: Codable, Equatable, Sendable {
       anchorY: anchorY.flatMap { $0.isFinite ? $0 : nil }
     )
   }
+
+  public static func hiddenFailSafe(packageIDs: some Sequence<String>) -> PlayerState {
+    PlayerState(
+      pets: Dictionary(
+        uniqueKeysWithValues: packageIDs.map { ($0, PetPlayerState(visible: false)) }
+      )
+    )
+  }
 }

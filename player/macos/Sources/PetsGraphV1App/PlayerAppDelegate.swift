@@ -11,6 +11,7 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
   private var packages: [String: LoadedPetPack]
   private var controllers: [String: PetWindowController] = [:]
   private var statusItem: NSStatusItem?
+  private var settingsSaveAlertShown = false
 
   static func make() throws -> PlayerAppDelegate {
     let library = try CanonicalPetLibrary()
@@ -28,9 +29,16 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     makeStatusItem()
-    for package in orderedPackages() { installController(for: package) }
+    for package in orderedPackages() {
+      do {
+        try installController(for: package)
+      } catch {
+        showMessage("无法装载宠物", "\(package.manifest.pet.displayName)：\(friendly(error))")
+      }
+    }
     persistState()
     rebuildMenu()
+    if let warning = stateStore.loadWarning { showMessage("已安全隐藏全部宠物", warning) }
   }
 
   func applicationWillTerminate(_ notification: Notification) {
@@ -62,20 +70,49 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
           alert.addButton(withTitle: "取消")
           return alert.runModal() == .alertFirstButtonReturn
         }
+        let successMessage: String
+        let obsolete: InstalledPet?
         switch outcome {
-        case .installed(let pet): messages.append("已装载 \(pet.displayName)")
-        case .updated(_, let pet): messages.append("已更新 \(pet.displayName)")
-        case .alreadyInstalled(let pet): messages.append("\(pet.displayName) 已经装载")
-        case .updateCancelled(_, let proposed): messages.append("已取消更新 \(proposed.displayName)")
+        case .installed(let pet):
+          successMessage = "已装载 \(pet.displayName)"
+          obsolete = nil
+        case .updated(let previous, let pet):
+          successMessage = "已更新 \(pet.displayName)"
+          obsolete = previous
+        case .alreadyInstalled(let pet):
+          messages.append("\(pet.displayName) 已经装载")
+          continue
+        case .updateCancelled(_, let proposed):
+          messages.append("已取消更新 \(proposed.displayName)")
+          continue
+        }
+        do {
+          try reloadPackagesAndWindows()
+          try library.commitImport(outcome)
+        } catch {
+          let activationError = friendly(error)
+          do {
+            try library.rollbackImport(outcome)
+            try reloadPackagesAndWindows()
+            messages.append("\(url.lastPathComponent)：新版本无法播放，已恢复原有宠物。\(activationError)")
+          } catch {
+            messages.append(
+              "\(url.lastPathComponent)：新版本无法播放，自动恢复也失败。\(activationError)；\(friendly(error))"
+            )
+          }
+          continue
+        }
+        messages.append(successMessage)
+        if let obsolete {
+          do {
+            try library.discardObsolete([obsolete])
+          } catch {
+            messages.append("\(url.lastPathComponent)：新版已启用，但旧版清理失败。\(friendly(error))")
+          }
         }
       } catch {
         messages.append("\(url.lastPathComponent)：\(friendly(error))")
       }
-    }
-    do {
-      try reloadPackagesAndWindows()
-    } catch {
-      messages.append("重新读取内部宠物库失败：\(friendly(error))")
     }
     persistState()
     rebuildMenu()
@@ -109,28 +146,48 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
       let package = packages[id],
       confirmUninstall(names: [package.manifest.pet.displayName])
     else { return }
+    controllers.removeValue(forKey: id)?.dispose()
     do {
       _ = try library.uninstall(packageID: id)
-      controllers.removeValue(forKey: id)?.dispose()
       packages.removeValue(forKey: id)
       state.pets.removeValue(forKey: id)
       persistState()
       rebuildMenu()
-    } catch { showMessage("卸载失败", friendly(error)) }
+    } catch {
+      let uninstallError = friendly(error)
+      do {
+        try installController(for: package)
+        showMessage("卸载失败", uninstallError)
+      } catch {
+        showMessage("卸载失败", "\(uninstallError)；恢复播放也失败：\(friendly(error))")
+      }
+    }
   }
 
   @objc private func uninstallAllPets() {
     let names = orderedPackages().map { $0.manifest.pet.displayName }
     guard !names.isEmpty, confirmUninstall(names: names) else { return }
+    for controller in controllers.values { controller.dispose() }
+    controllers.removeAll()
     do {
       _ = try library.uninstallAll()
-      for controller in controllers.values { controller.dispose() }
-      controllers.removeAll()
       packages.removeAll()
       state.pets.removeAll()
       persistState()
       rebuildMenu()
-    } catch { showMessage("卸载失败", friendly(error)) }
+    } catch {
+      let uninstallError = friendly(error)
+      var restoreErrors: [String] = []
+      for package in orderedPackages() where controllers[package.manifest.package.id] == nil {
+        do {
+          try installController(for: package)
+        } catch {
+          restoreErrors.append("\(package.manifest.pet.displayName)：\(friendly(error))")
+        }
+      }
+      let suffix = restoreErrors.isEmpty ? "" : "；恢复播放失败：\(restoreErrors.joined(separator: "；"))"
+      showMessage("卸载失败", uninstallError + suffix)
+    }
   }
 
   @objc private func selectScale(_ sender: NSMenuItem) {
@@ -201,15 +258,18 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     if !packages.isEmpty { submenu.addItem(.separator()) }
     for package in orderedPackages() {
       let id = package.manifest.package.id
-      let isVisible = controllers[id]?.petIsVisible == true
+      let controller = controllers[id]
+      let isVisible = controller?.petIsVisible == true
       let item = NSMenuItem(
-        title: package.manifest.pet.displayName,
+        title: controller == nil
+          ? "\(package.manifest.pet.displayName)（播放不可用）"
+          : package.manifest.pet.displayName,
         action: visible ? #selector(showPet(_:)) : #selector(hidePet(_:)),
         keyEquivalent: ""
       )
       item.target = self
       item.representedObject = id
-      item.isEnabled = isVisible != visible
+      item.isEnabled = controller != nil && isVisible != visible
       submenu.addItem(item)
     }
     root.submenu = submenu
@@ -246,40 +306,36 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     }
   }
 
-  private func installController(for package: LoadedPetPack) {
+  private func installController(for package: LoadedPetPack) throws {
     let id = package.manifest.package.id
     if controllers[id] != nil { return }
     var petState = state.pets[id] ?? PetPlayerState()
     let anchor =
       petState.savedAnchor.map { NSPoint(x: $0.x, y: $0.y) }
       ?? nextDefaultAnchor(for: package)
-    do {
-      let controller = try PetWindowController(
-        package: package,
-        scale: state.globalScale,
-        anchor: anchor
-      )
-      controller.onAnchorChanged = { [weak self] anchor in
-        guard let self else { return }
-        var value = self.state.pets[id] ?? PetPlayerState()
-        value.anchorX = anchor.x
-        value.anchorY = anchor.y
-        self.state.pets[id] = value
-        self.persistState()
-      }
-      controller.onFault = { [weak self] error in
-        guard let self else { return }
-        self.setVisible(false, packageID: id)
-        self.showMessage("宠物播放已暂停", "\(package.manifest.pet.displayName)：\(self.friendly(error))")
-      }
-      controllers[id] = controller
-      petState.anchorX = anchor.x
-      petState.anchorY = anchor.y
-      state.pets[id] = petState
-      if petState.visible { controller.show() } else { controller.hide() }
-    } catch {
-      showMessage("无法装载宠物", "\(package.manifest.pet.displayName)：\(friendly(error))")
+    let controller = try PetWindowController(
+      package: package,
+      scale: state.globalScale,
+      anchor: anchor
+    )
+    controller.onAnchorChanged = { [weak self] anchor in
+      guard let self else { return }
+      var value = self.state.pets[id] ?? PetPlayerState()
+      value.anchorX = anchor.x
+      value.anchorY = anchor.y
+      self.state.pets[id] = value
+      self.persistState()
     }
+    controller.onFault = { [weak self] error in
+      guard let self else { return }
+      self.setVisible(false, packageID: id)
+      self.showMessage("宠物播放已暂停", "\(package.manifest.pet.displayName)：\(self.friendly(error))")
+    }
+    controllers[id] = controller
+    petState.anchorX = anchor.x
+    petState.anchorY = anchor.y
+    state.pets[id] = petState
+    if petState.visible { controller.show() } else { controller.hide() }
   }
 
   private func nextDefaultAnchor(for package: LoadedPetPack) -> NSPoint {
@@ -287,10 +343,20 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     let canvas = package.manifest.stage.referenceCanvasPx
     let height = package.manifest.stage.baseDisplayHeight * state.globalScale
     let width = height * Double(canvas[0]) / Double(canvas[1])
-    let right = controllers.values.map { $0.frame.maxX }.max() ?? screen.minX
-    let proposedX = right + 12 + width / 2
-    let x = proposedX + width / 2 <= screen.maxX ? proposedX : screen.minX + 12 + width / 2
-    return NSPoint(x: x, y: screen.minY + 12)
+    let occupied = controllers.values.map(\.frame)
+    var y = screen.minY + 12
+    while y + height <= screen.maxY {
+      var x = screen.minX + 12
+      while x + width <= screen.maxX {
+        let candidate = NSRect(x: x, y: y, width: width, height: height)
+        if occupied.allSatisfy({ !$0.intersects(candidate) }) {
+          return NSPoint(x: candidate.midX, y: candidate.minY)
+        }
+        x += width + 12
+      }
+      y += height + 12
+    }
+    return NSPoint(x: screen.minX + 12 + width / 2, y: screen.minY + 12)
   }
 
   private func reloadPackagesAndWindows() throws {
@@ -305,7 +371,7 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
         controllers.removeValue(forKey: id)?.dispose()
       }
       packages[id] = package
-      installController(for: package)
+      try installController(for: package)
     }
     packages = next
   }
@@ -333,7 +399,16 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func persistState() {
-    do { try stateStore.save(state) } catch { fputs("PetsGraph settings: \(error)\n", stderr) }
+    do {
+      try stateStore.save(state)
+      settingsSaveAlertShown = false
+    } catch {
+      fputs("PetsGraph settings: \(error)\n", stderr)
+      if !settingsSaveAlertShown {
+        settingsSaveAlertShown = true
+        showMessage("无法保存设置", "本次显示、隐藏、大小或位置变化可能无法在下次启动时保留。")
+      }
+    }
   }
 
   private func showMessage(_ title: String, _ detail: String) {

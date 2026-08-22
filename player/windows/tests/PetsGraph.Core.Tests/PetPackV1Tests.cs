@@ -131,6 +131,19 @@ public sealed class PetPackV1Tests
     }
 
     [TestMethod]
+    public void RejectsExplicitDirectoryEntry()
+    {
+        using var workspace = new TestWorkspace();
+        var source = workspace.PathFor("directory-entry.petpack");
+        WriteArchiveWithExtra(workspace, source, "media/", [], RegularFileAttributes);
+
+        var exception = Assert.Throws<PetPackException>(() =>
+            new PetPackValidator().ValidateAndExtract(source, workspace.CreateDirectory("runtime")));
+
+        Assert.AreEqual("unsafe_path", exception.Code);
+    }
+
+    [TestMethod]
     public void RejectsMediaDigestMismatch()
     {
         using var workspace = new TestWorkspace();
@@ -150,6 +163,94 @@ public sealed class PetPackV1Tests
     }
 
     [TestMethod]
+    public void RejectsIncorrectIntegrityMediaType()
+    {
+        using var workspace = new TestWorkspace();
+        var extracted = workspace.CreateDirectory("source");
+        ZipFile.ExtractToDirectory(FixturePath, extracted);
+        var path = Path.Combine(extracted, "integrity.json");
+        var integrity = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        integrity["files"]!.AsArray()[0]!["mediaType"] = "application/octet-stream";
+        File.WriteAllText(path, integrity.ToJsonString(new() { WriteIndented = true }));
+        var source = workspace.PathFor("media-type.petpack");
+        ZipFile.CreateFromDirectory(extracted, source, CompressionLevel.NoCompression, includeBaseDirectory: false);
+
+        var exception = Assert.Throws<PetPackException>(() =>
+            new PetPackValidator().ValidateAndExtract(source, workspace.CreateDirectory("runtime")));
+
+        Assert.AreEqual("invalid_integrity", exception.Code);
+    }
+
+    [TestMethod]
+    public void RejectsNonNfcDisplayName()
+    {
+        using var workspace = new TestWorkspace();
+        var extracted = workspace.CreateDirectory("source");
+        ZipFile.ExtractToDirectory(FixturePath, extracted);
+        var path = Path.Combine(extracted, "manifest.json");
+        var manifest = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        manifest["pet"]!["displayName"] = "e\u0301";
+        File.WriteAllText(path, manifest.ToJsonString(new() { WriteIndented = true }));
+        RewriteIntegrity(extracted);
+        var source = workspace.PathFor("display-name.petpack");
+        ZipFile.CreateFromDirectory(extracted, source, CompressionLevel.NoCompression, includeBaseDirectory: false);
+
+        var exception = Assert.Throws<PetPackException>(() =>
+            new PetPackValidator().ValidateAndExtract(source, workspace.CreateDirectory("runtime")));
+
+        Assert.AreEqual("invalid_text", exception.Code);
+    }
+
+    [TestMethod]
+    public void RejectsGatewayWithExplicitNullLoopClip()
+    {
+        using var workspace = new TestWorkspace();
+        var extracted = workspace.CreateDirectory("source");
+        ZipFile.ExtractToDirectory(FixturePath, extracted);
+        var path = Path.Combine(extracted, "graph.json");
+        var graph = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        graph["nodes"]!.AsArray().Add(new JsonObject
+        {
+            ["autonomousEligible"] = false,
+            ["id"] = "rest.gateway",
+            ["loopClip"] = null,
+            ["role"] = "gateway",
+            ["scene"] = "rest",
+        });
+        File.WriteAllText(path, graph.ToJsonString(new() { WriteIndented = true }));
+        RewriteIntegrity(extracted);
+        var source = workspace.PathFor("gateway-null.petpack");
+        ZipFile.CreateFromDirectory(extracted, source, CompressionLevel.NoCompression, includeBaseDirectory: false);
+
+        var exception = Assert.Throws<PetPackException>(() =>
+            new PetPackValidator().ValidateAndExtract(source, workspace.CreateDirectory("runtime")));
+
+        Assert.AreEqual("invalid_graph", exception.Code);
+    }
+
+    [TestMethod]
+    public void RejectsDurationThatOnlyMatchesOverflowedIntegerArithmetic()
+    {
+        using var workspace = new TestWorkspace();
+        var extracted = workspace.CreateDirectory("source");
+        ZipFile.ExtractToDirectory(FixturePath, extracted);
+        var path = Path.Combine(extracted, "clips", "rest-primary-loop.json");
+        var clip = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        clip["frameRate"] = new JsonObject { ["numerator"] = 1, ["denominator"] = 1_000 };
+        clip["frameCount"] = int.MaxValue;
+        clip["durationSeconds"] = -1_000;
+        File.WriteAllText(path, clip.ToJsonString(new() { WriteIndented = true }));
+        RewriteIntegrity(extracted);
+        var source = workspace.PathFor("duration-overflow.petpack");
+        ZipFile.CreateFromDirectory(extracted, source, CompressionLevel.NoCompression, includeBaseDirectory: false);
+
+        var exception = Assert.Throws<PetPackException>(() =>
+            new PetPackValidator().ValidateAndExtract(source, workspace.CreateDirectory("runtime")));
+
+        Assert.AreEqual("invalid_duration", exception.Code);
+    }
+
+    [TestMethod]
     public void CanonicalLibraryOwnsCopyAndImportsIdempotently()
     {
         using var workspace = new TestWorkspace();
@@ -158,6 +259,7 @@ public sealed class PetPackV1Tests
         var library = new CanonicalPetLibrary(workspace.CreateDirectory("library-root"));
 
         var first = library.Import(source);
+        library.CommitImport(first);
         File.Delete(source);
         var second = library.Import(FixturePath);
         var loaded = library.LoadInstalledPetPacks();
@@ -169,12 +271,73 @@ public sealed class PetPackV1Tests
     }
 
     [TestMethod]
+    public void CanonicalLibraryRollsBackFailedFirstInstall()
+    {
+        using var workspace = new TestWorkspace();
+        var root = workspace.CreateDirectory("library-root");
+        var library = new CanonicalPetLibrary(root);
+        var outcome = library.Import(FixturePath);
+
+        library.RollbackImport(outcome);
+
+        Assert.IsEmpty(library.InstalledPets());
+        Assert.IsEmpty(library.LoadInstalledPetPacks());
+        Assert.IsFalse(Directory.EnumerateFiles(Path.Combine(root, "library"), "*.petpack",
+            SearchOption.AllDirectories).Any());
+    }
+
+    [TestMethod]
+    public void CanonicalLibraryRecoversInterruptedImportOnRestart()
+    {
+        using var workspace = new TestWorkspace();
+        var root = workspace.CreateDirectory("library-root");
+        var interrupted = new CanonicalPetLibrary(root);
+        _ = interrupted.Import(FixturePath);
+
+        var recovered = new CanonicalPetLibrary(root);
+
+        Assert.IsEmpty(recovered.InstalledPets());
+        Assert.IsEmpty(recovered.LoadInstalledPetPacks());
+        Assert.IsFalse(File.Exists(Path.Combine(root, "pending-import.json")));
+    }
+
+    [TestMethod]
+    public void CanonicalLibraryRollsBackFailedUpdateToPreviousVersion()
+    {
+        using var workspace = new TestWorkspace();
+        var root = workspace.CreateDirectory("library-root");
+        var library = new CanonicalPetLibrary(root);
+        var initial = library.Import(FixturePath);
+        library.CommitImport(initial);
+        var extracted = workspace.CreateDirectory("updated");
+        ZipFile.ExtractToDirectory(FixturePath, extracted);
+        var manifestPath = Path.Combine(extracted, "manifest.json");
+        var manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!.AsObject();
+        manifest["package"]!["contentVersion"] = "1.0.1";
+        File.WriteAllText(manifestPath, manifest.ToJsonString(new() { WriteIndented = true }));
+        RewriteIntegrity(extracted);
+        var updatedPath = workspace.PathFor("updated.petpack");
+        ZipFile.CreateFromDirectory(extracted, updatedPath, CompressionLevel.NoCompression,
+            includeBaseDirectory: false);
+        var updated = library.Import(updatedPath, (_, _) => true);
+        Assert.AreEqual(PetImportResult.Updated, updated.Result);
+
+        library.RollbackImport(updated);
+
+        Assert.AreEqual(initial.Current, library.InstalledPets().Single());
+        Assert.AreEqual("1.0.0", library.LoadInstalledPetPacks().Single().Manifest.Package.ContentVersion.Value);
+        Assert.IsFalse(Directory.Exists(Path.Combine(root, "library", "synthetic-cat-v1", "1.0.1")));
+        Assert.IsFalse(Directory.Exists(Path.Combine(root, "cache", "synthetic-cat-v1", "1.0.1")));
+    }
+
+    [TestMethod]
     public void CanonicalLibraryRebuildsDeletedCache()
     {
         using var workspace = new TestWorkspace();
         var root = workspace.CreateDirectory("library-root");
         var library = new CanonicalPetLibrary(root);
-        _ = library.Import(FixturePath);
+        var imported = library.Import(FixturePath);
+        library.CommitImport(imported);
         var cache = Path.Combine(root, "cache");
         Directory.Delete(cache, recursive: true);
         Directory.CreateDirectory(cache);
@@ -186,12 +349,33 @@ public sealed class PetPackV1Tests
     }
 
     [TestMethod]
+    public void CanonicalLibraryRebuildsSameLengthCorruptMediaCache()
+    {
+        using var workspace = new TestWorkspace();
+        var root = workspace.CreateDirectory("library-root");
+        var library = new CanonicalPetLibrary(root);
+        var imported = library.Import(FixturePath);
+        library.CommitImport(imported);
+        var installed = library.LoadInstalledPetPacks().Single();
+        var media = installed.MediaPath("rest-primary-loop");
+        var expected = File.ReadAllBytes(media);
+        var corrupt = expected.ToArray();
+        corrupt[0] ^= byte.MaxValue;
+        File.WriteAllBytes(media, corrupt);
+
+        var rebuilt = library.LoadInstalledPetPacks().Single();
+
+        CollectionAssert.AreEqual(expected, File.ReadAllBytes(rebuilt.MediaPath("rest-primary-loop")));
+    }
+
+    [TestMethod]
     public void CanonicalLibraryRejectsSameVersionWithDifferentBytes()
     {
         using var workspace = new TestWorkspace();
         var root = workspace.CreateDirectory("library-root");
         var library = new CanonicalPetLibrary(root);
-        _ = library.Import(FixturePath);
+        var imported = library.Import(FixturePath);
+        library.CommitImport(imported);
         var extracted = workspace.CreateDirectory("changed");
         ZipFile.ExtractToDirectory(FixturePath, extracted);
         var manifestPath = Path.Combine(extracted, "manifest.json");
@@ -214,7 +398,8 @@ public sealed class PetPackV1Tests
         using var workspace = new TestWorkspace();
         var root = workspace.CreateDirectory("library-root");
         var library = new CanonicalPetLibrary(root);
-        _ = library.Import(FixturePath);
+        var imported = library.Import(FixturePath);
+        library.CommitImport(imported);
 
         var removed = library.UninstallAll();
 
@@ -246,11 +431,62 @@ public sealed class PetPackV1Tests
               ]
             }
             """);
-        var library = new CanonicalPetLibrary(root);
-
-        var exception = Assert.Throws<PetPackException>(() => library.InstalledPets());
+        var exception = Assert.Throws<PetPackException>(() => new CanonicalPetLibrary(root));
 
         Assert.AreEqual("registry_corrupt", exception.Code);
+    }
+
+    [TestMethod]
+    public void CanonicalLibraryRejectsDirectoryInPlaceOfRegistry()
+    {
+        using var workspace = new TestWorkspace();
+        var root = workspace.CreateDirectory("library-root");
+        Directory.CreateDirectory(Path.Combine(root, "registry.json"));
+
+        var exception = Assert.Throws<PetPackException>(() => new CanonicalPetLibrary(root));
+
+        Assert.AreEqual("registry_corrupt", exception.Code);
+    }
+
+    [TestMethod]
+    public void CanonicalLibraryRemovesUnjournaledUninstallTransaction()
+    {
+        using var workspace = new TestWorkspace();
+        var root = workspace.CreateDirectory("library-root");
+        var orphan = workspace.CreateDirectory(Path.Combine("library-root", "staging", "uninstall-orphan"));
+
+        _ = new CanonicalPetLibrary(root);
+
+        Assert.IsFalse(Directory.Exists(orphan));
+    }
+
+    [TestMethod]
+    public void ImportRecoveryUsesExactVersionPathIdentity()
+    {
+        using var workspace = new TestWorkspace();
+        var root = workspace.CreateDirectory("library-root");
+        _ = new CanonicalPetLibrary(root);
+        static string Record(string version) => $$"""
+            {
+              "packageId": "synthetic-cat-v1",
+              "petId": "synthetic-cat-v1",
+              "displayName": "Synthetic Cat",
+              "species": "cat",
+              "contentVersion": "{{version}}",
+              "archiveSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "archiveBytes": 1
+            }
+            """;
+        File.WriteAllText(Path.Combine(root, "registry.json"), $$"""
+            { "formatVersion": 1, "packages": [{{Record("1.0.0+two")}}] }
+            """);
+        File.WriteAllText(Path.Combine(root, "pending-import.json"), $$"""
+            { "formatVersion": 1, "current": {{Record("1.0.0+one")}}, "previous": null }
+            """);
+
+        var exception = Assert.Throws<PetPackException>(() => new CanonicalPetLibrary(root));
+
+        Assert.AreEqual("import_recovery_failed", exception.Code);
     }
 
     [TestMethod]
@@ -267,6 +503,91 @@ public sealed class PetPackV1Tests
         Assert.AreEqual("rest-primary-to-rest-secondary", transition.ClipId);
         Assert.IsFalse(stable.IsTransition);
         Assert.AreEqual("rest.secondary", stable.CurrentNodeId);
+    }
+
+    [TestMethod]
+    public void PassiveBehaviorPreloadsWholeGatewayPathAndTargetLoop()
+    {
+        using var fixture = LoadedFixture();
+        var package = fixture.Value;
+        var primary = package.Graph.Nodes.Single(node => node.Id == "rest.primary");
+        var secondary = package.Graph.Nodes.Single(node => node.Id == "rest.secondary");
+        var gateway = new PetGraphNode
+        {
+            Id = "rest.gateway",
+            Role = "gateway",
+            Scene = "rest",
+            AutonomousEligible = false,
+        };
+        var modified = package with
+        {
+            Graph = package.Graph with
+            {
+                Nodes = [primary, gateway, secondary],
+                Edges =
+                [
+                    new()
+                    {
+                        Id = "primary-to-gateway", From = primary.Id, To = gateway.Id,
+                        Clip = "rest-primary-to-rest-secondary", InterruptPolicy = "finish-before-retarget",
+                    },
+                    new()
+                    {
+                        Id = "gateway-to-secondary", From = gateway.Id, To = secondary.Id,
+                        Clip = "rest-secondary-to-rest-primary", InterruptPolicy = "finish-before-retarget",
+                    },
+                ],
+            },
+        };
+        var session = new PassiveBehaviorSession(modified, startedAt: 0, seed: 7);
+
+        var planned = session.Update(1_000);
+
+        CollectionAssert.AreEquivalent(
+            new[] { "rest-primary-to-rest-secondary", "rest-secondary-to-rest-primary", "rest-secondary-loop" },
+            planned.PreloadClipIds.ToArray());
+        Assert.IsFalse(planned.IsTransition);
+        session.CancelPlannedTransition(1_000);
+        Assert.IsEmpty(session.Update(1_000).PreloadClipIds);
+    }
+
+    [TestMethod]
+    public void PassiveBehaviorAllowsWeightedImmediateRepeatWithoutTransition()
+    {
+        using var fixture = LoadedFixture();
+        var package = fixture.Value;
+        var modified = package with
+        {
+            Behavior = package.Behavior with
+            {
+                Timing = package.Behavior.Timing with { AvoidImmediateRepeat = false },
+                NodeWeights = new(StringComparer.Ordinal)
+                {
+                    ["rest.primary"] = double.MaxValue,
+                    ["rest.secondary"] = double.Epsilon,
+                },
+            },
+        };
+        var session = new PassiveBehaviorSession(modified, startedAt: 0, seed: 1);
+
+        var presentation = session.Update(1_000);
+
+        Assert.AreEqual("rest.primary", presentation.CurrentNodeId);
+        Assert.IsFalse(presentation.IsTransition);
+        Assert.IsEmpty(presentation.PreloadClipIds);
+    }
+
+    [TestMethod]
+    public void PassiveBehaviorKeepsLoopFrameIndexBoundedAfterLongUptime()
+    {
+        using var fixture = LoadedFixture();
+        var session = new PassiveBehaviorSession(fixture.Value, startedAt: 0, seed: 1);
+
+        var presentation = session.Update(50_000_000);
+        var clip = fixture.Value.Clips[presentation.ClipId];
+
+        Assert.IsGreaterThanOrEqualTo(0, presentation.FrameIndex);
+        Assert.IsLessThan(clip.FrameCount, presentation.FrameIndex);
     }
 
     [TestMethod]
@@ -326,12 +647,56 @@ public sealed class PetPackV1Tests
     }
 
     [TestMethod]
+    public void CorruptSettingsFailSafeHidesEveryInstalledPet()
+    {
+        var state = PlayerState.HiddenFailSafe(["wubai", "feiliu"]);
+
+        CollectionAssert.AreEquivalent(new[] { "wubai", "feiliu" }, state.Pets.Keys.ToArray());
+        Assert.IsTrue(state.Pets.Values.All(static pet => !pet.Visible));
+    }
+
+    [TestMethod]
+    public void StateStoreFailsClosedWhenSettingsAreCorrupt()
+    {
+        using var workspace = new TestWorkspace();
+        using var fixture = LoadedFixture();
+        var root = workspace.CreateDirectory("settings-root");
+        File.WriteAllText(Path.Combine(root, "settings.json"), "not json");
+        var store = new PlayerStateStore(root);
+
+        var state = store.Load([fixture.Value]);
+
+        Assert.IsNotNull(store.LoadWarning);
+        Assert.IsFalse(state.Pets[fixture.Value.Manifest.Package.Id].Visible);
+    }
+
+    [TestMethod]
+    public void StateStoreFailsClosedWhenSettingsPathIsDirectory()
+    {
+        using var workspace = new TestWorkspace();
+        using var fixture = LoadedFixture();
+        var root = workspace.CreateDirectory("settings-root");
+        Directory.CreateDirectory(Path.Combine(root, "settings.json"));
+        var store = new PlayerStateStore(root);
+
+        var state = store.Load([fixture.Value]);
+
+        Assert.IsNotNull(store.LoadWarning);
+        Assert.IsFalse(state.Pets[fixture.Value.Manifest.Package.Id].Visible);
+    }
+
+    [TestMethod]
     public void SemanticVersionOrderingFollowsPrereleaseRules()
     {
         Assert.IsTrue(SemanticVersion.Parse("1.0.0-alpha.1") < SemanticVersion.Parse("1.0.0"));
         Assert.IsTrue(SemanticVersion.Parse("1.0.0") < SemanticVersion.Parse("1.0.1"));
         Assert.AreEqual(SemanticVersion.Parse("1.0.0+one"), SemanticVersion.Parse("1.0.0+two"));
         Assert.Throws<PetPackException>(() => SemanticVersion.Parse($"1.0.0+{new string('a', 81)}"));
+        Assert.Throws<PetPackException>(() => SemanticVersion.Parse("1.0.0-01"));
+        Assert.Throws<PetPackException>(() => SemanticVersion.Parse("1.0.0-alpha..1"));
+        Assert.Throws<PetPackException>(() => SemanticVersion.Parse("2147483648.0.0"));
+        Assert.IsTrue(SemanticVersion.Parse("1.0.0-999999999999999999999") <
+                      SemanticVersion.Parse("1.0.0-1000000000000000000000"));
     }
 
     private static LoadedFixtureHandle LoadedFixture()

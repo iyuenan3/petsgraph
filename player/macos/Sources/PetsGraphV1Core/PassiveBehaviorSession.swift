@@ -57,6 +57,22 @@ public final class PassiveBehaviorSession: @unchecked Sendable {
   public var shouldTickWhenHidden: Bool { hiddenRequested && !paused }
   public var currentStableNodeID: String { currentNodeID }
 
+  public func cancelPlannedTransition(at now: TimeInterval) throws {
+    guard now.isFinite, !isTransitioning else {
+      throw PetPackError(
+        "invalid_transition_state", "only a planned dwell transition can be cancelled")
+    }
+    pendingEdges.removeAll()
+    scheduledExitAt = nil
+    dwellDeadline =
+      try now
+      + Self.randomDwell(
+        behavior: package.behavior,
+        nodeID: currentNodeID,
+        random: &random
+      )
+  }
+
   public func setVisible(_ visible: Bool, at now: TimeInterval) throws {
     if visible {
       hiddenRequested = false
@@ -106,12 +122,7 @@ public final class PassiveBehaviorSession: @unchecked Sendable {
 
     let clip = try currentClip()
     let elapsed = max(0, now - segmentStartedAt)
-    let rawFrame = Int(floor(elapsed * clip.frameRate.framesPerSecond))
-    let frameIndex =
-      clip.type == "loop"
-      ? rawFrame % clip.frameCount
-      : min(rawFrame, clip.frameCount - 1)
-    return presentation(frameIndex: frameIndex)
+    return presentation(frameIndex: Self.frameIndex(for: clip, elapsed: elapsed))
   }
 
   private func advanceCompletedSegments(now: TimeInterval) throws {
@@ -185,19 +196,30 @@ public final class PassiveBehaviorSession: @unchecked Sendable {
     }
     let target = try weightedTarget(from: candidates)
     let path = try shortestPath(from: currentNodeID, to: target.id)
-    guard !path.isEmpty else {
-      throw PetPackError("invalid_graph", "autonomous target has no transition path")
+    if path.isEmpty {
+      dwellDeadline =
+        try now
+        + Self.randomDwell(
+          behavior: package.behavior,
+          nodeID: currentNodeID,
+          random: &random
+        )
+      return
     }
     pendingEdges = path
     scheduledExitAt = try nextSafeExit(after: segmentStartedAt, now: now)
   }
 
   private func weightedTarget(from candidates: [PetGraphNode]) throws -> PetGraphNode {
-    let weighted = candidates.map { node -> (PetGraphNode, Double) in
+    let logarithmic = candidates.map { node -> (PetGraphNode, Double) in
       let nodeWeight = package.behavior.nodeWeights[node.id] ?? 1
       let sceneWeight = package.behavior.sceneWeights[node.scene] ?? 1
-      return (node, nodeWeight * sceneWeight)
+      return (node, log(nodeWeight) + log(sceneWeight))
     }
+    guard let maximum = logarithmic.map(\.1).max(), maximum.isFinite else {
+      throw PetPackError("invalid_behavior", "autonomous target weights are invalid")
+    }
+    let weighted = logarithmic.map { ($0.0, exp($0.1 - maximum)) }
     let total = weighted.reduce(0) { $0 + $1.1 }
     guard total.isFinite, total > 0 else {
       throw PetPackError("invalid_behavior", "autonomous target weights are invalid")
@@ -252,7 +274,7 @@ public final class PassiveBehaviorSession: @unchecked Sendable {
         let boundary =
           loopStartedAt + Double(cycle) * cycleDuration
           + Double(frame + 1) * frameDuration
-        if boundary >= now - 0.000_000_1 { return boundary }
+        if boundary > now + 0.000_000_1 { return boundary }
       }
     }
     throw PetPackError("invalid_safe_exit", "could not schedule a safe loop exit")
@@ -264,10 +286,7 @@ public final class PassiveBehaviorSession: @unchecked Sendable {
     scheduledExitAt = nil
     let clip = package.clips[currentClipID]
     let elapsed = max(0, now - segmentStartedAt)
-    frozenFrameIndex =
-      clip.map {
-        Int(floor(elapsed * $0.frameRate.framesPerSecond)) % $0.frameCount
-      } ?? 0
+    frozenFrameIndex = clip.map { Self.frameIndex(for: $0, elapsed: elapsed) } ?? 0
   }
 
   private func currentClip() throws -> PetClip {
@@ -279,7 +298,7 @@ public final class PassiveBehaviorSession: @unchecked Sendable {
 
   private func presentation(frameIndex: Int) -> PetPlaybackPresentation {
     var preload: [String] = []
-    if let first = pendingEdges.first { preload.append(first.clip) }
+    preload.append(contentsOf: pendingEdges.map(\.clip))
     if let last = pendingEdges.last, let loop = nodes[last.to]?.loopClip { preload.append(loop) }
     return PetPlaybackPresentation(
       clipID: currentClipID,
@@ -299,6 +318,13 @@ public final class PassiveBehaviorSession: @unchecked Sendable {
       throw PetPackError("invalid_behavior", "current node has no dwell range")
     }
     return range[0] + (range[1] - range[0]) * random.nextUnit()
+  }
+
+  private static func frameIndex(for clip: PetClip, elapsed: TimeInterval) -> Int {
+    let boundedElapsed =
+      clip.type == "loop" ? elapsed.truncatingRemainder(dividingBy: clip.durationSeconds) : elapsed
+    let raw = Int(floor(boundedElapsed * clip.frameRate.framesPerSecond))
+    return min(max(0, raw), clip.frameCount - 1)
   }
 
   private static func seed(from digest: String) -> UInt64 {

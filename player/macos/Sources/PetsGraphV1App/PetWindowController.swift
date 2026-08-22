@@ -189,6 +189,8 @@ final class PetWindowController {
     ]
     panel.title = "PetsGraph · \(package.manifest.pet.displayName)"
     applyGeometry()
+    self.anchor = clampedAnchor(anchor)
+    applyGeometry()
 
     stageView.onMouseDown = { [weak self] point in self?.beginDrag(at: point) }
     stageView.onMouseDragged = { [weak self] point in self?.continueDrag(to: point) }
@@ -218,6 +220,8 @@ final class PetWindowController {
 
   func setScale(_ value: Double) {
     scale = PlayerState.normalizedScale(value)
+    applyGeometry()
+    anchor = clampedAnchor(anchor)
     applyGeometry()
     if let presentation = currentPresentation {
       updateLayerGeometry(for: package.clips[presentation.clipID]!)
@@ -261,8 +265,16 @@ final class PetWindowController {
 
   private func render(at now: TimeInterval) throws {
     let presentation = try session.update(at: now)
-    for clipID in presentation.preloadClipIDs {
-      _ = try store(for: clipID).image(frameIndex: 0)
+    do {
+      for clipID in presentation.preloadClipIDs {
+        _ = try store(for: clipID).image(frameIndex: 0)
+      }
+    } catch {
+      if !presentation.isTransition {
+        try session.cancelPlannedTransition(at: now)
+        return
+      }
+      throw error
     }
     guard
       currentPresentation?.clipID != presentation.clipID
@@ -385,9 +397,16 @@ final class PetWindowController {
     )
     let screen = NSScreen.screens.first(where: { $0.frame.intersects(proposed) }) ?? NSScreen.main
     guard let visible = screen?.visibleFrame else { return candidate }
-    let x = min(
-      visible.maxX - panel.frame.width / 2, max(visible.minX + panel.frame.width / 2, candidate.x))
-    let y = min(visible.maxY - panel.frame.height, max(visible.minY, candidate.y))
+    let x =
+      panel.frame.width >= visible.width
+      ? visible.midX
+      : min(
+        visible.maxX - panel.frame.width / 2,
+        max(visible.minX + panel.frame.width / 2, candidate.x))
+    let y =
+      panel.frame.height >= visible.height
+      ? visible.minY
+      : min(visible.maxY - panel.frame.height, max(visible.minY, candidate.y))
     return NSPoint(x: x, y: y)
   }
 }

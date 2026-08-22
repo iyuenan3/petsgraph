@@ -53,7 +53,11 @@ public struct PetPackValidator: Sendable {
         try fail("cache_corrupt", "runtime cache contains an unsupported file")
       }
       let count = UInt64(size)
-      total += count
+      let (nextTotal, overflow) = total.addingReportingOverflow(count)
+      guard !overflow, count <= 32 * 1024 * 1024 * 1024,
+        nextTotal <= 64 * 1024 * 1024 * 1024
+      else { try fail("cache_corrupt", "runtime cache exceeds the PetPack byte budget") }
+      total = nextTotal
       entries.append(
         ZipEntry(
           path: relative,
@@ -67,21 +71,11 @@ public struct PetPackValidator: Sendable {
           isDirectory: false,
           dataOffset: 0
         ))
-      if relative.hasSuffix(".json"), relative != "integrity.json" {
-        let data = try Data(contentsOf: url)
-        digests[relative] = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+      if relative != "integrity.json" {
+        digests[relative] = try hashFile(at: url)
       }
     }
     try validateRuntimePaths(entries)
-    let integrityData = try Data(contentsOf: root.appendingPathComponent("integrity.json"))
-    let integrity = try StrictJSON.decode(
-      PetPackIntegrity.self,
-      from: integrityData,
-      path: "integrity.json"
-    )
-    for item in integrity.files where !item.path.hasSuffix(".json") {
-      digests[item.path] = item.sha256
-    }
     return try loadExtracted(
       root: root,
       extracted: ExtractedZip(
@@ -92,6 +86,18 @@ public struct PetPackValidator: Sendable {
         uncompressedBytes: total
       )
     )
+  }
+
+  private func hashFile(at url: URL) throws -> String {
+    let handle = try FileHandle(forReadingFrom: url)
+    defer { try? handle.close() }
+    var hasher = SHA256()
+    while true {
+      let data = try handle.read(upToCount: 1024 * 1024) ?? Data()
+      if data.isEmpty { break }
+      hasher.update(data: data)
+    }
+    return hasher.finalize().map { String(format: "%02x", $0) }.joined()
   }
 
   private func loadExtracted(root: URL, extracted: ExtractedZip) throws -> ValidatedPetPack {
@@ -195,6 +201,9 @@ public struct PetPackValidator: Sendable {
   }
 
   private func validateRuntimePaths(_ entries: [ZipEntry]) throws {
+    guard entries.allSatisfy({ !$0.isDirectory }) else {
+      try fail("noncanonical_zip", "explicit ZIP directory entries are not allowed")
+    }
     let files = Set(entries.filter { !$0.isDirectory }.map(\.path))
     let required = Set(["manifest.json", "graph.json", "behavior.json", "integrity.json"])
     guard required.isSubset(of: files) else {
@@ -378,7 +387,7 @@ public struct PetPackValidator: Sendable {
     guard
       (1...1000).contains(clip.frameRate.numerator),
       (1...1000).contains(clip.frameRate.denominator),
-      clip.frameCount > 0,
+      (1...Int(Int32.max)).contains(clip.frameCount),
       clip.durationSeconds.isFinite,
       abs(
         clip.durationSeconds - Double(clip.frameCount) * Double(clip.frameRate.denominator)

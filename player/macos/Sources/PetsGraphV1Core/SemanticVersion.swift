@@ -1,6 +1,7 @@
 import Foundation
 
 public struct SemanticVersion: Comparable, Codable, Hashable, Sendable {
+  public static let maximumCoreComponent = Int(Int32.max)
   public let major: Int
   public let minor: Int
   public let patch: Int
@@ -27,7 +28,8 @@ public struct SemanticVersion: Comparable, Codable, Hashable, Sendable {
         !component.isEmpty,
         component.allSatisfy(\.isNumber),
         component.count == 1 || component.first != "0",
-        let number = Int(component)
+        let number = Int(component),
+        number <= Self.maximumCoreComponent
       else { return nil }
       numbers.append(number)
     }
@@ -72,16 +74,29 @@ public struct SemanticVersion: Comparable, Codable, Hashable, Sendable {
     if left.prerelease.isEmpty { return false }
     if right.prerelease.isEmpty { return true }
     for (lhs, rhs) in zip(left.prerelease, right.prerelease) where lhs != rhs {
-      let leftNumber = Int(lhs)
-      let rightNumber = Int(rhs)
-      switch (leftNumber, rightNumber) {
-      case (.some(let a), .some(let b)): return a < b
-      case (.some, .none): return true
-      case (.none, .some): return false
-      case (.none, .none): return lhs < rhs
+      let leftNumeric = lhs.utf8.allSatisfy { $0 >= 48 && $0 <= 57 }
+      let rightNumeric = rhs.utf8.allSatisfy { $0 >= 48 && $0 <= 57 }
+      switch (leftNumeric, rightNumeric) {
+      case (true, true):
+        return lhs.count == rhs.count ? lhs < rhs : lhs.count < rhs.count
+      case (true, false): return true
+      case (false, true): return false
+      case (false, false): return lhs < rhs
       }
     }
     return left.prerelease.count < right.prerelease.count
+  }
+
+  public static func == (left: SemanticVersion, right: SemanticVersion) -> Bool {
+    left.major == right.major && left.minor == right.minor && left.patch == right.patch
+      && left.prerelease == right.prerelease
+  }
+
+  public func hash(into hasher: inout Hasher) {
+    hasher.combine(major)
+    hasher.combine(minor)
+    hasher.combine(patch)
+    hasher.combine(prerelease)
   }
 
   public init(from decoder: Decoder) throws {

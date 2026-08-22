@@ -79,10 +79,12 @@ public sealed partial class SemanticVersion : IComparable<SemanticVersion>, IEqu
         {
             var left = PreRelease[index];
             var right = other.PreRelease[index];
-            var leftNumeric = ulong.TryParse(left, NumberStyles.None, CultureInfo.InvariantCulture, out var leftNumber);
-            var rightNumeric = ulong.TryParse(right, NumberStyles.None, CultureInfo.InvariantCulture, out var rightNumber);
+            var leftNumeric = left.All(char.IsAsciiDigit);
+            var rightNumeric = right.All(char.IsAsciiDigit);
             result = leftNumeric && rightNumeric
-                ? leftNumber.CompareTo(rightNumber)
+                ? left.Length != right.Length
+                    ? left.Length.CompareTo(right.Length)
+                    : string.CompareOrdinal(left, right)
                 : leftNumeric != rightNumeric
                     ? leftNumeric ? -1 : 1
                     : string.CompareOrdinal(left, right);

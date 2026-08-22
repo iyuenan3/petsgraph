@@ -50,6 +50,17 @@ public sealed class PassiveBehaviorSession
     public bool ShouldTickWhenHidden => hiddenRequested && !paused;
     public string CurrentStableNodeId => currentNodeId;
 
+    public void CancelPlannedTransition(double now)
+    {
+        if (!double.IsFinite(now) || IsTransitioning)
+        {
+            throw Invalid("invalid_transition_state", "only a planned dwell transition can be cancelled");
+        }
+        pendingEdges.Clear();
+        scheduledExitAt = null;
+        dwellDeadline = now + RandomDwell(currentNodeId);
+    }
+
     public void SetVisible(bool visible, double now)
     {
         if (visible)
@@ -103,9 +114,7 @@ public sealed class PassiveBehaviorSession
         }
         var clip = package.Clips[currentClipId];
         var elapsed = Math.Max(0, now - segmentStartedAt);
-        var rawFrame = (int)Math.Floor(elapsed * clip.FrameRate.FramesPerSecond);
-        var frameIndex = clip.Type == "loop" ? rawFrame % clip.FrameCount : Math.Min(rawFrame, clip.FrameCount - 1);
-        return Presentation(frameIndex);
+        return Presentation(FrameIndex(clip, elapsed));
     }
 
     private void AdvanceCompletedSegments(double now)
@@ -175,7 +184,8 @@ public sealed class PassiveBehaviorSession
         var path = ShortestPath(currentNodeId, target.Id);
         if (path.Count == 0)
         {
-            throw Invalid("invalid_graph", "autonomous target has no transition path");
+            dwellDeadline = now + RandomDwell(currentNodeId);
+            return;
         }
         pendingEdges.AddRange(path);
         scheduledExitAt = NextSafeExit(segmentStartedAt, now);
@@ -183,9 +193,11 @@ public sealed class PassiveBehaviorSession
 
     private PetGraphNode WeightedTarget(IReadOnlyList<PetGraphNode> candidates)
     {
-        var weighted = candidates.Select(node => (Node: node,
-            Weight: package.Behavior.NodeWeights.GetValueOrDefault(node.Id, 1) *
-                    package.Behavior.SceneWeights.GetValueOrDefault(node.Scene, 1))).ToArray();
+        var logarithmic = candidates.Select(node => (Node: node,
+            Weight: Math.Log(package.Behavior.NodeWeights.GetValueOrDefault(node.Id, 1)) +
+                    Math.Log(package.Behavior.SceneWeights.GetValueOrDefault(node.Scene, 1)))).ToArray();
+        var maximum = logarithmic.Max(static item => item.Weight);
+        var weighted = logarithmic.Select(item => (item.Node, Weight: Math.Exp(item.Weight - maximum))).ToArray();
         var total = weighted.Sum(static item => item.Weight);
         if (!double.IsFinite(total) || total <= 0)
         {
@@ -253,7 +265,7 @@ public sealed class PassiveBehaviorSession
             foreach (var frame in clip.SafeExitFrames)
             {
                 var boundary = loopStartedAt + cycle * cycleDuration + (frame + 1) * frameDuration;
-                if (boundary >= now - 0.0000001)
+                if (boundary > now + 0.0000001)
                 {
                     return boundary;
                 }
@@ -269,7 +281,7 @@ public sealed class PassiveBehaviorSession
         scheduledExitAt = null;
         var clip = package.Clips[currentClipId];
         var elapsed = Math.Max(0, now - segmentStartedAt);
-        frozenFrameIndex = (int)Math.Floor(elapsed * clip.FrameRate.FramesPerSecond) % clip.FrameCount;
+        frozenFrameIndex = FrameIndex(clip, elapsed);
     }
 
     private PetPlaybackPresentation Presentation(int frameIndex)
@@ -277,7 +289,10 @@ public sealed class PassiveBehaviorSession
         var preload = new HashSet<string>(StringComparer.Ordinal);
         if (pendingEdges.Count != 0)
         {
-            preload.Add(pendingEdges[0].Clip);
+            foreach (var edge in pendingEdges)
+            {
+                preload.Add(edge.Clip);
+            }
             var finalNode = nodes[pendingEdges[^1].To];
             if (finalNode.LoopClip is { } loop)
             {
@@ -296,6 +311,13 @@ public sealed class PassiveBehaviorSession
             throw Invalid("invalid_behavior", "current node has no dwell range");
         }
         return minimum + (maximum - minimum) * random.NextUnit();
+    }
+
+    private static int FrameIndex(PetClip clip, double elapsed)
+    {
+        var boundedElapsed = clip.Type == "loop" ? elapsed % clip.DurationSeconds : elapsed;
+        var raw = Math.Floor(boundedElapsed * clip.FrameRate.FramesPerSecond);
+        return (int)Math.Clamp(raw, 0, clip.FrameCount - 1);
     }
 
     private static ulong RandomSeed()

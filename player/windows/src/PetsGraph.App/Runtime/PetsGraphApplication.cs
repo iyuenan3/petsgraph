@@ -12,12 +12,13 @@ namespace PetsGraph.App.Runtime;
 internal sealed class PetsGraphApplication : System.Windows.Application, IDisposable
 {
     private readonly CanonicalPetLibrary library;
-    private readonly SettingsStore settingsStore;
+    private readonly PlayerStateStore settingsStore;
     private readonly Dictionary<string, LoadedPetPack> packages = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PetWindow> windows = new(StringComparer.Ordinal);
     private PlayerState state = new();
     private Forms.NotifyIcon? trayIcon;
     private bool disposed;
+    private bool settingsSaveAlertShown;
 
     public PetsGraphApplication(CanonicalPetLibrary library)
     {
@@ -41,6 +42,11 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
             InstallWindow(package);
         }
         SaveSettings();
+        if (settingsStore.LoadWarning is { } warning)
+        {
+            Forms.MessageBox.Show(warning, "已安全隐藏全部宠物", Forms.MessageBoxButtons.OK,
+                Forms.MessageBoxIcon.Warning);
+        }
     }
 
     protected override void OnExit(ExitEventArgs eventArgs)
@@ -131,11 +137,13 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
         }
         foreach (var package in OrderedPackages())
         {
-            var window = windows[package.Manifest.Package.Id];
-            var item = new Forms.ToolStripMenuItem(package.Manifest.Pet.DisplayName)
+            windows.TryGetValue(package.Manifest.Package.Id, out var window);
+            var item = new Forms.ToolStripMenuItem(window is null
+                ? $"{package.Manifest.Pet.DisplayName}（播放不可用）"
+                : package.Manifest.Pet.DisplayName)
             {
                 Tag = package.Manifest.Package.Id,
-                Enabled = window.PetVisible != visible,
+                Enabled = window is not null && window.PetVisible != visible,
             };
             item.Click += (_, _) => SetVisible((string)item.Tag, visible);
             root.DropDownItems.Add(item);
@@ -184,27 +192,56 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
             try
             {
                 var outcome = library.Import(path, ConfirmUpdate);
-                messages.Add(outcome.Result switch
+                if (outcome.Result == PetImportResult.AlreadyInstalled)
                 {
-                    PetImportResult.Installed => $"已装载 {outcome.Current.DisplayName}",
-                    PetImportResult.Updated => $"已更新 {outcome.Current.DisplayName}",
-                    PetImportResult.AlreadyInstalled => $"{outcome.Current.DisplayName} 已经装载",
-                    PetImportResult.UpdateCancelled => $"已取消更新 {outcome.Current.DisplayName}",
-                    _ => "装载结果未知",
-                });
+                    messages.Add($"{outcome.Current.DisplayName} 已经装载");
+                    continue;
+                }
+                if (outcome.Result == PetImportResult.UpdateCancelled)
+                {
+                    messages.Add($"已取消更新 {outcome.Current.DisplayName}");
+                    continue;
+                }
+                try
+                {
+                    ReloadPackagesAndWindows();
+                    library.CommitImport(outcome);
+                }
+                catch (Exception exception) when (IsRuntimeLoadError(exception))
+                {
+                    var activationDetail = RuntimeLoadDetail(exception);
+                    try
+                    {
+                        library.RollbackImport(outcome);
+                        ReloadPackagesAndWindows();
+                        messages.Add($"{Path.GetFileName(path)}：新版本无法播放，已恢复原有宠物。{activationDetail}");
+                    }
+                    catch (Exception rollbackException) when (IsRuntimeLoadError(rollbackException))
+                    {
+                        messages.Add($"{Path.GetFileName(path)}：新版本无法播放，自动恢复也失败。" +
+                            $"{activationDetail}；{RuntimeLoadDetail(rollbackException)}");
+                    }
+                    continue;
+                }
+                messages.Add(outcome.Result == PetImportResult.Updated
+                    ? $"已更新 {outcome.Current.DisplayName}"
+                    : $"已装载 {outcome.Current.DisplayName}");
+                if (outcome.Previous is { } previous)
+                {
+                    try
+                    {
+                        library.DiscardObsolete([previous]);
+                    }
+                    catch (PetPackException exception)
+                    {
+                        messages.Add($"{Path.GetFileName(path)}：新版已启用，但旧版清理失败。{exception.Detail}");
+                    }
+                }
             }
             catch (PetPackException exception)
             {
                 messages.Add($"{Path.GetFileName(path)}：{exception.Detail}");
             }
-        }
-        try
-        {
-            ReloadPackagesAndWindows();
-        }
-        catch (PetPackException exception)
-        {
-            messages.Add($"重新读取内部宠物库失败：{exception.Detail}");
         }
         SaveSettings();
         if (messages.Count != 0)
@@ -235,12 +272,33 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
             packages.Add(pair.Key, pair.Value);
             if (!windows.ContainsKey(pair.Key))
             {
-                InstallWindow(pair.Value);
+                InstallWindowCore(pair.Value);
             }
         }
     }
 
+    private static bool IsRuntimeLoadError(Exception exception) =>
+        exception is PetPackException or IOException or UnauthorizedAccessException;
+
+    private static string RuntimeLoadDetail(Exception exception) => exception is PetPackException petPack
+        ? petPack.Detail
+        : "本地媒体读取失败。";
+
     private void InstallWindow(LoadedPetPack package)
+    {
+        try
+        {
+            InstallWindowCore(package);
+        }
+        catch (Exception exception) when (exception is PetPackException or IOException or UnauthorizedAccessException)
+        {
+            var detail = RuntimeLoadDetail(exception);
+            System.Windows.MessageBox.Show($"{package.Manifest.Pet.DisplayName}：{detail}", "无法装载宠物",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void InstallWindowCore(LoadedPetPack package)
     {
         var id = package.Manifest.Package.Id;
         if (!state.Pets.TryGetValue(id, out var petState))
@@ -269,13 +327,20 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
         var canvas = package.Manifest.Stage.ReferenceCanvasPx;
         var height = package.Manifest.Stage.BaseDisplayHeight * state.GlobalScale;
         var width = height * canvas[0] / canvas[1];
-        var right = windows.Values.Select(static window => window.AnchorX + window.Width / 2).DefaultIfEmpty(work.Left).Max();
-        var x = right + 12 + width / 2;
-        if (x + width / 2 > work.Right)
+        var occupied = windows.Values.Select(static window => new Rect(
+            window.AnchorX - window.Width / 2, window.AnchorY - window.Height, window.Width, window.Height)).ToArray();
+        for (var bottom = work.Bottom - 12; bottom - height >= work.Top; bottom -= height + 12)
         {
-            x = work.Left + 12 + width / 2;
+            for (var x = work.Left + 12; x + width <= work.Right; x += width + 12)
+            {
+                var candidate = new Rect(x, bottom - height, width, height);
+                if (occupied.All(rectangle => !rectangle.IntersectsWith(candidate)))
+                {
+                    return (candidate.Left + width / 2, candidate.Bottom);
+                }
+            }
         }
-        return (x, work.Bottom - 12);
+        return (work.Left + 12 + width / 2, work.Bottom - 12);
     }
 
     private void SetAllVisible(bool visible)
@@ -327,15 +392,19 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
         }
         try
         {
-            _ = library.Uninstall(packageId);
             windows.Remove(packageId, out var window);
             window?.Dispose();
+            _ = library.Uninstall(packageId);
             packages.Remove(packageId);
             state.Pets.Remove(packageId);
             SaveSettings();
         }
         catch (PetPackException exception)
         {
+            if (!windows.ContainsKey(packageId))
+            {
+                InstallWindow(package);
+            }
             System.Windows.MessageBox.Show(exception.Detail, "卸载失败", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -348,18 +417,25 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
         }
         try
         {
-            _ = library.UninstallAll();
             foreach (var window in windows.Values)
             {
                 window.Dispose();
             }
             windows.Clear();
+            _ = library.UninstallAll();
             packages.Clear();
             state.Pets.Clear();
             SaveSettings();
         }
         catch (PetPackException exception)
         {
+            foreach (var package in OrderedPackages())
+            {
+                if (!windows.ContainsKey(package.Manifest.Package.Id))
+                {
+                    InstallWindow(package);
+                }
+            }
             System.Windows.MessageBox.Show(exception.Detail, "卸载失败", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -395,6 +471,20 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
             pet.AnchorX = pair.Value.AnchorX;
             pet.AnchorY = pair.Value.AnchorY;
         }
-        settingsStore.Save(state);
+        try
+        {
+            settingsStore.Save(state);
+            settingsSaveAlertShown = false;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            if (!settingsSaveAlertShown)
+            {
+                settingsSaveAlertShown = true;
+                Forms.MessageBox.Show(
+                    "本次显示、隐藏、大小或位置变化可能无法在下次启动时保留。\n\n" + exception.Message,
+                    "无法保存设置", Forms.MessageBoxButtons.OK, Forms.MessageBoxIcon.Warning);
+            }
+        }
     }
 }

@@ -74,6 +74,8 @@ internal sealed partial class PetWindow : Window, IDisposable
         surface.Children.Add(image);
         Content = surface;
         ApplyGeometry();
+        ClampAnchor();
+        ApplyGeometry();
 
         SourceInitialized += OnSourceInitialized;
         PreviewMouseLeftButtonDown += OnPointerDown;
@@ -126,6 +128,8 @@ internal sealed partial class PetWindow : Window, IDisposable
     {
         scale = PlayerState.NormalizeScale(value);
         ApplyGeometry();
+        ClampAnchor();
+        ApplyGeometry();
     }
 
     public void Dispose()
@@ -166,9 +170,18 @@ internal sealed partial class PetWindow : Window, IDisposable
     private void Render(double now)
     {
         var presentation = session.Update(now);
-        foreach (var clipId in presentation.PreloadClipIds)
+        try
         {
-            renderer.Preload(clipId);
+            foreach (var clipId in presentation.PreloadClipIds)
+            {
+                renderer.Preload(clipId);
+            }
+        }
+        catch (Exception exception) when (!presentation.IsTransition &&
+            exception is PetPackException or IOException or UnauthorizedAccessException)
+        {
+            session.CancelPlannedTransition(now);
+            return;
         }
         if (renderedClipId == presentation.ClipId && renderedFrameIndex == presentation.FrameIndex)
         {
@@ -306,8 +319,10 @@ internal sealed partial class PetWindow : Window, IDisposable
         var top = SystemParameters.VirtualScreenTop;
         var right = left + SystemParameters.VirtualScreenWidth;
         var bottom = top + SystemParameters.VirtualScreenHeight;
-        anchorX = Math.Clamp(anchorX, left + Width / 2, right - Width / 2);
-        anchorY = Math.Clamp(anchorY, top + Height, bottom);
+        anchorX = Width >= right - left
+            ? (left + right) / 2
+            : Math.Clamp(anchorX, left + Width / 2, right - Width / 2);
+        anchorY = Height >= bottom - top ? bottom : Math.Clamp(anchorY, top + Height, bottom);
     }
 
     private static double UptimeSeconds() => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;

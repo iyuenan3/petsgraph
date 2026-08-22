@@ -390,6 +390,9 @@ final class SafeZipArchive {
       let externalAttributes = fixed.u32(38)
       var localOffset = UInt64(fixed.u32(42))
       let variableLength = nameLength + extraLength + commentLength
+      guard commentLength == 0 else {
+        try fail("noncanonical_zip", "ZIP entry comments are not allowed")
+      }
       guard consumed + UInt64(variableLength) <= centralSize else {
         try fail("invalid_container", "central directory entry exceeds its bounds")
       }
@@ -463,7 +466,7 @@ final class SafeZipArchive {
       guard foldedPaths.insert(folded).inserted else {
         try fail("casefold_collision", "ZIP entries collide across platforms")
       }
-      guard entry.flags & 0x1 == 0 else {
+      guard entry.flags & 0x41 == 0 else {
         try fail("encrypted_entry", "encrypted ZIP entries are not supported")
       }
       guard entry.compressionMethod == 0 || entry.compressionMethod == 8 else {

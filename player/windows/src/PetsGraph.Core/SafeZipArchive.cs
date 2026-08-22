@@ -197,8 +197,8 @@ public sealed class SafeZipArchive
                 throw Invalid("archive_budget", "expanded archive is outside the supported budget");
             }
 
-            var host = versionMadeBy >> 8;
-            var unixMode = host == 3 ? externalAttributes >> 16 : 0;
+            _ = versionMadeBy;
+            var unixMode = externalAttributes >> 16;
             if ((unixMode & 0xF000) == 0xA000 || (unixMode & 0x49) != 0)
             {
                 throw Invalid("unsafe_entry", "symlink and executable entries are forbidden");

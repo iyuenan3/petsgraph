@@ -75,6 +75,15 @@ final class PetPackValidatorTests: XCTestCase {
     XCTAssertLessThan(
       try XCTUnwrap(SemanticVersion("1.0.0")), try XCTUnwrap(SemanticVersion("1.0.1")))
     XCTAssertNil(SemanticVersion("1.0.0+\(String(repeating: "a", count: 81))"))
+    XCTAssertEqual(
+      try XCTUnwrap(SemanticVersion("1.0.0+one")),
+      try XCTUnwrap(SemanticVersion("1.0.0+two")))
+    XCTAssertNil(SemanticVersion("1.0.0-01"))
+    XCTAssertNil(SemanticVersion("1.0.0-alpha..1"))
+    XCTAssertNil(SemanticVersion("2147483648.0.0"))
+    XCTAssertLessThan(
+      try XCTUnwrap(SemanticVersion("1.0.0-999999999999999999999")),
+      try XCTUnwrap(SemanticVersion("1.0.0-1000000000000000000000")))
   }
 
   func testPlayerStateUsesOneBoundedGlobalScale() {
@@ -91,6 +100,30 @@ final class PetPackValidatorTests: XCTestCase {
     XCTAssertEqual(migrated.anchorY, 456)
     XCTAssertNil(PlayerState.migratedLegacyPet(anchorX: .infinity, anchorY: .nan).anchorX)
     XCTAssertNil(PlayerState.migratedLegacyPet(anchorX: .infinity, anchorY: .nan).anchorY)
+  }
+
+  func testCorruptSettingsFailSafeHidesEveryInstalledPet() {
+    let state = PlayerState.hiddenFailSafe(packageIDs: ["wubai", "feiliu"])
+
+    XCTAssertEqual(state.pets.keys.sorted(), ["feiliu", "wubai"])
+    XCTAssertTrue(state.pets.values.allSatisfy { !$0.visible })
+  }
+
+  func testStateStoreFailsClosedWhenSettingsAreCorrupt() throws {
+    try withSyntheticPackage { package in
+      let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("petsgraph-settings-\(UUID().uuidString)", isDirectory: true)
+      try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+      defer { try? FileManager.default.removeItem(at: root) }
+      try Data("not json".utf8).write(to: root.appendingPathComponent("settings.json"))
+      let defaults = UserDefaults(suiteName: "petsgraph-tests-\(UUID().uuidString)")!
+      let store = PlayerStateStore(rootURL: root, defaults: defaults)
+
+      let state = store.load(for: [package])
+
+      XCTAssertNotNil(store.loadWarning)
+      XCTAssertEqual(state.pets[package.manifest.package.id]?.visible, false)
+    }
   }
 
   func testCanonicalLibraryImportsIdempotentlyAndOwnsItsCopy() throws {
@@ -115,6 +148,7 @@ final class PetPackValidatorTests: XCTestCase {
     guard case .installed(let installed) = first else {
       return XCTFail("expected a new install")
     }
+    try library.commitImport(first)
     XCTAssertEqual(installed.packageID, "synthetic-cat-v1")
 
     try FileManager.default.removeItem(at: external)
@@ -134,6 +168,112 @@ final class PetPackValidatorTests: XCTestCase {
     XCTAssertTrue(try library.loadInstalledPetPacks().isEmpty)
   }
 
+  func testCanonicalLibraryRollsBackFailedFirstInstall() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("petsgraph-import-rollback-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let library = try CanonicalPetLibrary(rootURL: root)
+    let fixture = repositoryRoot().appendingPathComponent(
+      "petpack/fixtures/synthetic-cat-v1.petpack")
+    let outcome = try library.importPetPack(from: fixture) { _, _ in false }
+
+    try library.rollbackImport(outcome)
+
+    XCTAssertTrue(try library.installedPets().isEmpty)
+    XCTAssertTrue(try library.loadInstalledPetPacks().isEmpty)
+    XCTAssertTrue(
+      (try FileManager.default.contentsOfDirectory(
+        at: root.appendingPathComponent("Library"),
+        includingPropertiesForKeys: nil
+      )).isEmpty)
+  }
+
+  func testCanonicalLibraryRecoversInterruptedImportOnRestart() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("petsgraph-import-recovery-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let fixture = repositoryRoot().appendingPathComponent(
+      "petpack/fixtures/synthetic-cat-v1.petpack")
+    let interrupted = try CanonicalPetLibrary(rootURL: root)
+    _ = try interrupted.importPetPack(from: fixture) { _, _ in false }
+
+    let recovered = try CanonicalPetLibrary(rootURL: root)
+
+    XCTAssertTrue(try recovered.installedPets().isEmpty)
+    XCTAssertTrue(try recovered.loadInstalledPetPacks().isEmpty)
+    XCTAssertFalse(
+      FileManager.default.fileExists(
+        atPath: root.appendingPathComponent("pending-import.json").path))
+  }
+
+  func testCanonicalLibraryRollsBackFailedUpdateToPreviousVersion() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("petsgraph-update-rollback-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let library = try CanonicalPetLibrary(rootURL: root)
+    let fixture = repositoryRoot().appendingPathComponent(
+      "petpack/fixtures/synthetic-cat-v1.petpack")
+    let initial = try library.importPetPack(from: fixture) { _, _ in false }
+    guard case .installed(let previous) = initial else {
+      return XCTFail("expected initial install")
+    }
+    try library.commitImport(initial)
+    let current = InstalledPet(
+      packageID: previous.packageID,
+      petID: previous.petID,
+      displayName: previous.displayName,
+      species: previous.species,
+      contentVersion: try XCTUnwrap(SemanticVersion("1.0.1")),
+      archiveSHA256: previous.archiveSHA256,
+      archiveBytes: previous.archiveBytes
+    )
+    let currentArchiveDirectory = root.appendingPathComponent(
+      "Library/\(current.packageID)/\(current.contentVersion.stringValue)", isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: currentArchiveDirectory, withIntermediateDirectories: true)
+    try FileManager.default.copyItem(
+      at: fixture,
+      to: currentArchiveDirectory.appendingPathComponent("\(current.archiveSHA256).petpack")
+    )
+    let previousRuntime = root.appendingPathComponent(
+      "Cache/\(previous.packageID)/\(previous.contentVersion.stringValue)/\(previous.archiveSHA256)",
+      isDirectory: true)
+    let currentRuntime = root.appendingPathComponent(
+      "Cache/\(current.packageID)/\(current.contentVersion.stringValue)/\(current.archiveSHA256)",
+      isDirectory: true)
+    try FileManager.default.createDirectory(
+      at: currentRuntime.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try FileManager.default.copyItem(at: previousRuntime, to: currentRuntime)
+    let registry = try JSONSerialization.data(
+      withJSONObject: [
+        "formatVersion": 1,
+        "packages": [
+          [
+            "packageID": current.packageID,
+            "petID": current.petID,
+            "displayName": current.displayName,
+            "species": current.species,
+            "contentVersion": current.contentVersion.stringValue,
+            "archiveSHA256": current.archiveSHA256,
+            "archiveBytes": current.archiveBytes,
+          ]
+        ],
+      ],
+      options: [.prettyPrinted, .sortedKeys]
+    )
+    try registry.write(to: root.appendingPathComponent("registry.json"), options: [.atomic])
+
+    try library.rollbackImport(.updated(previous: previous, current: current))
+
+    XCTAssertEqual(try library.installedPets(), [previous])
+    XCTAssertEqual(
+      try XCTUnwrap(library.loadInstalledPetPacks().first).manifest.package.contentVersion,
+      previous.contentVersion)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: currentArchiveDirectory.path))
+    XCTAssertFalse(
+      FileManager.default.fileExists(atPath: currentRuntime.deletingLastPathComponent().path))
+  }
+
   func testCanonicalLibraryRebuildsDeletedCacheFromCanonicalArchive() throws {
     let root = FileManager.default.temporaryDirectory
       .appendingPathComponent("petsgraph-cache-rebuild-\(UUID().uuidString)", isDirectory: true)
@@ -141,7 +281,8 @@ final class PetPackValidatorTests: XCTestCase {
     let library = try CanonicalPetLibrary(rootURL: root)
     let fixture = repositoryRoot().appendingPathComponent(
       "petpack/fixtures/synthetic-cat-v1.petpack")
-    _ = try library.importPetPack(from: fixture) { _, _ in false }
+    let imported = try library.importPetPack(from: fixture) { _, _ in false }
+    try library.commitImport(imported)
     try FileManager.default.removeItem(at: root.appendingPathComponent("Cache"))
     try FileManager.default.createDirectory(
       at: root.appendingPathComponent("Cache"), withIntermediateDirectories: false)
@@ -150,6 +291,41 @@ final class PetPackValidatorTests: XCTestCase {
 
     XCTAssertEqual(packages.count, 1)
     XCTAssertNotNil(packages[0].mediaURL(for: "rest-secondary-loop"))
+  }
+
+  func testCanonicalLibraryRemovesUnjournaledUninstallTransaction() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent(
+        "petsgraph-orphan-transaction-\(UUID().uuidString)", isDirectory: true)
+    let orphan = root.appendingPathComponent("Staging/uninstall-orphan", isDirectory: true)
+    try FileManager.default.createDirectory(at: orphan, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    _ = try CanonicalPetLibrary(rootURL: root)
+
+    XCTAssertFalse(FileManager.default.fileExists(atPath: orphan.path))
+  }
+
+  func testCanonicalLibraryRebuildsSameLengthCorruptMediaCache() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("petsgraph-cache-corrupt-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let library = try CanonicalPetLibrary(rootURL: root)
+    let fixture = repositoryRoot().appendingPathComponent(
+      "petpack/fixtures/synthetic-cat-v1.petpack")
+    let imported = try library.importPetPack(from: fixture) { _, _ in false }
+    try library.commitImport(imported)
+    let installed = try XCTUnwrap(try library.loadInstalledPetPacks().first)
+    let media = try XCTUnwrap(installed.mediaURL(for: "rest-primary-loop"))
+    let expected = try Data(contentsOf: media)
+    var corrupt = expected
+    corrupt[corrupt.startIndex] ^= 0xff
+    try corrupt.write(to: media)
+
+    let rebuilt = try XCTUnwrap(try library.loadInstalledPetPacks().first)
+
+    XCTAssertEqual(
+      try Data(contentsOf: XCTUnwrap(rebuilt.mediaURL(for: "rest-primary-loop"))), expected)
   }
 
   func testCanonicalLibraryRejectsUnsafeRegistryIdentity() throws {
@@ -180,6 +356,40 @@ final class PetPackValidatorTests: XCTestCase {
     }
   }
 
+  func testImportRecoveryUsesExactVersionPathIdentity() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("petsgraph-import-identity-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    _ = try CanonicalPetLibrary(rootURL: root)
+    func record(_ version: String) -> [String: Any] {
+      [
+        "packageID": "synthetic-cat-v1",
+        "petID": "synthetic-cat-v1",
+        "displayName": "Synthetic Cat",
+        "species": "cat",
+        "contentVersion": version,
+        "archiveSHA256": String(repeating: "0", count: 64),
+        "archiveBytes": 1,
+      ]
+    }
+    try JSONSerialization.data(
+      withJSONObject: ["formatVersion": 1, "packages": [record("1.0.0+two")]],
+      options: [.sortedKeys]
+    ).write(to: root.appendingPathComponent("registry.json"), options: [.atomic])
+    try JSONSerialization.data(
+      withJSONObject: [
+        "formatVersion": 1,
+        "current": record("1.0.0+one"),
+        "previous": NSNull(),
+      ],
+      options: [.sortedKeys]
+    ).write(to: root.appendingPathComponent("pending-import.json"), options: [.atomic])
+
+    XCTAssertThrowsError(try CanonicalPetLibrary(rootURL: root)) { error in
+      XCTAssertEqual((error as? PetPackError)?.code, "import_recovery_failed")
+    }
+  }
+
   func testPassiveBehaviorUsesACompleteDirectedTransition() throws {
     try withSyntheticPackage { package in
       let session = try PassiveBehaviorSession(package: package, startedAt: 0, seed: 7)
@@ -192,6 +402,80 @@ final class PetPackValidatorTests: XCTestCase {
       XCTAssertEqual(arrived.currentNodeID, "rest.secondary")
       XCTAssertEqual(arrived.clipID, "rest-secondary-loop")
       XCTAssertFalse(arrived.isTransition)
+    }
+  }
+
+  func testPassiveBehaviorPreloadsWholeGatewayPathAndTargetLoop() throws {
+    try withSyntheticPackage { package in
+      let primary = package.graph.nodes.first { $0.id == "rest.primary" }!
+      let secondary = package.graph.nodes.first { $0.id == "rest.secondary" }!
+      let gateway = PetGraphNode(
+        id: "rest.gateway", role: "gateway", scene: "rest", loopClip: nil,
+        autonomousEligible: false)
+      let edges = [
+        PetGraphEdge(
+          id: "primary-to-gateway", from: primary.id, to: gateway.id,
+          clip: "rest-primary-to-rest-secondary", interruptPolicy: "finish-before-retarget"),
+        PetGraphEdge(
+          id: "gateway-to-secondary", from: gateway.id, to: secondary.id,
+          clip: "rest-secondary-to-rest-primary", interruptPolicy: "finish-before-retarget"),
+      ]
+      let modified = LoadedPetPack(
+        runtimeRootURL: package.runtimeRootURL,
+        manifest: package.manifest,
+        graph: PetGraph(
+          formatVersion: "1.0.0", nodes: [primary, gateway, secondary], edges: edges),
+        behavior: package.behavior,
+        clips: package.clips,
+        archiveSHA256: package.archiveSHA256
+      )
+      let session = try PassiveBehaviorSession(package: modified, startedAt: 0, seed: 7)
+
+      let planned = try session.update(at: 1_000)
+
+      XCTAssertEqual(
+        Set(planned.preloadClipIDs),
+        Set([
+          "rest-primary-to-rest-secondary", "rest-secondary-to-rest-primary",
+          "rest-secondary-loop",
+        ]))
+      XCTAssertFalse(planned.isTransition)
+      try session.cancelPlannedTransition(at: 1_000)
+      XCTAssertTrue(try session.update(at: 1_000).preloadClipIDs.isEmpty)
+    }
+  }
+
+  func testPassiveBehaviorAllowsWeightedImmediateRepeatWithoutTransition() throws {
+    try withSyntheticPackage { package in
+      let behavior = PetBehavior(
+        formatVersion: package.behavior.formatVersion,
+        profile: package.behavior.profile,
+        defaultNode: package.behavior.defaultNode,
+        timing: BehaviorTiming(
+          strategy: package.behavior.timing.strategy,
+          dwellRangesSeconds: package.behavior.timing.dwellRangesSeconds,
+          avoidImmediateRepeat: false),
+        nodeWeights: [
+          "rest.primary": Double.greatestFiniteMagnitude,
+          "rest.secondary": Double.leastNonzeroMagnitude,
+        ],
+        sceneWeights: package.behavior.sceneWeights
+      )
+      let modified = LoadedPetPack(
+        runtimeRootURL: package.runtimeRootURL,
+        manifest: package.manifest,
+        graph: package.graph,
+        behavior: behavior,
+        clips: package.clips,
+        archiveSHA256: package.archiveSHA256
+      )
+      let session = try PassiveBehaviorSession(package: modified, startedAt: 0, seed: 1)
+
+      let presentation = try session.update(at: 1_000)
+
+      XCTAssertEqual(presentation.currentNodeID, "rest.primary")
+      XCTAssertFalse(presentation.isTransition)
+      XCTAssertTrue(presentation.preloadClipIDs.isEmpty)
     }
   }
 

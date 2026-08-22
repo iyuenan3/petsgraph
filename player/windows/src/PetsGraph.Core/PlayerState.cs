@@ -24,4 +24,14 @@ public sealed record PlayerState
         AnchorX = anchorX is { } x && double.IsFinite(x) ? x : null,
         AnchorY = anchorY is { } y && double.IsFinite(y) ? y : null,
     };
+
+    public static PlayerState HiddenFailSafe(IEnumerable<string> packageIds)
+    {
+        var state = new PlayerState();
+        foreach (var packageId in packageIds)
+        {
+            state.Pets[packageId] = new() { Visible = false };
+        }
+        return state;
+    }
 }

@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace PetsGraph.Core;
@@ -29,8 +31,24 @@ public sealed partial class PetPackValidator
             throw Invalid("archive_budget", "canonical archive size is invalid");
         }
         var files = EnumerateRuntimeFiles(runtimeRoot);
-        return LoadRuntime(runtimeRoot, archiveSha256, archiveBytes,
-            files.Sum(static file => new FileInfo(file.FullPath).Length), files.Count);
+        if (files.Count > SafeZipArchive.MaximumEntries)
+        {
+            throw Invalid("cache_corrupt", "runtime cache exceeds the PetPack entry budget");
+        }
+        long uncompressedBytes = 0;
+        foreach (var file in files)
+        {
+            var bytes = new FileInfo(file.FullPath).Length;
+            if (bytes > SafeZipArchive.MaximumEntryBytes ||
+                (file.RelativePath.EndsWith(".json", StringComparison.Ordinal) &&
+                 bytes > SafeZipArchive.MaximumJsonBytes) ||
+                bytes > SafeZipArchive.MaximumUncompressedBytes - uncompressedBytes)
+            {
+                throw Invalid("cache_corrupt", "runtime cache exceeds the PetPack byte budget");
+            }
+            uncompressedBytes += bytes;
+        }
+        return LoadRuntime(runtimeRoot, archiveSha256, archiveBytes, uncompressedBytes, files.Count);
     }
 
     private static ValidatedPetPack LoadRuntime(string runtimeRoot, string archiveSha256,
@@ -42,7 +60,7 @@ public sealed partial class PetPackValidator
         ValidateArchivePaths(runtimePaths);
 
         var manifest = Decode<PetPackManifest>(root, "manifest.json");
-        var graph = Decode<PetGraph>(root, "graph.json");
+        var graph = DecodeGraph(root);
         var behavior = Decode<PetBehavior>(root, "behavior.json");
         var integrity = Decode<PetPackIntegrity>(root, "integrity.json");
         ValidateManifest(manifest);
@@ -113,7 +131,8 @@ public sealed partial class PetPackValidator
         }
         ValidateIdentifier(manifest.Package.Id, PackageIdPattern(), 80, "package id");
         ValidateIdentifier(manifest.Pet.Id, PackageIdPattern(), 80, "pet id");
-        if (manifest.Package.Id != manifest.Pet.Id || manifest.Pet.DisplayName.Length is < 1 or > 80 ||
+        ValidateText(manifest.Pet.DisplayName, 80, "display name");
+        if (manifest.Package.Id != manifest.Pet.Id ||
             manifest.Pet.Species is not ("cat" or "dog") ||
             !TimestampPattern().IsMatch(manifest.Package.CreatedAt) ||
             !DateTimeOffset.TryParse(manifest.Package.CreatedAt, CultureInfo.InvariantCulture,
@@ -156,7 +175,13 @@ public sealed partial class PetPackValidator
         {
             SafeZipArchive.ValidatePath(entry.Path);
             ValidateSha256(entry.Sha256, "integrity digest");
-            if (entry.Path == "integrity.json" || entry.Bytes < 0 || entry.MediaType.Length is < 1 or > 120 ||
+            var expectedMediaType = entry.Path.EndsWith(".json", StringComparison.Ordinal)
+                ? "application/json"
+                : entry.Path.EndsWith(".rgba", StringComparison.Ordinal)
+                    ? "application/vnd.petsgraph.rgba8"
+                    : null;
+            if (entry.Path == "integrity.json" || entry.Bytes < 0 ||
+                entry.MediaType != expectedMediaType ||
                 !declared.TryAdd(entry.Path, entry))
             {
                 throw Invalid("invalid_integrity", "integrity entries are invalid or duplicated");
@@ -197,8 +222,8 @@ public sealed partial class PetPackValidator
             throw Invalid("invalid_clip", "clip identity, type, or endpoints are inconsistent");
         }
         if (clip.FrameRate.Numerator is < 1 or > 1000 || clip.FrameRate.Denominator is < 1 or > 1000 ||
-            clip.FrameCount < 1 || !double.IsFinite(clip.DurationSeconds) ||
-            Math.Abs(clip.DurationSeconds - clip.FrameCount * clip.FrameRate.Denominator /
+            clip.FrameCount < 1 || !double.IsFinite(clip.DurationSeconds) || clip.DurationSeconds <= 0 ||
+            Math.Abs(clip.DurationSeconds - (double)clip.FrameCount * clip.FrameRate.Denominator /
                 (double)clip.FrameRate.Numerator) > 0.000001)
         {
             throw Invalid("invalid_duration", "clip duration does not match its frame contract");
@@ -383,6 +408,32 @@ public sealed partial class PetPackValidator
         return StrictJson.DecodeFile<T>(fullPath, path);
     }
 
+    private static PetGraph DecodeGraph(string root)
+    {
+        const string path = "graph.json";
+        var fullPath = SafeZipArchive.ResolveDestination(root, path);
+        byte[] data;
+        try
+        {
+            data = File.ReadAllBytes(fullPath);
+        }
+        catch (IOException exception)
+        {
+            throw new PetPackException("read_failed", "could not read graph.json", exception);
+        }
+        var graph = StrictJson.Decode<PetGraph>(data, path);
+        using var document = JsonDocument.Parse(data);
+        foreach (var node in document.RootElement.GetProperty("nodes").EnumerateArray())
+        {
+            if (node.GetProperty("role").GetString() == "gateway" &&
+                node.TryGetProperty("loopClip", out _))
+            {
+                throw Invalid("invalid_graph", "gateway nodes must omit loopClip");
+            }
+        }
+        return graph;
+    }
+
     private static IReadOnlyList<RuntimeFile> EnumerateRuntimeFiles(string runtimeRoot)
     {
         var root = Path.GetFullPath(runtimeRoot);
@@ -427,6 +478,15 @@ public sealed partial class PetPackValidator
         if (value.Length is < 1 || value.Length > maximumLength || !pattern.IsMatch(value))
         {
             throw Invalid("invalid_identifier", $"{field} is invalid");
+        }
+    }
+
+    private static void ValidateText(string value, int maximumLength, string field)
+    {
+        if (value.Length is < 1 || value.Length > maximumLength ||
+            !value.IsNormalized(NormalizationForm.FormC) || value.Any(char.IsControl))
+        {
+            throw Invalid("invalid_text", $"{field} is invalid");
         }
     }
 

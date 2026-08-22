@@ -33,10 +33,16 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def within_repo(path: Path, *, strict: bool) -> Path:
+def safe_output_path(path: Path, *, strict: bool) -> Path:
     result = path if path.is_absolute() else ROOT / path
     result = result.resolve(strict=strict)
-    result.relative_to(ROOT)
+    allowed_roots = (
+        ROOT,
+        Path("/tmp").resolve(),
+        Path(tempfile.gettempdir()).resolve(),
+    )
+    if not any(result == root or result.is_relative_to(root) for root in allowed_roots):
+        raise ValueError("--output must stay inside the repository or the system temporary directory")
     return result
 
 
@@ -67,7 +73,7 @@ def assert_no_signing_detritus(root: Path) -> None:
 
 def main() -> None:
     args = parse_args()
-    output = within_repo(args.output, strict=False)
+    output = safe_output_path(args.output, strict=False)
     if output.exists():
         raise FileExistsError(f"refusing to overwrite existing app: {output}")
     if output.suffix != ".app":
