@@ -307,7 +307,7 @@ Player 不提供动作、睡姿、场景或声音菜单。
 
 ## 14. Codex 宠物导出契约
 
-当前 As-built 使用 `codex-pets/`，目标目录名为 `codexpets/`。在目录迁移完成并通过前，当前安装与校验命令继续读取旧路径；不能只改文档或默认路径后留下半迁移状态。
+当前 As-built 已使用 `codexpets/`。公开包、公开清单、管理工具和文档在提交 `76ad2ea` 同步切换，原 `codex-pets/` 与 `tools/manage-codex-pets.py` 不保留兼容入口。
 
 目标 `codexpets/` 是独立于 PetsGraph Player 的小型 Codex v2 自定义宠物制作与分发面：
 
@@ -315,7 +315,7 @@ Player 不提供动作、睡姿、场景或声音菜单。
 - 公开包位于 `codexpets/packages/public/<package-id>/`；私有包位于根 Git 忽略的 `codexpets/packages/private/`。
 - `codexpets/manifests/public.json` 固定公开目录、ID、显示名、字节数、SHA-256、`public=true`、素材所有者和 `licenseRef`，不得包含私有包条目或客户元数据。
 - `codexpets/manifests/private.json` 保持私有，不得向公开清单泄漏客户 ID、宠物名、路径或摘要。
-- 当前公开导出为五百 `wubai-v0` 与飞流 `feiliu-hatch-native-v1`；迁移不得改变包 ID、媒体字节、摘要或限定授权。
+- 当前公开导出为五百 `wubai-v0` 与飞流 `feiliu-hatch-native-v1`；迁移后四个包文件的媒体字节与摘要保持不变。
 - Codex 专用选帧、生成、布局和 QA 位于 `codexpets/workspaces/<pet-id>/`，通过相对路径和摘要引用 `pets/` 唯一事实源，不复制客户原始资料。
 - Codex 图集的机械通过不映射为 PetPack 连续视频、生命感、动作图或可交付批准。
 - Codex 导出不进入 `.petpack`，也不改变 Player 零内置宠物素材的目标。

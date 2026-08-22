@@ -1,6 +1,6 @@
 # DIRECTORY：PetsGraph 项目目录与 Git 边界
 
-> Target: 本文件定义下一代目录结构和迁移护栏。As-built: 当前源码仍位于根 `Sources/`、`Tests/`、`windows/` 与 `tools/`，私有媒体仍位于 `workspaces/`，Codex 公开包仍位于 `codex-pets/`。本轮只冻结目标，不表示目录已经移动。
+> Target: 本文件定义下一代目录结构和迁移护栏。As-built: Codex 公开包、清单和管理工具已迁入 `codexpets/`；Player 源码仍位于根 `Sources/`、`Tests/` 与 `windows/`，私有媒体仍位于 `workspaces/`，其余目录继续按小切片迁移。
 
 ## 1. 根目录原则
 
@@ -265,8 +265,8 @@ codexpets/
 
 规则：
 
-- 当前 `codex-pets/` 是 As-built；`codexpets/` 是批准但未实施的目标名。
-- 当前公开的五百与飞流包迁移到 `codexpets/packages/public/`，保持 ID、媒体字节、摘要、限定授权和 Git 历史可追溯性。
+- 原 `codex-pets/` 已在提交 `76ad2ea` 一次性迁入 `codexpets/`，不保留旧路径兼容入口。
+- 当前公开的五百与飞流包位于 `codexpets/packages/public/`，包 ID、媒体字节、摘要、限定授权和 Git 历史保持可追溯。
 - `public.json` 只能记录公开包，至少包含 package ID、显示名、字节数、SHA-256、`public=true`、素材所有者和 `licenseRef`。
 - `private.json`、私有包和工作区不能被根 Git 跟踪，也不能向公开清单泄漏客户 ID、宠物名、路径或摘要。
 - `workspaces/` 只保存 Codex 专用选帧、生成、布局、图集和 QA。输入通过 `pets/` 中的相对路径和内容摘要引用，不复制客户原始资料。
@@ -299,9 +299,9 @@ codexpets/
 | Seedance、Seedream、抠图、评审和宠物专用工具 | `studio/` | 迁入根 Git 忽略的本机私有目录，不创建独立 Git，不再保留公开工作副本 |
 | `workspaces/<pet>-private/` | `pets/personal/<pet-id>/` 及 `petpacks/personal/<pet-id>/` | 逐宠、逐类映射；源、批准、失败、包和缓存不可混迁 |
 | 未来客户目录 | `pets/customers/<customer-id>/<pet-id>/` | 客户 ID 稳定且不含姓名，保留期单独记录 |
-| `codex-pets/` | `codexpets/packages/public/` | 当前目录保留到新路径、工具、清单和文档同时通过 |
-| `codex-pets/manifest.json` | `codexpets/manifests/public.json` | 不混入任何私有条目 |
-| `tools/manage-codex-pets.py` | `codexpets/tools/manage.py` | 安装、校验、冲突拒绝和可恢复备份语义保持 |
+| `codex-pets/` | `codexpets/packages/public/` | 已在 `76ad2ea` 完成；不保留旧路径兼容 |
+| `codex-pets/manifest.json` | `codexpets/manifests/public.json` | 已完成；公开条目增加 `public`、素材所有者和授权指针 |
+| `tools/manage-codex-pets.py` | `codexpets/tools/manage.py` | 已完成；安装、校验、冲突拒绝和可恢复备份语义保持 |
 | `assets/app-icon/` | `assets/brand/` | 只迁公开定稿；候选和 QA 进入私有或 `.local/` |
 | `output/`、`tmp/`、`.cache/`、`.venv*` | `.local/` 或对应私有事实目录 | 先证明可重建，不能机械移动或删除 |
 | `dist/`、`workspaces/release-dist/` | `.local/dist/`、`petpacks/*/delivery/` 或私有归档 | 先核对远端 Release、摘要和唯一性 |
@@ -347,6 +347,6 @@ codexpets/
 
 ## 15. 当前状态
 
-状态为 `directory-contract-frozen / migration-not-started`。
+状态为 `directory-contract-frozen / migration-in-progress`。
 
-目标目录、Git 边界和 `codexpets` 命名已经确认，但当前磁盘与 Git 树尚未执行迁移。任何后续报告必须分别说明“文档目标已确定”和“具体目录已迁移并验证”，不能把两者合并为完成状态。
+目标目录和 Git 边界已经确认。清理审计与 `codexpets` 小切片已经迁移并验证，Player、Studio、宠物事实源、PetPack 工作区和本地产物仍待切换。任何后续报告必须逐子树说明实际状态，不能把局部迁移写成整体完成。

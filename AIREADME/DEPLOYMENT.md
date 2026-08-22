@@ -162,14 +162,14 @@ v0.6.0 实际发布证据：Windows 草稿复验运行 `32139232230` 成功，�
 
 ## Codex 宠物导出维护与安装
 
-本节命令记录当前 As-built。目标目录已经确定为 `codexpets/packages/public/`、`codexpets/manifests/public.json` 与 `codexpets/tools/manage.py`，但尚未实施；迁移完成前不能把下面的现行命令改成不存在的新入口。目标结构与切换门禁见 `DIRECTORY.md`。
+本节命令记录当前 As-built。公开包、清单和管理工具已迁入 `codexpets/`，原路径不再提供兼容入口。目标结构与切换门禁见 `DIRECTORY.md`。
 
-Codex 导出随普通 Git 分支分发，不增加 GitHub Release 附件。内容基线提交为 `9f230c1`，包含五百与飞流两个完整 v2 目录、`codex-pets/manifest.json` 和 `tools/manage-codex-pets.py`。
+Codex 导出随普通 Git 分支分发，不增加 GitHub Release 附件。历史内容基线提交 `9f230c1` 使用 `codex-pets/`；当前目录迁移提交为 `76ad2ea`，包含 `codexpets/packages/public/`、`codexpets/manifests/public.json`、`codexpets/tools/manage.py` 和回归测试。
 
 仓库维护者先运行：
 
 ```bash
-python3 tools/manage-codex-pets.py validate
+python3 codexpets/tools/manage.py validate
 ```
 
 该命令核对目录白名单、`pet.json` 字段、字节数、SHA-256、WebP 透明通道、1536×2288 尺寸和 8×11 网格契约。发布前还要分别使用 Hatch Pet `validate_atlas.py --require-v2` 复验两张图集，并在真实 Codex 窗口中观看动作与身份。
@@ -177,9 +177,9 @@ python3 tools/manage-codex-pets.py validate
 用户安装全部或单只宠物：
 
 ```bash
-python3 tools/manage-codex-pets.py install
-python3 tools/manage-codex-pets.py install wubai-v0
-python3 tools/manage-codex-pets.py install feiliu-hatch-native-v1
+python3 codexpets/tools/manage.py install
+python3 codexpets/tools/manage.py install wubai-v0
+python3 codexpets/tools/manage.py install feiliu-hatch-native-v1
 ```
 
 默认目标是 `${CODEX_HOME:-~/.codex}/pets/`。相同内容重复安装不写盘；不同内容必须由用户显式传入 `--force`，安装器先把旧目录移动到 `${CODEX_HOME:-~/.codex}/pets-backups/<UTC 时间>/`。安装后在 Codex 设置的 Pets 页面重新选择宠物，缓存未刷新时重启 Codex。

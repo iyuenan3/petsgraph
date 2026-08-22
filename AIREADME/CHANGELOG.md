@@ -203,6 +203,7 @@
 - Fixed: 无。
 - Removed: 无。
 - Deprecated: 无。
+
 - Review: 用户在 150 pt 真实 macOS 桌面窗口中通过趴卧循环、趴卧到侧躺、侧躺循环、侧躺到趴卧和返回趴卧的完整链。0.1.1 与实际观看的 0.1.0 有 798 个运行时文件逐字节一致，只改变版本、评审记录和完整性清单。移动与睡眠之间仍缺少批准桥接动作。
 
 ## v0.2.0-preview · 2026-08-09
@@ -355,3 +356,10 @@
 - Fixed: 无。
 - Removed: 无。
 - Deprecated: 无。
+
+## Unreleased migration slice · 2026-08-23
+
+- Changed: 原 `codex-pets/` 一次性迁入 `codexpets/packages/public/`，公开清单迁入 `codexpets/manifests/public.json`，管理工具迁入 `codexpets/tools/manage.py`，不保留旧路径兼容入口。
+- Added: 公开清单为每只宠物记录 `public=true`、素材所有者和 `ASSETS.md` 授权指针；根忽略规则隔离 Codex 私有包、私有清单和制作工作区。
+- Added: 新增标准库回归测试，覆盖公开包清单校验和隔离目录首次安装、重复安装幂等行为。
+- Review: 五百与飞流的两个稳定 ID、四个包文件字节数和 SHA-256 均未改变。公开校验器通过，2 项回归测试通过。该切片只完成 Codex 目录迁移，不表示 Player、Studio、PetPack 或宠物事实源已经迁移。
