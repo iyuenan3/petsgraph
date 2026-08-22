@@ -465,3 +465,8 @@
 - Changed: macOS 人工安装候选优先构建到 `/private/tmp`，避免 Desktop File Provider 在签名后异步加入 Finder 元数据。最终审查构建 3 严格签名和零素材检查通过，但安装启动被 Mac 锁屏阻断。
 - Review: 构建 2 的公开合成宠物在真实桌面观察到动画刷新。该证据不覆盖五百、飞流身份、完整菜单、拖动、正常速度观看或 Windows 11 x64 GUI，整个重构 Goal 保持未完成。
 - Review: PetPack、macOS、Windows 最终审查运行 `32600312955`、`32600330583`、`32600330777` 全部成功。历史 `v0.6.0` 的 macOS 与 Windows 公开附件只读复验 `32600568305`、`32600570363` 也全部成功。
+
+## Unreleased macOS review build 3 installation · 2026-08-23
+
+- Changed: 将严格签名和零素材检查通过的 `/private/tmp/PetsGraph-0.7.0-review3.app` 可恢复安装到 `/Applications/PetsGraph.app`，原构建 2 移入系统回收站保留。宠物库、cache、位置和设置均未删除。
+- Review: 安装后二进制版本为 `0.7.0-review`、构建号 3，主程序 SHA-256 为 `ce6717898384ff42c9ba40175ebb7640aa83ce2b1d8946cd67e59659985a7520`。严格签名、arm64、仅图标资源和基线、前向兼容、五百、飞流四包原生校验通过。Mac 仍锁屏，GUI 启动和真实宠物观看继续保持未通过。

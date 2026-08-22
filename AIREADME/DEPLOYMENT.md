@@ -127,7 +127,7 @@ python3 player/macos/scripts/build-app.py \
 - 公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
 - App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
 - App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
-- 当前最终审查 App 位于 `/private/tmp/PetsGraph-0.7.0-review3.app`，版本 `0.7.0-review`、构建号 3，主程序为 1,208,928 bytes，SHA-256 为 `ce6717898384ff42c9ba40175ebb7640aa83ce2b1d8946cd67e59659985a7520`。延迟 5 秒后的严格签名复验通过，App 资源只有 `PetsGraph.icns`。Mac 锁屏阻断了该构建的安装启动，所以它不是 GUI 验收结论、冻结交付物或 Release 附件。
+- 当前最终审查 App 从 `/private/tmp/PetsGraph-0.7.0-review3.app` 安装到 `/Applications/PetsGraph.app`，版本 `0.7.0-review`、构建号 3，主程序为 1,208,928 bytes，SHA-256 为 `ce6717898384ff42c9ba40175ebb7640aa83ce2b1d8946cd67e59659985a7520`。延迟 5 秒与安装后的严格签名复验通过，App 资源只有 `PetsGraph.icns`。安装后二进制通过基线、前向兼容、五百和飞流四包原生校验。Mac 锁屏仍阻断 GUI 启动，所以它不是 GUI 验收结论、冻结交付物或 Release 附件。
 
 上述结果不替代真实 macOS 桌面上的菜单、拖动、透明命中、多宠并发、隐藏恢复、应用升级保留和正常速度视觉验收。
 
