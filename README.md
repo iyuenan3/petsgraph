@@ -8,7 +8,7 @@ PetsGraph 正在重构为面向宠物离世纪念场景的开源多宠播放器�
 
 ## 当前状态
 
-产品方向已经完成文档决策，下一代 Player/PetPack 1.0 尚未实现。
+产品方向已经完成文档决策。PetPack 1.0 的公开 schema、标准库验证器、合成夹具和安全回归已经实现；下一代 Player、五百与飞流正式 `.petpack` 尚未实现。
 
 当前公开的 `v0.6.0` 仍是历史双宠架构：
 
@@ -136,6 +136,15 @@ Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公
 
 ## 当前开发验证
 
+PetPack 1.0：
+
+```bash
+python3 -m petpack.validator petpack/fixtures/synthetic-cat-v1.petpack
+python3 -m unittest discover -s petpack/tests -v
+```
+
+公开夹具只包含程序生成的 2×2 RGBA 像素，不具有真实宠物身份。验证器先检查 ZIP 路径、压缩和大小预算，再检查完整性、固定舞台、动作图、被动行为与媒体长度。
+
 Swift：
 
 ```bash
@@ -149,7 +158,7 @@ DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet test player/windows/
 DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet build player/windows/PetsGraph.slnx -c Release
 ```
 
-当前构建命令验证的是 `v0.6.0` as-built，不证明 PetPack 1.0 已实现。下一步重构路线见 [`AIREADME/ROADMAP.md`](AIREADME/ROADMAP.md)。
+Swift 与 Windows 构建命令验证的是 `v0.6.0` as-built，不证明新 Player 已装载 PetPack 1.0。下一步重构路线见 [`AIREADME/ROADMAP.md`](AIREADME/ROADMAP.md)。
 
 ## Codex 宠物导出
 

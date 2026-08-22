@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://petsgraph.dev/schemas/petpack/1.0/clip.schema.json",
+  "title": "PetPack 1.0 clip",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "id", "type", "entryNode", "exitNode", "frameRate", "frameCount", "durationSeconds", "safeExitFrames", "stage", "geometry", "playback", "production", "representations"],
+  "properties": {
+    "formatVersion": {"const": "1.0.0"},
+    "id": {"$ref": "#/$defs/clipId"},
+    "type": {"enum": ["loop", "transition"]},
+    "entryNode": {"$ref": "#/$defs/nodeId"},
+    "exitNode": {"$ref": "#/$defs/nodeId"},
+    "frameRate": {"$ref": "#/$defs/frameRate"},
+    "frameCount": {"type": "integer", "minimum": 1},
+    "durationSeconds": {"type": "number", "exclusiveMinimum": 0},
+    "safeExitFrames": {"type": "array", "uniqueItems": true, "items": {"type": "integer", "minimum": 0}},
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["referenceCanvasPx", "anchor"],
+      "properties": {
+        "referenceCanvasPx": {
+          "type": "array",
+          "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}],
+          "items": false
+        },
+        "anchor": {"const": "bottom-center"}
+      }
+    },
+    "geometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cropPx", "presentationOffsetPx"],
+      "properties": {
+        "cropPx": {
+          "type": "array",
+          "prefixItems": [
+            {"type": "integer", "minimum": 0}, {"type": "integer", "minimum": 0},
+            {"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}
+          ],
+          "items": false
+        },
+        "presentationOffsetPx": {
+          "type": "array",
+          "prefixItems": [{"type": "integer", "minimum": 0}, {"type": "integer", "minimum": 0}],
+          "items": false
+        }
+      }
+    },
+    "playback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nativeContinuousFrames", "rate", "speedProcessing"],
+      "properties": {
+        "nativeContinuousFrames": {"const": true},
+        "rate": {"const": 1.0},
+        "speedProcessing": {"const": "none"}
+      }
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recipeDigest", "approvalDigest"],
+      "properties": {
+        "recipeDigest": {"$ref": "#/$defs/sha256"},
+        "approvalDigest": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "representations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/representation"}
+    }
+  },
+  "$defs": {
+    "nodeId": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$", "maxLength": 120},
+    "clipId": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 160},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "frameRate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "denominator": {"type": "integer", "minimum": 1, "maximum": 1000}
+      }
+    },
+    "representation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "path", "encoding", "widthPx", "heightPx", "bytesPerRow", "frameCount", "frameRate", "alpha", "colorSpace", "bytes", "sha256"],
+      "properties": {
+        "id": {"const": "cropped-rgba-clips"},
+        "kind": {"const": "cropped-rgba-clips"},
+        "path": {"type": "string"},
+        "encoding": {"const": "raw-premultiplied-rgba8"},
+        "widthPx": {"type": "integer", "minimum": 1},
+        "heightPx": {"type": "integer", "minimum": 1},
+        "bytesPerRow": {"type": "integer", "minimum": 4},
+        "frameCount": {"type": "integer", "minimum": 1},
+        "frameRate": {"$ref": "#/$defs/frameRate"},
+        "alpha": {"const": "premultiplied"},
+        "colorSpace": {"const": "srgb"},
+        "bytes": {"type": "integer", "minimum": 4},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

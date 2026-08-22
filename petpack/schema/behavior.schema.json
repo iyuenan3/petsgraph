@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://petsgraph.dev/schemas/petpack/1.0/behavior.schema.json",
+  "title": "PetPack 1.0 passive behavior",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "profile", "defaultNode", "timing", "nodeWeights", "sceneWeights"],
+  "properties": {
+    "formatVersion": {"const": "1.0.0"},
+    "profile": {"const": "passive-memorial-companion"},
+    "defaultNode": {"$ref": "#/$defs/nodeId"},
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "dwellRangesSeconds", "avoidImmediateRepeat"],
+      "properties": {
+        "strategy": {"const": "independent-random-dwell"},
+        "dwellRangesSeconds": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "prefixItems": [
+              {"type": "number", "exclusiveMinimum": 0},
+              {"type": "number", "exclusiveMinimum": 0}
+            ],
+            "items": false
+          }
+        },
+        "avoidImmediateRepeat": {"type": "boolean"}
+      }
+    },
+    "nodeWeights": {"type": "object", "additionalProperties": {"type": "number", "exclusiveMinimum": 0}},
+    "sceneWeights": {"type": "object", "additionalProperties": {"type": "number", "exclusiveMinimum": 0}}
+  },
+  "$defs": {
+    "nodeId": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$", "maxLength": 120}
+  }
+}

@@ -1,0 +1,51 @@
+name: PetPack contract
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "petpack/**"
+      - ".github/workflows/petpack.yml"
+  pull_request:
+    paths:
+      - "petpack/**"
+      - ".github/workflows/petpack.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: petsgraph-petpack-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-14
+          - windows-2025
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run PetPack contract and security tests
+        run: python -m unittest discover -s petpack/tests -v
+
+      - name: Validate the committed synthetic fixture
+        run: python -m petpack.validator petpack/fixtures/synthetic-cat-v1.petpack
+
+      - name: Verify deterministic fixture rebuild
+        run: |
+          python -m petpack.tools.build_fixture petpack/fixtures/regenerated.petpack
+          python -c "from pathlib import Path; assert Path('petpack/fixtures/regenerated.petpack').read_bytes() == Path('petpack/fixtures/synthetic-cat-v1.petpack').read_bytes()"

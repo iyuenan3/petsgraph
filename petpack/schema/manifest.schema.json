@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://petsgraph.dev/schemas/petpack/1.0/manifest.schema.json",
+  "title": "PetPack 1.0 manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "package", "pet", "stage", "capabilities", "graph", "behavior", "integrity"],
+  "properties": {
+    "formatVersion": {"const": "1.0.0"},
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "contentVersion", "createdAt"],
+      "properties": {
+        "id": {"$ref": "#/$defs/packageId"},
+        "contentVersion": {"$ref": "#/$defs/semver"},
+        "createdAt": {"type": "string", "format": "date-time"}
+      }
+    },
+    "pet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "displayName", "species"],
+      "properties": {
+        "id": {"$ref": "#/$defs/packageId"},
+        "displayName": {"type": "string", "minLength": 1, "maxLength": 80},
+        "species": {"enum": ["cat", "dog"]}
+      }
+    },
+    "stage": {"$ref": "#/$defs/stage"},
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "optional"],
+      "properties": {
+        "required": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+        },
+        "optional": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+        }
+      }
+    },
+    "graph": {"const": "graph.json"},
+    "behavior": {"const": "behavior.json"},
+    "integrity": {"const": "integrity.json"}
+  },
+  "$defs": {
+    "packageId": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 80},
+    "semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"},
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["referenceCanvasPx", "anchor", "baseDisplayHeight", "defaultNode"],
+      "properties": {
+        "referenceCanvasPx": {
+          "type": "array",
+          "prefixItems": [
+            {"type": "integer", "minimum": 1, "maximum": 16384},
+            {"type": "integer", "minimum": 1, "maximum": 16384}
+          ],
+          "items": false
+        },
+        "anchor": {"const": "bottom-center"},
+        "baseDisplayHeight": {"type": "number", "exclusiveMinimum": 0, "maximum": 4096},
+        "defaultNode": {"$ref": "#/$defs/nodeId"}
+      }
+    },
+    "nodeId": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$", "maxLength": 120}
+  }
+}
