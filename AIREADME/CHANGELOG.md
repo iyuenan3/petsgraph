@@ -437,3 +437,9 @@
 - Fixed: Windows Player 不再拒绝未知可选能力或缺失的节点与场景权重覆盖，缺失权重统一按 `1.0` 处理；macOS 同步验证能力标识格式。未知必需能力仍由三个实现拒绝。
 - Added: 新增确定性前向兼容测试包 `synthetic-cat-forward-v1.petpack`，共 12 个文件、11,774 bytes，SHA-256 为 `d0f5273cbf930e2ddd12865a62311d0d2058c4a1749b07b33448d84411ca08dc`。原基线包逐字节重建摘要保持不变。
 - Review: 25 项 Python 回归、10 项 Swift 测试、19 项 MSTest、Windows Release 零警告构建、`dotnet format` 与 `swift-format lint` 通过。C# 原生验证器顺序验证基线、前向兼容、deflate、五百和飞流五个包；临时零素材 Windows x64 ZIP 的 SHA-256 为 `8ff625331bcd052f3d16fba111f9c2368603802e13602840e5954d9b267cf55c`。真实双平台 GUI、正常速度视觉与远端 CI 仍待验收。
+
+## Unreleased refactor acceptance audit · 2026-08-23
+
+- Fixed: macOS 与 Windows 的旧运行时迁移不再复用旧显示状态，只在 package ID 明确匹配时迁移位置，并继续迁移全局大小；新增双平台回归防止隐藏状态越过一次性架构切换。
+- Added: `docs/audits/refactor-2026-08-23.md` 逐条映射 12 项重构目标、可恢复清理、公开私有边界、包摘要、测试、开发产物、远端门禁和人工验收步骤。
+- Review: 25 项 Python、11 项 Swift、20 项 MSTest 与 2 项 Codex 回归通过。Windows 全解决方案 Release 构建 0 警告、0 错误，两个原生加载器验证同一五包集合。新构建的 macOS arm64 App 与 Windows x64 ZIP 均为零宠物素材开发产物。远端 push、CI、真实双平台 GUI 与正常速度视觉批准仍未完成。

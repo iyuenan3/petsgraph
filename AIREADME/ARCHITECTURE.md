@@ -232,6 +232,7 @@ User Data
 - 普通卸载 Player 默认保留宠物库；彻底删除数据必须单独确认。
 - 相同 package ID 的新版包原子替换，更新失败继续使用旧版。
 - 位置与可见状态按 package ID 保存，全局大小按设备保存。
+- 从历史运行时迁移时，只有明确匹配当前 package ID 的位置和全局大小可以复用；旧可见状态、装载集合、动作状态和旧包路径均不迁移。
 - macOS 数据根为 `~/Library/Application Support/PetsGraph/`，内部目录使用 `Library/`、`Cache/` 和 `Staging/`；Windows 数据根为 `%LOCALAPPDATA%\PetsGraph\`，内部目录使用 `library/`、`cache/` 和 `staging/`。两个平台都在数据根保存 `registry.json` 与 `settings.json`，这些平台路径不能写入包。
 
 ## 11. 安全与信任边界
@@ -258,7 +259,7 @@ User Data
 
 macOS `0.7.0-dev` 当前机械实现包括严格 ZIP 与 ZIP64 校验、store 与 deflate、完整性和媒体长度校验、不可变 canonical copy、可重建 cache、幂等导入、升级确认、降级拒绝、卸载、每宠独立行为会话、隐藏到稳定节点后暂停、固定舞台、透明命中拖动、全局七档倍率、动态菜单和状态持久化。它已经构建为不含 `.petpack` 的 Apple Silicon ad-hoc 签名 App，并用公开合成包和两个私有真实候选完成原生校验。
 
-Windows x64 `0.7.0-dev` 已用 C# 与 WPF 实现相同边界，并增加 RGBA 到 WPF `Pbgra32` 的显式通道转换、单实例托盘宿主、零宠物启动、多包导入和 self-contained AMD64 便携 ZIP。19 项 MSTest、全解决方案 Release 构建、公开基线、前向兼容与 deflate 合成包、两个私有真实候选的原生校验，以及零宠物 ZIP 结构和 PE 架构检查均已通过。两个平台的安装索引都会重新验证包 ID、版本和摘要，损坏索引不能把内部路径导向数据根之外。
+Windows x64 `0.7.0-dev` 已用 C# 与 WPF 实现相同边界，并增加 RGBA 到 WPF `Pbgra32` 的显式通道转换、单实例托盘宿主、零宠物启动、多包导入和 self-contained AMD64 便携 ZIP。20 项 MSTest、全解决方案 Release 构建、公开基线、前向兼容与 deflate 合成包、两个私有真实候选的原生校验，以及零宠物 ZIP 结构和 PE 架构检查均已通过。Swift 的 11 项测试和 Windows 的 20 项测试都覆盖旧运行时只迁移位置、重置旧显示状态的策略。两个平台的安装索引都会重新验证包 ID、版本和摘要，损坏索引不能把内部路径导向数据根之外。
 
 以上都是机械证据。真实桌面正常速度观看、菜单操作、透明命中、DPI、多显示器、多宠长时性能、隐藏恢复、应用升级保留和双平台同包视觉一致性仍需人工验收。
 

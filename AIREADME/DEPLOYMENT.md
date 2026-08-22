@@ -119,14 +119,15 @@ python3 player/macos/scripts/build-app.py \
   --version 0.7.0-dev
 ```
 
-当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。它在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 25 项公开 PetPack 回归、10 项 Swift 测试并上传保留 7 天的代码开发 App。
+当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。它在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 25 项公开 PetPack 回归、11 项 Swift 测试并上传保留 7 天的代码开发 App。
 
 本地已验证：
 
-- Swift 严格警告编译与 10 项测试通过。
+- Swift 严格警告编译与 11 项测试通过，新增回归证明旧运行时只迁移位置和全局大小，不迁移旧显示状态。
 - 公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
 - App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
 - App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
+- 当前本地验收 App 位于 `.local/dist/builds/PetsGraph-0.7.0-dev.app`，主程序为 1,112,704 bytes，SHA-256 为 `75d9a0fb7f9eb9146752699db837aadc4cc98fc61e4704c19e36ca97cdfb570c`。它不是冻结交付物或 Release 附件。
 
 上述结果不替代真实 macOS 桌面上的菜单、拖动、透明命中、多宠并发、隐藏恢复、应用升级保留和正常速度视觉验收。
 
@@ -176,14 +177,16 @@ DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
 
 `build-portable.sh` 拒绝覆盖同名 ZIP，先用 C# 原生验证器检查公开合成 PetPack，再交叉发布 `win-x64` self-contained 应用，强制产物不含 `Pets/` 或 `.petpack`，最后执行 ZIP 解压测试与 SHA-256。当前本地机械证据：
 
-- 19 项 MSTest 通过，覆盖 store、deflate、未知可选能力与默认权重、尾随载荷、重复 JSON key、路径越界、大小写冲突、符号链接、摘要不符、canonical copy、cache 重建、同版本不同字节冲突、卸载全部、不安全安装索引、独立行为、隐藏过渡、RGBA 到 PBGRA、全局大小和语义版本。
+- 20 项 MSTest 通过，覆盖 store、deflate、未知可选能力与默认权重、尾随载荷、重复 JSON key、路径越界、大小写冲突、符号链接、摘要不符、canonical copy、cache 重建、同版本不同字节冲突、卸载全部、不安全安装索引、独立行为、隐藏过渡、RGBA 到 PBGRA、全局大小、旧状态迁移和语义版本。
 - WPF 与全解决方案 Release 构建为 0 警告、0 错误；`dotnet format` 空白校验通过。
 - C# 原生验证器通过公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选，五个包的 SHA-256 分别与参考验证器和私有转换记录一致。
-- 本地临时零素材 ZIP 的 SHA-256 为 `8ff625331bcd052f3d16fba111f9c2368603802e13602840e5954d9b267cf55c`。该 ZIP 可完整解压，主程序由 `file` 识别为 `PE32+ executable (GUI) x86-64`，内部没有 `Pets/` 或 `.petpack`。它只是当前机械证明，不是冻结交付物或 Release 附件。
-- `.github/workflows/windows.yml` 已配置在 `windows-2025` 上执行锁定还原、19 项测试、WPF 构建、零素材 self-contained ZIP、AMD64 PE 与内容检查；当前内容提交尚无对应远端 CI 运行，不能把工作流定义写成已通过。
+- 当前本地零素材 ZIP 为 75,267,412 bytes，SHA-256 为 `6d90aa7cada380a30d8a348cac1a5e3c6806ca67ca08be7a135b31da036abac8`。该 ZIP 可完整解压，主程序由 `file` 识别为 `PE32+ executable (GUI) x86-64`，内部没有 `Pets/` 或 `.petpack`。它只是当前机械证明，不是冻结交付物或 Release 附件。
+- `.github/workflows/windows.yml` 已配置在 `windows-2025` 上执行锁定还原、20 项测试、WPF 构建、零素材 self-contained ZIP、AMD64 PE 与内容检查；当前内容提交尚无对应远端 CI 运行，不能把工作流定义写成已通过。
 - 真实 Windows 11 x64 上的透明命中、DPI、拖动、托盘、多显示器、隐藏恢复、应用升级保留和长时间正常速度观看仍是人工闸门。
 
 当前开发 ZIP 没有代码签名，可能触发 SmartScreen。正式 `1.0.0` 之前还必须在真实 Windows x64 机器运行 PowerShell 打包入口和 GUI 验收，冻结人类看过的候选，再决定是否增加代码签名或安装器。
+
+本轮 12 项重构要求、清理恢复点、双平台产物摘要和逐项人工门禁统一记录在 `docs/audits/refactor-2026-08-23.md`。该记录明确保持 Goal 未完成，不得用自动化测试替代真实桌面批准。
 
 ### Windows `v0.6.0` 历史 Release 复验
 
