@@ -202,3 +202,9 @@
 - 现象: `xcode-select` 指向 CommandLineTools 时，`swift test` 同时出现用户模块缓存不可写，以及 Swift 6.3.3 编译器无法加载由 Swift 6.3.2 构建的 macOS 26.5 SDK。代码未变化，测试却在 manifest 编译阶段失败。
 - 根因: 裸 `swift` 选中了 CommandLineTools 中已经更新的编译器，但其 SDK 与编译器构建号没有同步；受限执行环境又不允许默认写入用户模块缓存。版本主次号接近不代表工具链内部一定匹配。
 - 结论/避免: 测试显式设置 `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`，并把 `CLANG_MODULE_CACHE_PATH` 与 `SWIFTPM_MODULECACHE_OVERRIDE` 指向任务专用临时目录。遇到 manifest 或 `SwiftShims` 错误先核对编译器与 SDK 构建号，不把环境失败归因于 Player 源码。
+
+## Desktop File Provider 会在签名后重新加入 Finder 元数据 · 2026-08-23
+
+- 现象: Desktop 中构建的 ad-hoc App 刚完成时严格签名通过，稍后安装或复验却出现资源叉或 Finder 信息不允许的签名错误。手动删除一次 `com.apple.FinderInfo` 后可以暂时通过，但同步层还可能再次加入。
+- 根因: Desktop 位于 File Provider 管理范围。同步服务会异步补充 Finder 元数据，修改签名封装内的扩展属性；问题发生在构建结束之后，所以一次即时签名检查会形成假绿。
+- 结论/避免: 人工安装候选直接构建到 `/private/tmp`，等待后再次执行 `codesign --verify --deep --strict`，确认没有 `com.apple.FinderInfo` 再安装。构建器限制输出只能位于仓库或系统临时目录，不关闭同步、不循环清元数据，也不把 Desktop 副本当作最终候选。

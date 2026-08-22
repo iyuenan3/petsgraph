@@ -456,3 +456,12 @@
 - Fixed: 将 `1937a03`、`f6b855f` 与文档锚点推送到远端，未使用强制推送；远端 `main` 独立回读为 `97485a0c5ccc557748773738dac5e009cf221753`。
 - Review: PetPack contract 运行 `32596460282` 在 macOS 14 与 Windows 2025 上全部通过；macOS Apple Silicon 运行 `32596460260` 完成测试、零素材 App 构建和上传；Windows x64 运行 `32596460309` 完成锁定还原、20 项测试、WPF 构建、self-contained ZIP、AMD64 PE、零素材和上传。
 - Review: 远端 macOS 与 Windows 代码开发产物分别为 1,806,750 和 77,508,772 bytes，保留 7 天。这些 CI 产物不是正式 Release，真实双平台 GUI、同包正常速度观看和用户批准仍未完成。
+
+## Unreleased final refactor hardening · 2026-08-23
+
+- Fixed: PetPack 三个实现对齐严格 ZIP、单一媒体表示、32 位整数边界、SemVer 构建元数据与完整版本路径身份。参考验证器新增显式目录、条目注释、强加密、条目间隙和数据描述符拒绝，共 33 项 Python 回归。
+- Fixed: macOS 与 Windows Player 新增持久导入激活日志、首装与更新失败回滚、进程中断恢复、事务卸载、保守设置恢复、真实媒体摘要校验、完整过渡预加载和长时间帧索引保护。Swift 21 项、MSTest 38 项通过，Windows Release 构建 0 警告、0 错误。
+- Fixed: CodexPets 多宠安装改为全有或全无，并先验证 SHA-256、显示名与目标集合，3 项回归通过。历史 Release 复验改为从不可移动标签读取源码和清单，只读验证已经公开的冻结附件。
+- Changed: macOS 人工安装候选优先构建到 `/private/tmp`，避免 Desktop File Provider 在签名后异步加入 Finder 元数据。最终审查构建 3 严格签名和零素材检查通过，但安装启动被 Mac 锁屏阻断。
+- Review: 构建 2 的公开合成宠物在真实桌面观察到动画刷新。该证据不覆盖五百、飞流身份、完整菜单、拖动、正常速度观看或 Windows 11 x64 GUI，整个重构 Goal 保持未完成。
+- Review: PetPack、macOS、Windows 最终审查运行 `32600312955`、`32600330583`、`32600330777` 全部成功。历史 `v0.6.0` 的 macOS 与 Windows 公开附件只读复验 `32600568305`、`32600570363` 也全部成功。

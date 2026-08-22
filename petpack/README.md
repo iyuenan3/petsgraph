@@ -27,10 +27,11 @@ The fixture uses generated 2 by 2 RGBA pixels and has no real pet identity. The 
 
 ## PetPack 1.0 baseline
 
-- ZIP entries use UTF-8 forward-slash paths and store or deflate compression.
+- ZIP entries use UTF-8 forward-slash paths and store or deflate compression. Entries are contiguous and may not use explicit directories, comments, encryption, strong-encryption flags, data descriptors, prefix data, gaps, or trailing data.
 - `manifest.json`, `graph.json`, `behavior.json`, `integrity.json`, `clips/`, and `media/` are the only runtime roots.
 - `integrity.json` covers every regular file except itself.
 - Each runtime clip contains exactly one required `cropped-rgba-clips` representation.
+- Semantic-version core numbers and frame counts must fit a signed 32-bit integer on every platform. Build metadata does not affect version precedence, while canonical package paths still use the complete version string.
 - Baseline media is raw, sRGB, premultiplied RGBA8 with fixed crop geometry and `1.0` playback rate.
 - Packages are data, never plugins. Scripts, executables, dynamic libraries, symlinks, and executable permission bits are rejected.
 - Signature structure and trust verification are intentionally deferred. PetPack 1.0 packages produced in this phase are unsigned.
