@@ -27,7 +27,7 @@ PetsGraph `0.6.0` 是 Apple 芯片专用双宠正式版，最低支持 macOS 14�
 | 五百 | `wubai-quiet-companion-0.5.10` | 53 | 6,866 | 172.5 | `runtime-chain-approved`、`installable=true` |
 | 飞流 | `feiliu-quiet-companion-0.5.10` | 31 | 5,147 | 181.125 | `runtime-chain-approved`、`installable=true` |
 
-两包均使用 schema `0.4.0` 与 `cropped-rgba-clips`。飞流在 1.0× 下比五百大 5%。v0.6.0 构建路径为 `dist/PetsGraph-0.6.0.app`，本地 Release 产物为 `workspaces/release-dist/v0.6.0/PetsGraph-v0.6.0-macOS-arm64.dmg`。App 版本与宠物内容版本分别记录，不为 Logo 更新重新编译或改写 12,013 帧已批准媒体。
+两包均使用 schema `0.4.0` 与 `cropped-rgba-clips`。飞流在 1.0× 下比五百大 5%。v0.6.0 正式 DMG 的本地可下载副本现归档在 `.local/dist/published/v0.6.0/`，GitHub Release、标签与 `release/manifests/v0.6.0.json` 才是发布事实源。App 版本与宠物内容版本分别记录，不为 Logo 更新重新编译或改写 12,013 帧已批准媒体。
 
 DMG 固定属性：
 
@@ -44,14 +44,14 @@ Windows `0.6.0` 只面向 Windows 11 x64 与知情的内部朋友。它使用 .N
 
 冻结发布产物：
 
-- 路径：`dist/PetsGraph-v0.6.0-Windows-x64.zip`
+- 本地副本路径：`.local/dist/published/v0.6.0/PetsGraph-v0.6.0-Windows-x64.zip`
 - 字节数：`913953281`
 - SHA-256：`90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`
 - ZIP 条目：`488`
 - 内嵌宠物包：`2`，五百与飞流
 - 主程序：PE32+ GUI，x86-64
 
-该 ZIP 已在 macOS arm64 本机使用 .NET SDK `10.0.400` 交叉发布，并通过压缩数据、无 `__MACOSX`/`.DS_Store`、双包数量和真实包完整性校验。7 项 MSTest、WPF 编译、GitHub Windows Runner 与朋友真实 Windows 11 x64 使用验收均已通过，朋友反馈没有问题，发布所有者明确授权发布 v0.6.0。真机反馈没有附带分项时长或 DPI 日志，因此只记录最终结论。`dist/` 已删除约 34 GB 的旧 macOS 候选 App 和 4 份废弃 Windows ZIP，当前只保留这一份冻结 ZIP。
+该 ZIP 已在 macOS arm64 本机使用 .NET SDK `10.0.400` 交叉发布，并通过压缩数据、无 `__MACOSX`/`.DS_Store`、双包数量和真实包完整性校验。7 项 MSTest、WPF 编译、GitHub Windows Runner 与朋友真实 Windows 11 x64 使用验收均已通过，朋友反馈没有问题，发布所有者明确授权发布 v0.6.0。真机反馈没有附带分项时长或 DPI 日志，因此只记录最终结论。历史根 `dist/` 已退出，冻结 ZIP 的本地副本与 DMG 一起位于 `.local/dist/published/v0.6.0/`。
 
 ## macOS 用户安装
 
@@ -86,9 +86,9 @@ bash player/macos/scripts/test.sh
 
 ```bash
 .venv/bin/python player/macos/scripts/build-legacy-app.py \
-  --package workspaces/wubai-private/runtime/wubai-quiet-companion-0.5.10.petsgraph-pet \
-  --package workspaces/feiliu-private/runtime/feiliu-quiet-companion-0.5.10.petsgraph-pet \
-  --output dist/PetsGraph-0.6.0.app \
+  --package petpacks/personal/wubai/legacy/runtime/wubai-quiet-companion-0.5.10.petsgraph-pet \
+  --package petpacks/personal/feiliu/legacy/runtime/feiliu-quiet-companion-0.5.10.petsgraph-pet \
+  --output .local/dist/builds/PetsGraph-0.6.0.app \
   --version 0.6.0
 ```
 
@@ -96,8 +96,8 @@ bash player/macos/scripts/test.sh
 
 ```bash
 .venv/bin/python studio/packaging/build-release-artifacts.py \
-  --app dist/PetsGraph-0.6.0.app \
-  --output workspaces/release-dist/v0.6.0 \
+  --app .local/dist/builds/PetsGraph-0.6.0.app \
+  --output .local/dist/builds/v0.6.0 \
   --version 0.6.0
 ```
 
@@ -193,6 +193,6 @@ python3 codexpets/tools/manage.py install feiliu-hatch-native-v1
 - App 只使用一个共享 24 Hz 渲染 Timer，每只宠物仍拥有独立行为会话和随机时钟。
 - 双宠长期 CPU 与内存继续收集真实数据。性能结论必须注明唯一 PID、测量工具、稳定睡眠或过渡场景，不能把旧 AppTranslocation 进程计入当前版本。
 - 下一版如改变素材、位置、体型、窗口命中、动作图或发布附件，必须重跑相应自动检查和真实桌面人工闸门。
-- Windows 历史候选 ZIP 已从 `dist/` 清理，不用旧哈希冒充最新产物。后续重建必须使用新版本名并重新记录字节数和 SHA-256，已上传的正式附件不原位覆盖。
-- v0.6.0 macOS App 完成发布后从 `dist/` 清理，正式 DMG 保留在 `workspaces/release-dist/v0.6.0/`，GitHub Release、双平台清单和已批准宠物包共同构成回滚事实。
+- Windows 历史候选 ZIP 已清理，不用旧哈希冒充最新产物。后续重建写入 `.local/dist/builds/`，必须使用新版本名并重新记录字节数和 SHA-256，已上传的正式附件不原位覆盖。
+- v0.6.0 的 DMG 与 Windows ZIP 本地副本位于 `.local/dist/published/v0.6.0/`，已于 2026-08-23 回读 GitHub Release 并核对文件名、字节数和 SHA-256。GitHub Release、标签、双平台清单和已批准宠物包共同构成回滚事实。
 - Codex 导出使用稳定 ID 和 Git 历史回滚。更新现有视觉内容时新建版本化 ID；强制本地替换留下 `pets-backups`，不物理删除旧目录。

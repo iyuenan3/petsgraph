@@ -1,9 +1,9 @@
 # PetsGraph · AIREADME
 > 面向宠物离世纪念的开源多宠 Player 与私有定制 PetPack 体系 ｜ 生命周期: migration-in-progress
-> last-synced: 6da41e3 · 2026-08-23
+> last-synced: 90a5a7c · 2026-08-23
 > phase: product-contract-frozen / directory-migration-in-progress
 
-当前公开 `v0.6.0` 仍是内嵌五百与飞流的旧架构发布版。下一代零素材 Player 与外部 `.petpack` 已完成产品决策但尚未实现；清理审计、`codexpets`、`player/`、公开品牌以及私有 Studio 工具与配置路径已落地，其余迁移必须继续显式区分 Target 与 As-built。
+当前公开 `v0.6.0` 仍是内嵌五百与飞流的旧架构发布版。下一代零素材 Player 与外部 `.petpack` 已完成产品决策但尚未实现；公开源码、私有 Studio、宠物事实源、旧包、Codex 工作区与本地发布归档均已切入职责目录，后续实现仍必须显式区分 Target 与 As-built。
 
 ## 状态
 
@@ -13,10 +13,10 @@
 | RELATIONS | ✅ | Player、Studio、PetPack 三层边界及 provider、GitHub 与历史运行时关系 |
 | SPEC | ✅ | PetPack 1.0 行为、ZIP 容器、RGBA 基线、装载、兼容、完整性和安全契约已定，尚待实现 |
 | ARCHITECTURE | ✅ | 目标组件、固定舞台、多宠状态、内部宠物库、当前 v0.6.0 与迁移边界 |
-| DIRECTORY | ✅ | 唯一项目根、公开与私有子树、已迁移 codexpets、player、品牌与 Studio、根 Git 边界和后续映射 |
+| DIRECTORY | ✅ | 唯一项目根、公开与私有子树、已迁移源码、Studio、宠物事实源、旧包与本地产物边界 |
 | DEPLOYMENT | ✅ | 下一代零素材分发目标与 v0.6.0 双平台历史发布基线 |
 | PRD | ✅ | 离世客群、定制服务、多宠独立时钟、菜单、隐藏卸载和成功指标 |
-| ROADMAP | ✅ | 清理及公开与 Studio 路径迁移已完成，继续迁移宠物事实源、PetPack 和双平台运行时 |
+| ROADMAP | ✅ | 职责目录迁移已完成，继续实现 PetPack 1.0、收口本机环境并重构双平台运行时 |
 | CONVENTIONS | ✅ | 公开私有边界、客户目录、生成配置、慢动作、抠图与包生命周期约定 |
 | DECISIONS | ✅ | 追加 ADR-044 至 ADR-051，记录纪念定位、三层架构、目录、PetPack 基线和执行护栏 |
 | MEMORY | ✅ | 追加纯色背景色族、原生慢动作和完整链优先的制作经验 |
@@ -36,4 +36,4 @@
 - 复盘实际失败 → `MEMORY.md`，重大取舍另向 `DECISIONS.md` 追加
 - 维护 Codex 宠物导出 → `DIRECTORY.md` 第 10 节 + `SPEC.md` 第 14 节 + `DEPLOYMENT.md` 的 Codex 章节
 
-同步锚点指向已审阅并提交的私有 Studio 路径迁移切片 `6da41e3`。AIREADME 自身随后单独提交，不把目录整理伪装成新 Player 或 PetPack 已实现。
+同步锚点指向已审阅并提交的宠物事实源、旧包和本地产物边界切片 `90a5a7c`。AIREADME 自身随后单独提交，不把目录整理伪装成新 Player 或 PetPack 已实现。

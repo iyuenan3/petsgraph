@@ -1,6 +1,6 @@
 # DIRECTORY：PetsGraph 项目目录与 Git 边界
 
-> Target: 本文件定义下一代目录结构和迁移护栏。As-built: Codex 公开包、平台源码、公开品牌以及私有 Studio 工具与配置已迁入目标路径；私有媒体仍位于 `workspaces/`，宠物事实源、PetPack 与本地产物继续按小切片迁移。
+> Target: 本文件定义下一代目录结构和迁移护栏。As-built: 公开源码、私有 Studio、宠物事实源、旧包、Codex 工作区与本地产物均已迁入职责目录；PetPack 1.0 与新 Player 行为尚待实现。
 
 ## 1. 根目录原则
 
@@ -36,7 +36,7 @@ petsgraph/
 └── .gitignore
 ```
 
-根目录不再使用职责不明的长期 `workspaces/`、`output/` 和 `tmp/` 作为新内容入口。`output/` 与 `tmp/` 已在清理审计后移除，`workspaces/` 在逐项迁移和回读完成前继续保留，不能因为目标结构已经写入文档就整体删除或改名。
+根目录不再使用职责不明的长期 `workspaces/`、`output/`、`tmp/` 和 `dist/`。四个旧入口均已在逐项审计、迁移和回读后移除，根 `.gitignore` 不再掩盖它们，误创建会直接出现在 Git 状态中。
 
 ## 3. 根公开 Git 的边界
 
@@ -273,7 +273,7 @@ codexpets/
 - Codex 结构校验、安装和备份后替换工具进入 `codexpets/tools/`；provider 生成与私有提示仍归 `studio/`。
 - Codex 图集的机械通过不继承 PetsGraph PetPack 的连续视频、生命感或运行时批准。
 
-## 11. `.local/`，可重建本机产物
+## 11. `.local/`，本机产物与可下载发布副本
 
 ```text
 .local/
@@ -281,12 +281,14 @@ codexpets/
 ├── tmp/
 ├── output/
 ├── dist/
+│   ├── builds/
+│   └── published/
 └── environments/
 ```
 
-- 新的临时脚本、生成预览、缓存、虚拟环境和候选发布物不再散落到根目录。
+- 新的临时脚本、生成预览、缓存、虚拟环境和候选发布物不再散落到根目录。已发布附件的本地副本位于 `dist/published/`，并以公开 Release 与 manifest 为事实源。
 - 只有具备已验证源文件、重建配方和摘要的内容才能归类为可重建。
-- 根 `output/` 与 `tmp/` 已完成审计并移除。`dist/`、`.cache/`、`.venv*` 和 `workspaces/*/release-dist` 仍须逐项审计，不能按目录名直接迁入 `.local/` 或删除。
+- 根 `output/`、`tmp/`、`dist/` 与 `workspaces/` 已完成审计并移除。`.cache/` 与 `.venv*` 仍须逐项证明可重建，再迁入 `.local/` 或清理。
 - 已成为正式评审证据、获批帧事实源或未上传正式发布物的文件必须进入对应 `pets/`、`petpacks/` 或归档位置。明确失败的大型媒体可以在审计记录完成后移入系统回收站。
 
 ## 12. 当前到目标的迁移映射
@@ -297,15 +299,15 @@ codexpets/
 | `windows/`、`global.json` | `player/windows/` | 已在 `84bbc5e` 完成；7 项测试通过，解决方案 0 警告 0 错误 |
 | Player 构建、测试和公开验证工具 | 对应平台 `scripts/` 或 `petpack/validator/` | 不能依赖私有目录也能运行 |
 | Seedance、Seedream、抠图、评审和宠物专用工具 | `studio/` | 已在 `6da41e3` 完成公开边界切换；私有内容由根 Git 忽略，不创建独立 Git，不保留公开工作副本 |
-| `workspaces/<pet>-private/` | `pets/personal/<pet-id>/` 及 `petpacks/personal/<pet-id>/` | 逐宠、逐类映射；源、批准、失败、包和缓存不可混迁 |
+| `workspaces/<pet>-private/` | `pets/personal/<pet-id>/` 及 `petpacks/personal/<pet-id>/` | 已在 `90a5a7c` 完成边界切换；事实源与旧包分开，六组文件的 inode 集合、数量和字节数回读一致 |
 | 未来客户目录 | `pets/customers/<customer-id>/<pet-id>/` | 客户 ID 稳定且不含姓名，保留期单独记录 |
 | `codex-pets/` | `codexpets/packages/public/` | 已在 `76ad2ea` 完成；不保留旧路径兼容 |
 | `codex-pets/manifest.json` | `codexpets/manifests/public.json` | 已完成；公开条目增加 `public`、素材所有者和授权指针 |
 | `tools/manage-codex-pets.py` | `codexpets/tools/manage.py` | 已完成；安装、校验、冲突拒绝和可恢复备份语义保持 |
 | `assets/app-icon/` | `assets/brand/` | 已在 `90bfaa8` 完成；公开定稿哈希不变，7 个候选与 QA 文件迁入私有 `studio/brand/` |
 | `output/`、`tmp/`、`.cache/`、`.venv*` | `.local/` 或对应私有事实目录 | `output/` 与 `tmp/` 已审计并移除；`.cache/` 与 `.venv*` 仍须先证明可重建 |
-| `dist/`、`workspaces/release-dist/` | `.local/dist/`、`petpacks/*/delivery/` 或私有归档 | 先核对远端 Release、摘要和唯一性 |
-| `workspaces/cleanup-audits/` | `pets/audit/` | 保留迁移、恢复位置、哈希和回读证据 |
+| `dist/`、`workspaces/release-dist/` | `.local/dist/` | 已在 `90a5a7c` 完成边界切换；v0.6.0 双平台附件与 GitHub Release、公开清单摘要一致 |
+| `workspaces/cleanup-audits/` | `pets/audit/cleanup/` | 已完成，历史收据和审计清单保持字节不变 |
 
 ## 13. 迁移门禁
 
@@ -338,7 +340,7 @@ codexpets/
 ## 14. 禁止操作
 
 - 禁止在项目根运行 `git clean -fdx`、`git clean -ffdx` 或其他会递归清理 ignored 内容的命令。
-- 禁止整体删除、整体清空或不经清单直接移动当前 `workspaces/`。
+- 禁止重新创建职责不明的根 `workspaces/`，也禁止整体删除、清空或不经清单直接移动 `pets/`、`petpacks/` 与 `codexpets/workspaces/`。
 - 禁止把根 `.gitignore` 当作访问控制或备份。私有目录仍需独立权限、私有版本记录和备份。
 - 禁止让根 Git 把 `studio/` 记录为 gitlink 或 submodule。
 - 禁止让公开 CI 访问本机私有目录、凭据或客户资料。
@@ -349,4 +351,4 @@ codexpets/
 
 状态为 `directory-contract-frozen / migration-in-progress`。
 
-目标目录和 Git 边界已经确认。清理审计、`codexpets`、`player/` 源码路径、`assets/brand/` 以及私有 Studio 工具与配置路径已迁移并验证；Player 行为仍为 v0.6.0 as-built，宠物事实源、PetPack 工作区和本地产物仍待切换。任何后续报告必须逐子树说明实际状态，不能把路径迁移写成新运行时已经完成。
+目标目录和 Git 边界已经确认。公开源码、私有 Studio、宠物事实源、旧包、Codex 私有工作区、清理审计和 v0.6.0 本地发布副本均已迁移并验证；根 `workspaces/`、`output/`、`tmp/` 与 `dist/` 已退出。Player 行为仍为 v0.6.0 as-built，PetPack 1.0、`.local` 环境收口和新运行时尚待实现。任何后续报告必须逐子树说明实际状态，不能把路径迁移写成新运行时已经完成。

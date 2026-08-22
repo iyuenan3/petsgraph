@@ -120,4 +120,4 @@ pets/customers/
 - 禁止把 PetPack 官方签名实现成联网 DRM 或订阅锁。
 - 禁止让 Codex 图集进入 PetsGraph PetPack 加载器，或把其固定图集机械通过写成连续视频生命感通过。
 - 禁止在项目根执行 `git clean -fdx`、`git clean -ffdx` 或同类递归清理 ignored 内容的命令。
-- 禁止整体删除、清空或不经清单直接移动 `workspaces/`、`pets/`、`petpacks/`、`codexpets/workspaces/` 和 `codexpets/packages/private/`。
+- 禁止重新创建职责不明的根 `workspaces/`，也禁止整体删除、清空或不经清单直接移动 `pets/`、`petpacks/`、`codexpets/workspaces/` 和 `codexpets/packages/private/`。

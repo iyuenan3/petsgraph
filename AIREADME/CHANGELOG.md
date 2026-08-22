@@ -382,3 +382,11 @@
 - Changed: 根 `.env.example` 与 `.env.local` 机械迁入 `studio/`，真实配置在迁移中从未被读取。工具只读取 Studio 本地配置，不再回退到根目录或 `petsdesk` 的配置路径。
 - Changed: 三个可复用的绿幕原型从根 `tmp/` 迁入 `studio/matting/prototypes/`，根 `tools/` 与 `tmp/` 已移除。Studio 仍通过受控项目根定位访问尚未迁移的宠物工作区。
 - Review: 共检查 34 个 Python 与 Swift 文件，Python 编译检查和三个 provider 命令入口检查通过。公开 Git 中不存在 Studio 工作副本，`studio/` 没有嵌套 `.git`，全部私有内容保持未跟踪状态。
+
+## Unreleased private responsibility migration · 2026-08-23
+
+- Changed: 五百、飞流、小葵、乔治、红豆、花轮与吉吉资料按职责迁入 `pets/`，旧运行时包迁入 `petpacks/`，五百与飞流的 Codex 私有重建记录迁入 `codexpets/workspaces/`。两批跨宠基础姿态评审归入 `pets/shared/`，不复制到每只宠物。
+- Changed: v0.6.0 的 macOS DMG 与 Windows x64 ZIP 本地副本迁入 `.local/dist/published/v0.6.0/`。根 `workspaces/` 与 `dist/` 已退出并从 `.gitignore` 删除，Windows 构建器默认把新候选写入 `.local/dist/builds/`。
+- Changed: 现行 Studio 脚本已切换到新路径；历史生产 JSON、提示词和评审记录保留当时写入的旧路径，由 `pets/audit/migrations/` 解析新旧位置，不篡改生产证据。
+- Review: 五百 30,496 个文件、7,709,788,770 bytes 与飞流 45,931 个文件、12,977,884,119 bytes 完成完整内容摘要；六个目标组的 inode 集合、文件数与字节数回读一致。小葵 369 个文件只迁移位置，没有生成、抠图或制作 PetPack。
+- Review: 五百与飞流 `0.5.10` 完整性文件 SHA-256 分别保持 `59aad356993f6b9cc1f338095bc417cb47090b58e06d46035bb3d7820053529e` 与 `8c4762914b4bfd95b8dc7c9c58d47714f10ac61289774a2f446e7857f4e51516`。GitHub Release 回读确认双平台附件文件名、字节数和 SHA-256 与公开清单一致。
