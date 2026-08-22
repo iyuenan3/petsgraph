@@ -1,5 +1,23 @@
 # DEPLOYMENT：petsgraph
 
+## 状态与下一代分发目标
+
+当前可下载的 `v0.6.0` 仍是内嵌五百与飞流的历史正式版，下面的构建、安装、摘要和双平台发布流程继续作为该版本的事实与回滚依据。零素材 PetsGraph Player、外部 `.petpack` 装载和内部宠物库尚未实现，不能用目标文档替换当前安装说明。
+
+下一代发布边界：
+
+- Apple Silicon macOS 与 Windows x64 Player 分别发布，但两个安装包都不包含真实宠物素材。
+- Player 源码、PetPack 规范、验证器、合成测试资产和发布流程公开。
+- Seedance 等制作工具、客户目录、未公开母片和未来正式 PetPack 保持私有，不进入公开 Player 发布物。五百与飞流已经公开的历史素材继续按 `ASSETS.md` 保留，不再内嵌到下一代 Player。
+- 用户从 Maxwell 获得 `.petpack` 后自行长期保存，通过 Player 的“装载宠物包…”导入内部 canonical 库。
+- Player 二进制、canonical 宠物库与可重建 cache 分目录保存。升级只能替换应用和可重建 cache，不能修改或删除已装载宠物。
+- 普通卸载 Player 默认保留内部宠物库；彻底删除用户数据必须单独确认。卸载某只宠物则删除内部包及其本地状态，之后需要原始 `.petpack` 才能恢复。
+- 当前不构建 iPadOS、电视端、Intel Mac、Windows on Arm 或 32 位 Windows，但 PetPack 1.0 不能包含桌面窗口、平台路径或特定 OS 行为。
+
+下一代应用继续使用名称 `PetsGraph`，macOS 保留 Bundle ID `com.maxwell.petsgraph`，Windows 保留 `PetsGraph` 应用身份。macOS 数据根为 `~/Library/Application Support/PetsGraph/`，Windows 数据根为 `%LOCALAPPDATA%\PetsGraph\`；其中 `library/` 保存 canonical PetPack，`cache/` 可重建，`settings/` 保存 Player 与每宠状态。开发阶段版本使用 `0.7.0-dev`，五百、飞流和双平台 Player 通过后发布 `1.0.0`。
+
+PetPack 1.0 使用普通 ZIP 容器和必需的 `cropped-rgba-clips` 基础表示。五百与飞流首批包只有完整性哈希，不带官方签名；签名、公证、Windows 代码签名和可选紧凑媒体均属于后续增强。历史 `v0.6.0` 路径和摘要不因新方向而改写。
+
 ## macOS v0.6.0 发布基线
 
 PetsGraph `0.6.0` 是 Apple 芯片专用双宠正式版，最低支持 macOS 14。App 名称为 `PetsGraph`，Bundle ID 为 `com.maxwell.petsgraph`，使用 ad-hoc 签名，尚未使用 Developer ID 或 Apple 公证。App 使用新的双猫相伴 Logo，继续内嵌已经验收的两个 `0.5.10` 宠物包。
@@ -143,6 +161,8 @@ GitHub 推送到 `codex/windows-win11-x64`、`main` 或相关 Pull Request 时�
 v0.6.0 实际发布证据：Windows 草稿复验运行 `32139232230` 成功，公开 macOS 只读复验运行 `32139688614` 成功，两者均基于发布契约提交 `9c185fc`。远端最新版回读确认标签提交仍为 `ce4570cef6f47fe75b32df40c1476b0657a1d999`，两个附件均为 `uploaded`，Release 不是草稿也不是预发布。
 
 ## Codex 宠物导出维护与安装
+
+本节命令记录当前 As-built。目标目录已经确定为 `codexpets/packages/public/`、`codexpets/manifests/public.json` 与 `codexpets/tools/manage.py`，但尚未实施；迁移完成前不能把下面的现行命令改成不存在的新入口。目标结构与切换门禁见 `DIRECTORY.md`。
 
 Codex 导出随普通 Git 分支分发，不增加 GitHub Release 附件。内容基线提交为 `9f230c1`，包含五百与飞流两个完整 v2 目录、`codex-pets/manifest.json` 和 `tools/manage-codex-pets.py`。
 

@@ -1,145 +1,118 @@
-# SPEC：petsgraph 宠物素材包 v0.4
+# SPEC：PetsGraph Player 与 PetPack
 
-> 本契约是人工定制制作侧与桌面运行时之间的数据边界。它统一坐标、完整性、动作图和播放语义，不规定所有宠物必须拥有相同姿势或图拓扑。schema `0.2.0` 是 v0.3.1 PNG 回滚包；schema `0.3.0` 是 HEVC Alpha 对照实验；schema `0.4.0` 是 v0.4.0 正式固定 clip 裁剪预乘 RGBA 运行时。schema `0.4.0` 由当前 Swift 与 .NET 加载器显式验证，旧工程包继续作为只读历史证据。
+> Target: PetPack 1.0 的产品语义、ZIP 容器和 `cropped-rgba-clips` 长期兼容媒体基线已经确定，公开 schema、验证器与 Player 尚待实现。As-built: 当前 `v0.6.0` 仍加载 schema `0.4.0` 的 `.petsgraph-pet` 并内嵌五百与飞流。两者不得混写成同一已实现状态。
 
 ## 1. 契约范围
 
-- 安装单元：一个只包含一只宠物的本地 `.petsgraph-pet` 目录或压缩包。
-- 制作事实源：RGBA PNG 序列、动作清单、图结构、验收记录和完整性清单。
-- 运行时产物：v0.3.1 直接使用 PNG 序列；v0.4.0 从同一事实源编译固定 clip 裁剪的连续预乘 RGBA 媒体。分页图集仍是未来可重建选项。
-- 预览产物：动态 WebP、GIF 或 MP4，不是运行时事实源。
-- 隐私边界：安装包不携带原始宠物照片、生成凭据、提示词私密上下文或可执行脚本。
+PetPack 是私有制作系统与公开 PetsGraph Player 之间唯一的运行时数据边界：
 
-## 2. 目录布局
+- 一个 `.petpack` 只包含一只猫或狗。
+- 包是不可变、可离线保存的客户交付物。
+- Player 可以同时装载多个包，但不把多只宠物合成一个共享动作图。
+- 包只描述宠物身份、媒体、固定舞台、动作图、独立时钟和完整性，不携带平台窗口、用户位置、全局倍率、脚本或 provider 信息。
+- 同一包必须能被 Apple Silicon macOS 与 Windows x64 Player 消费。未来 Player 也必须能够实现同一公开契约。
+
+## 2. 术语
+
+| 术语 | 含义 |
+|---|---|
+| source file | 用户收到并自行长期保存的原始 `.petpack` |
+| canonical copy | Player 装载后复制到内部宠物库的不可变正式副本 |
+| cache | 可删除并从 canonical copy 重建的解包、索引、解码或缩略图数据 |
+| package ID | 同一只已交付宠物包谱系的稳定标识 |
+| content version | 该宠物媒体、图或行为配置的版本 |
+| format version | PetPack 结构和语义版本 |
+| node | 可长期停留的稳定视频状态或明确的短时网关状态 |
+| edge | 从一个节点到另一个节点的独立生成有向过渡 |
+| fixed stage | 宠物在单一透明参考画布内活动，Player 窗口不随视频动作移动 |
+
+## 3. 目标目录布局
+
+`.petpack` 对用户表现为单个文件。目标逻辑布局如下：
 
 ```text
-<package-id>.petsgraph-pet/
-  package.json
+<package-id>.petpack
+  manifest.json
   graph.json
   behavior.json
+  media/
+    <clip-id>/
+      <representation-id>.<ext>
   clips/
     <clip-id>.json
-  frames/
-    <clip-id>/
-      0000.png
-      0001.png
-  media/                   # 可选，schema 0.3 或 0.4 的可重建运行时媒体
-    <clip-id>.rgba
-  atlases/                 # 可选，可重建的运行时编译物
-    atlas-000.png
-    atlas-000.json
-  previews/                # 可选，不参与运行时寻址
-    <clip-id>.webp
-  reviews/
-    index.json
-    <subject-id>.json
   integrity.json
+  signature.json          # 可选，证明来源与内容身份，不是 DRM
 ```
 
-素材制作工作区可以另存视频母片、原始照片、提示词和分割中间件，但这些内容不得默认进入安装包。
+容器冻结为普通 ZIP，文件扩展名为 `.petpack`。归档根直接包含上述清单，不增加一层同名目录。条目名使用 UTF-8 与 `/` 分隔符；禁止加密、分卷、绝对路径、`..`、符号链接、重复规范路径和大小写折叠后冲突。条目压缩只允许 store 或 deflate，允许 ZIP64，以容纳大型长期媒体。Player 必须先验证中央目录、路径和展开后大小预算，再把内容复制到内部 canonical 库或解包到可重建 cache。
 
-## 3. `package.json`
+PetPack 1.0 的必需透明媒体基线冻结为 `cropped-rgba-clips`：每个 clip 使用整段固定裁剪框、sRGB、预乘 `RGBA8` 和连续原始帧流，正式倍率为 `1.0x`。其他 representation 可以以后追加，但任何当前或未来 Player 都不能因此放弃基础表示的兼容性。
+
+禁止把客户原始照片、视频母片、提示词、任务记录、评审视频、生成凭据或私有制作目录装入正式包。
+
+## 4. `manifest.json`
+
+目标字段示例：
 
 ```json
 {
-  "schemaVersion": "0.2.0",
+  "formatVersion": "1.0.0",
   "package": {
-    "id": "example-pet-v1",
-    "version": "1.0.0",
-    "createdAt": "2026-08-09T00:00:00+08:00"
+    "id": "example-pet",
+    "contentVersion": "1.0.0",
+    "createdAt": "2026-08-22T00:00:00+08:00"
   },
   "pet": {
     "id": "example-pet",
-    "displayName": "Example Pet",
-    "species": "cat",
-    "identityStyle": "identity-faithful-lightly-stylized"
+    "displayName": "示例宠物",
+    "species": "cat"
   },
-  "art": {
-    "canvasPx": [480, 480],
-    "baseHeightPt": 120,
-    "coordinateOrigin": "top-left",
-    "defaultNode": "rest.prone.left"
+  "stage": {
+    "referenceCanvasPx": [960, 960],
+    "anchor": "bottom-center",
+    "baseDisplayHeight": 180,
+    "defaultNode": "rest.primary"
   },
-  "renderAssets": {
-    "mode": "frames",
-    "pixelFormat": "rgba8-straight"
-  },
-  "scenes": [
-    {"id": "floor", "displayName": "地面", "order": 0},
-    {"id": "cat-bed", "displayName": "猫窝", "order": 1}
-  ],
   "graph": "graph.json",
   "behavior": "behavior.json",
-  "reviewIndex": "reviews/index.json",
-  "integrity": "integrity.json"
+  "integrity": "integrity.json",
+  "signature": "signature.json"
 }
 ```
 
 约束：
 
-- `package.id`、`pet.id` 和版本号不可通过覆盖旧文件改变既有已批准包；新素材使用新版本。
-- `baseHeightPt` 是 root motion 和桌面显示的参考高度，不锁死用户最终显示大小。
-- 每个安装包只接受一个宠物、一个默认睡眠节点、一个动作图和一个行为配置。不同宠物的节点集合、场景和边数量可以完全不同。
-- `scenes` 是可选的场景目录。新包应声明每个 scene 的稳定 ID、中文名称和唯一非负顺序，并且目录 ID 集合必须与动作图节点实际使用的 scene 集合完全一致。历史包可以缺省，由运行时提供兼容显示名。
-- `renderAssets.mode=frames` 使用 `rgba8-straight` PNG。`hevc-alpha-clips` 只保留为 schema `0.3.0` 对照实验。`cropped-rgba-clips` 使用 schema `0.4.0` 与 `rgba8-premultiplied`，必须从批准 PNG 包确定性编译。
+- `package.id` 在同一宠物谱系中稳定，不能因为换平台而改变。
+- `contentVersion` 只在媒体、动作图、行为或包级显示事实改变时提升。
+- `pet.displayName` 用于菜单，Player 不写死具体宠物名称。
+- `species` 第一版允许 `cat` 与 `dog`，但动作语义和验收不因物种字段自动套模板。
+- `referenceCanvasPx`、`anchor` 和 `baseDisplayHeight` 定义固定舞台与该宠物自己的基础体型。
+- 用户全局倍率不写入包。最终显示大小为 `baseDisplayHeight × globalScale`。
+- 包内不保存用户桌面位置、显示或隐藏状态、最近动作、Player 平台和安装路径。
 
-## 4. 坐标与缩放
+## 5. 动作图
 
-- 图像坐标使用像素，原点在画布左上角，x 向右，y 向下。
-- 所有矩形数组统一写成 `[x, y, width, height]`；椭圆数组表示其外接矩形。
-- 锚点、内容包围盒与碰撞区域使用图像像素坐标。
-- `rootMotionPt` 使用 `baseHeightPt` 下的桌面逻辑点，记录从片段起点开始的累计位移。
-- 运行时缩放因子：`scale = displayHeightPt / baseHeightPt`。
-- 运行时窗口位置：`windowX(t) = actionStartX + scale × rootMotionPt.x(t)`。
-- 自动动作的 `rootMotionPt.y` 必须始终为 `0`。用户拖动产生的窗口 y 偏移不写入 clip root motion。
-- 累计位移是事实源。不得只存相邻帧 delta，避免掉帧、暂停和恢复后累积漂移。
-- 一个宠物包只有一套画布和地面坐标。不同母片的地面不一致时，编译器只能对每条已批准动作路径的副本应用一个固定变换，再把锚点写入全包坐标；不得修改批准源帧或逐帧重新定位。
-- 普通睡姿、枕头睡姿、坐姿及其内部过渡的所有逐帧与终点 root motion 必须严格为 `[0,0]`。只有批准的枕头场景进出边可以在 MVP 中产生水平累计位移。已保留的走路、跑步及相关过渡继续使用同时间轴累计位移，但不进入默认睡眠行为。
-
-## 5. `graph.json`
-
-节点描述动作端点的兼容姿态、视觉场景和产品职责。稳定姿态使用 `stability=stable`，走路和跑步循环使用 `stability=cyclic`。
+`graph.json` 描述节点和有向边，不是随机视频列表：
 
 ```json
 {
-  "schemaVersion": "0.2.0",
+  "formatVersion": "1.0.0",
   "nodes": [
     {
-      "id": "rest.prone.left",
-      "displayName": "趴卧",
-      "posture": "prone",
-      "orientation": "left",
-      "grounded": true,
-      "stability": "stable",
-      "scene": "floor",
+      "id": "rest.primary",
       "role": "dwell",
-      "autonomousEligible": true,
-      "props": [],
-      "loopClip": "prone-left-loop-v1"
-    },
-    {
-      "id": "gateway.pillow.b",
-      "displayName": "靠枕过渡",
-      "posture": "leaning-rest",
-      "orientation": "right",
-      "grounded": true,
-      "stability": "stable",
-      "scene": "pillow",
-      "role": "gateway",
-      "autonomousEligible": false,
-      "props": ["pillow"],
-      "loopClip": "pillow-gateway-leaning-right-loop-v1"
+      "scene": "floor",
+      "loopClip": "rest-primary-loop",
+      "autonomousEligible": true
     }
   ],
   "edges": [
     {
-      "id": "prone-left-to-pillow-gateway-right",
-      "from": "rest.prone.left",
-      "to": "gateway.pillow.b",
-      "clip": "prone-left-to-pillow-rest-right-v2",
-      "kind": "transition",
-      "interruptPolicy": "finish-before-retarget",
-      "sceneChange": "floor-to-pillow"
+      "id": "rest-primary-to-rest-secondary",
+      "from": "rest.primary",
+      "to": "rest.secondary",
+      "clip": "rest-primary-to-rest-secondary",
+      "interruptPolicy": "finish-before-retarget"
     }
   ]
 }
@@ -147,404 +120,204 @@
 
 节点约束：
 
-- 节点不能只写模糊的 `stand` 或 `sit`，必须包含 `posture + orientation`；需要时再增加支撑关系或视角标签。
-- 每个正式节点可以提供面向用户的 `displayName`。安静陪伴包的所有自主 `dwell` 节点必须提供非空中文显示名，否则加载器拒绝安装。
-- 正式菜单、状态栏和普通反馈只使用 `displayName` 或受控中文回退文案，不能泄露节点 ID、clip ID 或边 ID。
-- `orientation` 第一阶段支持 `front`、`left`、`right`。
-- `scene` 是宠物包定义的视觉上下文。场景改变必须由显式边完成。加载器不得用 `floor`、`pillow`、`cat-bed` 等固定白名单限制新宠物，菜单按 `package.json.scenes` 动态分组。新包的 scene 目录、图节点和 `behavior.scenePolicy` 必须精确一致。
-- `role` 支持 `dwell`、`gateway`、`interaction` 和 `cyclic`。`gateway` 与 `interaction` 必须设置 `autonomousEligible=false`。
-- 普通正面坐姿使用 `sit.front.floor`。道具场景使用独立场景坐姿，例如枕头的 `sit.front.pillow` 和猫窝的 `sit.front.cat-bed`，不能把没有道具的坐姿当成同一节点。现有历史包中的 `sit.front` 作为 `sit.front.floor` 的兼容 ID，迁移必须通过带版本号新包完成。
-- `props` 声明节点画面必须持续包含的道具。目标节点与入口 clip 的道具集合不兼容时拒绝切换。
-- 循环节点必须有 `loopClip`，稳定节点的循环必须能够无限停留。
+- `dwell` 是可以长期停留的稳定状态，必须有可连续播放的循环。
+- `gateway` 只承担离场、入场、遮挡或场景汇合，不进入普通自主候选。
+- PetPack 1.0 没有 `interaction` 角色。历史坐姿如果自然进入生活链，可以迁移为自主 `dwell` 或过渡端点，但不能绑定用户点击。
+- `scene` 表示宠物与紧密道具形成的视觉上下文。宠物与猫窝、饭碗等接触道具可以作为同一媒体单元，不要求 Player 进行物理合成。
+- 稳定节点、短时网关和过渡都使用固定参考画布与底部中心锚点。
 
 边约束：
 
-- `kind` 支持 `transition`、`finite-activity`、`locomotion-transition`。
-- 边是有向的。连接不同姿态节点或不同场景的反向动作必须有独立边和独立验收，不能默认倒放。
-- 唯一允许使用原帧倒序的窄例外是同一节点上的偶发表现自环。它必须先由人工验收完整的“正放动作 + 原帧倒序返回”预览，并在 clip 配方中显式声明正放帧范围、倒序帧范围、峰值帧去重、不可中断和回到同一节点基础循环。该例外不得用于两个不同姿态节点之间的转换，不得插帧、光流、交叉淡化或改变批准源帧。
-- `finite-activity` 可以从一个稳定节点回到同一节点，用于玩耍、进食和舔毛等完整有限动作。
-- 普通边只能从来源片段的安全退出帧进入；强中断按 `interruptPolicy` 处理。
-- 运行时必须验证默认节点可以到达所有必需能力，并存在返回某个稳定节点的路径。
-- 睡眠 MVP 必须验证每个自主 `dwell` 节点都能到达当前场景的 `interaction` 坐姿并返回睡眠。网关不计入自主睡姿覆盖率。
-- 运行时动作集合由节点的 `loopClip` 和边的 `clip` 引用推导，并按 `clips/<clip-id>.json` 显式寻址。不得依赖目录枚举结果决定动作图是否完整。
-- 必需片段、帧、图、行为配置、演示序列和评审索引都必须出现在 `integrity.json`。必需文件缺失、哈希变化、符号链接或带 hidden 文件标记时，运行时拒绝加载。
+- 每条边有明确来源与目标，只能按原帧顺序完整播放。
+- 反向动作是另一条独立生成、独立验收的边，不能倒放正向素材。
+- 不允许用镜像、交叉淡化、RIFE、光流、自动补间、帧复制或硬切构造边。
+- 普通循环只能在包声明的安全退出点进入下一条边。
+- 下一条边和目标循环必须在退出前预加载；失败时留在当前稳定循环，不得跳到目标。
+- 两个状态之间没有批准边时，Player 必须视为不可达，不能自行切换。
 
-### 5.1 `behavior.json`
+## 6. `behavior.json`
 
-行为配置描述宠物如何使用动作图，不复制 clip 或边定义。睡眠 MVP 至少包含：
+行为配置属于每只宠物，不由 Player 写死：
 
 ```json
 {
-  "schemaVersion": "0.2.0",
-  "profile": "quiet-sleep-companion",
-  "defaultIntent": "sleep",
+  "formatVersion": "1.0.0",
+  "profile": "passive-memorial-companion",
+  "defaultNode": "rest.primary",
   "timing": {
-    "strategy": "random-long-tail",
-    "parametersStatus": "runtime-review-pending",
+    "strategy": "independent-random-dwell",
+    "dwellRangesSeconds": [],
     "avoidImmediateRepeat": true
   },
-  "randomWalk": {
-    "avoidCurrentNode": true,
-    "recentNodeWindow": 2,
-    "nodeWeights": {},
-    "sceneTransitionWeight": 0.1,
-    "activityCooldownSeconds": {}
-  },
-  "scenePolicy": {
-    "pillow": {
-      "sticky": true,
-      "gateway": "gateway.pillow.b"
-    },
-    "cat-bed": {
-      "sticky": true,
-      "interactionNode": "sit.front.cat-bed",
-      "dwellHub": "rest.cat-bed.curled"
-    }
-  },
-  "interactions": {
-    "petClick": {
-      "sleeping": "wake-to-scene-sit",
-      "sitting": "return-to-scene-sleep"
-    },
-    "desktopClick": "ignore",
-    "drag": "direct-manipulation"
-  }
+  "nodeWeights": {},
+  "sceneWeights": {}
 }
 ```
 
 约束：
 
-- `random-long-tail` 的具体时间参数必须经过真实时间行为验收后才能从 `runtime-review-pending` 升级。
-- 随机变化是动作图上的受约束随机游走，不是循环 clip 数组随机抽取。行为层先筛除当前节点、近期节点、冷却活动和不合法场景，再按宠物包权重选择目标，由图规划器生成路径。
-- `nodeWeights`、`sceneTransitionWeight`、`recentNodeWindow` 与活动冷却属于宠物级数据。运行时提供机制和验证，不提供一套强制适用于所有宠物的姿势概率。
-- 行为层只能选择 `autonomousEligible=true` 的节点。
-- `desktopClick=ignore` 表示运行时不得为了行为功能安装全桌面点击监听。
-- 点击目标按当前 `scene` 解析，不能从 `pillow` 或 `cat-bed` 硬切到 `floor` 坐姿。
-- 拖动清除尚未开始的普通目标，保留用户放置的 x 与 y；松手后从兼容稳定姿态恢复。
-- 菜单指定睡姿只接受 `autonomousEligible=true` 的 `dwell` 节点。睡眠状态立即规划到目标，坐姿先返回当前场景睡眠后再规划目标。
-- 已经播放的有限过渡不能被菜单选择截断。过渡期间的新选择覆盖尚未开始的旧选择，只保留最后一个有效目标。
+- Player 为每个已装载包创建独立时钟、随机状态、当前节点和停留截止时间。
+- 多只宠物可以同时过渡，不共享随机目标，不因另一只宠物的显示、隐藏、拖动或卸载改变状态。
+- 调度只能选择 `autonomousEligible=true` 的节点，并由图规划器沿合法边到达。
+- 正式运行不是按 QA 完整链固定轮播，也不能从 clip 数组中随机硬切。
+- 用户不能通过点击或菜单改变动作目标。
+- Player 重启后从包的默认稳定节点开始，不模拟离线期间经过的动作。
+- 隐藏时画面立即消失。当前过渡在后台完成到稳定节点后暂停行为时钟和解码；再次显示从稳定状态继续。
 
-## 6. `clips/<clip-id>.json`
+## 7. `clips/<clip-id>.json` 与媒体
 
-```json
-{
-  "schemaVersion": "0.2.0",
-  "id": "walk-right-loop-v1",
-  "type": "loop",
-  "facing": "right",
-  "mirrorSafe": false,
-  "entryPose": "gait.walk.right",
-  "exitPose": "gait.walk.right",
-  "safeExitFrames": [0, 8, 16, 24],
-  "preloadHints": ["run-right-accelerate-v1", "walk-right-stop-v1"],
-  "rootMotionEndPt": [48.0, 0.0],
-  "provenance": {
-    "approvalStatus": "human-action-approved",
-    "approvedRecipe": "workspaces/example-private/actions/walk-right-loop/v1/approved-recipe.json",
-    "approvedRecipeSha256": "<lowercase-sha256>",
-    "rootMotionStatus": "runtime-chain-approved",
-    "normalization": "pet-global-fixed-transform-v1"
-  },
-  "frames": [
-    {
-      "src": "frames/walk-right-loop-v1/0000.png",
-      "durationMs": 42,
-      "contentBoundsPx": [82, 96, 318, 286],
-      "petBoundsPx": [96, 110, 224, 250],
-      "propBoundsPx": {},
-      "anchorsPx": {
-        "root": [240, 350],
-        "ground": [240, 382],
-        "head": [302, 166]
-      },
-      "collision": {
-        "bodyCoreEllipsePx": [145, 185, 198, 132],
-        "screenBoundsPx": [82, 96, 318, 286],
-        "petHitEllipsePx": [145, 185, 198, 132]
-      },
-      "rootMotionPt": [0.0, 0.0]
-    }
-  ]
-}
-```
+每个 clip 至少声明：
 
-片段约束：
+- `id`、`type`、原生帧率或逐帧时长、帧数和持续时间。
+- 固定参考画布、固定底部中心锚点和整段固定几何。
+- 循环的安全退出点，过渡的入口与出口节点。
+- 一个或多个媒体 `representations`，包含编码、分辨率、Alpha、色彩空间、帧率、字节数和 SHA-256。
+- 原生连续帧状态、正式播放倍率和任何速度处理记录。
+- 对应批准配方与评审记录的私有摘要指针，不包含客户路径或提示词正文。
 
-- `type` 支持 `loop`、`transition`、`finite`。
-- 每帧有独立 `durationMs`，不假设整个包只有一个 FPS。
-- `contentBoundsPx` 是该帧实际可见 alpha 包围盒，用于屏幕边缘预测和固定窗口内布局。
-- `petBoundsPx` 只覆盖宠物可见主体。`propBoundsPx` 按道具 ID 记录道具区域。没有道具时写空对象。
-- `anchorsPx.root` 是视觉与 root motion 统一参考点；`ground` 是主要地面接触基线；`head` 用于交互和未来视线目标。
-- `bodyCoreEllipsePx` 是宠物核心区域；`petHitEllipsePx` 或未来逐帧宠物命中掩码用于点击宠物本体。
-- `screenBoundsPx` 表示该帧不能越过可用显示区域的猫与道具联合可见区域。枕头不能扩大 `petHitEllipsePx`。
-- `rootMotionPt` 必须从同一视频时间轴提取并记录累计值。向左片段 x 应非正推进，向右片段 x 应非负推进。
-- `rootMotionEndPt` 是片段终点的累计样本。最后一帧仍有正时长时，运行时在最后一帧的 `rootMotionPt` 与该终点样本之间插值，避免片段边界发生位置跳变。
-- 从稳定姿态进入步态的过渡可以先保持零位移，但必须在第一步明确朝目标方向迈出时开始累计 root motion，并在进入目标循环前连续收敛到已批准的循环速度。右向累计 x 不得回退，左向累计 x 不得前进；素材画面通过不等于该位移曲线通过。
-- `safeExitFrames` 由足部接触、稳定姿态和人工检查共同确定。有限过渡默认不可被普通自主行为中断。
-- 预加载提示只是优化建议，不能改变图语义。
-- 新编译的批准片段必须在 `provenance.approvedRecipeSha256` 固定私有批准配方的精确内容。编译器复制帧前必须验证配方哈希、主体 ID、批准状态、事实源路径、批准帧数、FPS 和有序序列摘要。该字段只允许历史兼容包缺省，缺省包不得因此自动升级批准状态。
-- `demo-sequence.json` 只是显式评审链，不是绕过动作图的播放清单。`transition` 片段必须从第 0 帧完整播放一次；相邻片段的 `exitPose` 与 `entryPose` 必须一致；循环之后还有下一片段时，循环最后播放的运行时帧必须在 `safeExitFrames` 中。
-- 运行时必须在当前循环安全退出前解析并预加载下一条边或目标循环。预加载失败不得以硬切、截断过渡或跳到目标第 0 帧降级。
+媒体约束：
 
-### 6.1 schema `0.4.0` 固定裁剪 RGBA 媒体
+- 正式倍率固定为 `1.0x`。呼吸和其他慢动作必须在生成阶段达到最终节奏。
+- 同一 clip 内不能逐帧重新缩放、重定位或跟随 Alpha 包围盒裁切。
+- 固定裁剪只改变存储窗口，不能改变统一画布中的主体位置和锚点。
+- Alpha 与边缘处理必须在整段使用一致的背景色族模型，不能逐帧调参造成毛发闪烁。
+- Player 可以从多个 representation 中选择自己支持的版本，但不得通过降帧、改速或跳过过渡静默降级。
+- PetPack 1.0 必须包含 `cropped-rgba-clips` 基础表示。它声明固定 crop、宽高、`bytesPerRow = width × 4`、帧数、帧率或逐帧时长、预期总字节数和 SHA-256；媒体长度必须与这些字段严格一致。
+- 小葵以后可以验证更小的透明视频或图像 representation，但它只能作为附加能力，不能替换或废弃已经交付包的基础表示。
 
-`cropped-rgba-clips` 的每个 clip 额外声明：
+## 8. Player 多宠宿主契约
 
-```json
-{
-  "media": {
-    "type": "raw-frames",
-    "src": "media/example-loop-v1.rgba",
-    "codec": "raw-rgba8",
-    "container": "contiguous-frame-stream",
-    "frameCount": 236,
-    "frameRate": 12,
-    "alphaMode": "premultiplied-last",
-    "colorSpace": "sRGB",
-    "sourceSequenceDigest": "<approved-source-digest>",
-    "compiledFrameSequenceDigest": "<raw-file-sha256>",
-    "cropRectPx": [106, 192, 265, 121],
-    "bytesPerRow": 1060,
-    "frameByteCount": 128260
-  }
-}
-```
+- 一个 Player 进程可以装载多个不重复 `package.id` 的包。
+- 每只宠物拥有独立窗口或舞台实例、位置、可见状态、行为会话和媒体缓存。
+- 全局倍率范围是 `0.5` 至 `2.0`，一次作用于所有已装载宠物，并跨启动保存。
+- 拖动只改变该宠物固定锚点，不写入包，也不触发动作。
+- 窗口不读取或执行 clip root motion。新目标包的桌面位置在整个视频图中保持固定。
+- Player 不协调多只宠物的动作时间，不提供宠物互动、碰撞或自动避让。
+- 新装载宠物默认放在不重叠位置，用户拖动后允许重叠。
 
-约束：
-
-- `cropRectPx` 是该 clip 全部批准帧 alpha 包围盒的并集再增加固定透明边距。所有帧共享同一矩形，不得逐帧重新定位或缩放。
-- `frameRate` 是该 clip 自己的批准播放速度，必须为正数，并与所有帧的固定 `durationMs` 一致。运行时不能把全包强制改成 24 FPS。一个包可以同时包含 12、16.2、18 和 24 FPS 等不同 clip。
-- 裁剪只改变媒体存储窗口。帧锚点、碰撞区、道具区、root motion 和窗口布局继续使用包级完整画布坐标。
-- 每帧按 RGBA 字节顺序存储，RGB 已按 alpha 预乘，帧序必须与批准配方完全一致。默认不得插帧、倒放、交叉淡化或修改时间顺序；人工批准的同节点偶发自环可以按配方追加批准源帧的精确倒序副本，但不得修改单帧内容或把该例外扩展到普通图边。
-- RGBA 字节顺序属于包契约，不随平台改成 BGRA。需要 `Pbgra32` 的 Windows WPF 运行时必须在提交帧缓冲时转换 R/B 通道，禁止把 RGBA 字节直接解释为 BGRA。
-- `bytesPerRow = cropWidth × 4`，`frameByteCount = bytesPerRow × cropHeight`，文件字节数严格等于 `frameCount × frameByteCount`。
-- `compiledFrameSequenceDigest` 是 `.rgba` 文件 SHA-256，并必须与 `integrity.json` 对应条目一致。`sourceSequenceDigest` 必须继续匹配批准配方履历。
-- 运行时用只读内存映射与 Core Graphics 直接寻址。小循环可以在预算内预建全部图像，长过渡按固定 crop 分块预建并有界释放。
-- schema `0.4.0` 通过机械与性能验证不等于自动获得安装批准。编译器默认保持 `cropped-rgba-awaiting-human-runtime-review` 与 `installable=false`。只有源 PNG 包已是 `runtime-chain-approved`、明确获得版本发布授权并使用显式 `--release-approved` 构建时，才可把新版本写成 `runtime-chain-approved`、`installable=true`，且发布工作流必须再次核对该状态。
-
-## 7. 五百睡觉陪伴 MVP 必备能力
-
-合规 MVP 包必须提供：
-
-- 默认睡眠节点及至少三种可长期停留的普通睡姿。
-- 每个自主节点都有批准循环、安全退出帧和返回路径。
-- 普通场景正面坐姿 `sit.front.floor`，以及从所有首发普通睡姿到该坐姿再返回睡眠的有界路径。
-- 枕头场景网关、至少两种枕头睡姿、`sit.front.pillow` 和完整双向路径。
-- 枕头只通过显式场景边出现和离开，同一枕头场景中的节点保持道具集合一致。
-- 点击、全桌面拖动、隐藏、退出和恢复行为。
-- 以中文名称列出全部自主睡姿，并允许用户指定其中任意一个目标。
-- 睡眠内部严格零 root motion。枕头进出边如含短步，必须使用批准的水平累计 root motion。
-
-### MVP 最小图基线
-
-五百 `0.3.0` 使用 schema `0.2.0` 的已实现节点基线：
-
-| 节点 | scene | role | 作用 |
-|---|---|---|---|
-| `rest.prone.left` | floor | dwell | 默认趴卧睡姿和普通场景汇合点 |
-| `rest.side-curled.left` | floor | dwell | 左侧蜷卧 |
-| `rest.side-stretched.left` | floor | dwell | 左侧伸展 |
-| `rest.supine.left` | floor | dwell | 仰卧 |
-| `rest.curled-supine.left` | floor | dwell | 蜷缩仰卧 |
-| `rest.semi-supine.left` | floor | dwell | 松散半仰卧 |
-| `rest.sleeping-loaf.left` | floor | dwell | 睡眠香箱 |
-| `gateway.loaf.legacy.left` | floor | gateway | 旧香箱兼容汇合点，不参与随机停留 |
-| `sit.front.floor` | floor | interaction | 普通睡眠点击后的正面坐姿 |
-| `gateway.pillow.b` | pillow | gateway | 枕头场景进入、离开、预加载和唤醒汇合 |
-| `rest.pillow.head-on` | pillow | dwell | 头趴枕头睡姿 |
-| `rest.pillow.compact-semi-supine` | pillow | dwell | 枕头支撑的紧凑半仰卧 |
-| `rest.pillow.top-curled` | pillow | dwell | 整个身体蜷睡在枕头上 |
-| `sit.front.pillow` | pillow | interaction | 保留枕头的正面坐姿 |
-
-最低路径要求：
-
-- 普通 `dwell` 节点构成至少一个不硬切的闭合睡眠子图。
-- 每个首发普通 `dwell` 节点能在点击响应目标内到达 `sit.front.floor`，并能返回普通睡眠。
-- `rest.prone.left → gateway.pillow.b` 和独立回程连接两个场景。反向不能倒放正向素材。
-- 网关与每个首发枕头睡姿有批准路径；枕头内部至少存在一条不经过网关的随机换姿路径。
-- 每个首发枕头睡姿能经批准醒来路径到达 `sit.front.pillow`，并能返回枕头睡眠。
-- 网关与两个坐姿均设置 `autonomousEligible=false`。
-
-已经批准的站立、走路、跑步和左右过渡可以继续存在于同一素材事实库或工程包，但睡眠 MVP 的 `behavior.json` 不得请求它们。`↔` 仍表示两个分别生成、分别验收的有向边，不表示倒放。
-
-### 飞流定制图基线
-
-飞流不是五百图的换皮版本。当前素材动作图已经人工确认，使用 9 个自主睡姿和 2 个场景坐姿，其中 5 个无道具睡姿、4 个猫窝睡姿：
-
-| 节点 | scene | role | 作用 |
-|---|---|---|---|
-| `sit.front.floor` | floor | interaction | 无道具场景点击坐姿 |
-| `rest.floor.prone.right` | floor | dwell | 平趴睡，地面睡姿枢纽 |
-| `rest.floor.side-stretched.right` | floor | dwell | 侧身伸展睡 |
-| `rest.floor.tight-curled.right` | floor | dwell | 紧蜷睡 |
-| `rest.floor.semi-supine.right` | floor | dwell | 半仰睡，连接平趴睡与仰躺睡 |
-| `rest.floor.full-supine.right` | floor | dwell | 仰躺睡 |
-| `sit.front.cat-bed` | cat-bed | interaction | 坐在猫窝里的点击坐姿，只与猫窝蜷睡往返 |
-| `rest.cat-bed.curled` | cat-bed | dwell | 猫窝蜷睡，猫窝睡姿枢纽 |
-| `rest.cat-bed.prone` | cat-bed | dwell | 猫窝自然趴睡 |
-| `rest.cat-bed.side-stretched` | cat-bed | dwell | 猫窝侧伸睡 |
-| `rest.cat-bed.stretch-open-belly` | cat-bed | dwell | 猫窝舒展露腹睡 |
-
-最低路径语义：
-
-- `sit.front.floor ↔ rest.floor.prone.right` 是地面点击交互主干。旧稿中的 `rest.floor.loaf.front` 不进入飞流首版动作图。
-- 平趴睡分别连接紧蜷睡、侧身伸展睡和半仰睡。仰躺睡只经半仰睡往返，不与平趴睡直接相连。
-- 地面平趴睡与猫窝蜷睡使用两条独立场景进出边。场景切换不经过 `sit.front.cat-bed`。
-- `sit.front.cat-bed` 只承担猫窝场景的点击坐姿，与猫窝蜷睡使用两条独立睡坐边；任何反向都不能倒放。
-- 猫窝蜷睡分别连接猫窝自然趴睡、猫窝侧伸睡和猫窝舒展露腹睡。
-- 每个猫窝睡姿必须能经猫窝蜷睡到达 `sit.front.cat-bed`，并能从该坐姿经猫窝蜷睡返回猫窝睡眠。点击后必须尽快出现可见醒来反应。
-- `sit.front.cat-bed` 与 `sit.front.floor` 都不能进入普通自主睡姿抽签，但可以作为合法路径中间节点。
-- 猫窝端点先按猫窝宽度、底部中心确定性对齐到统一编译画布，再嵌入统一生成安全画布；每个端点和后续每条 clip 只能有一个固定等比缩放与固定平移，禁止按猫体逐帧重新定位。具体画布尺寸和锚点以当前批准 manifest 为准。
-- 静态端点对齐只批准进入视频制作。循环、过渡、抠图、接缝、动作图与真实运行时仍要分别验收。
-- 已有毛毯与毛毯踩奶素材完整保留为历史制作资产，不进入飞流首版猫窝图。未来若恢复踩奶，需要以猫窝场景重新设计和独立批准。
-- 当前串行闭环只用于检查所有循环和接缝。正式行为在这张合法图上进行加权随机游走。
-
-当前图关系：
+菜单契约：
 
 ```text
-sit.front.floor ↔ rest.floor.prone.right
-                       ↔ rest.floor.side-stretched.right
-                       ↔ rest.floor.tight-curled.right
-                       ↔ rest.floor.semi-supine.right ↔ rest.floor.full-supine.right
-                       ↔ rest.cat-bed.curled ↔ sit.front.cat-bed
-                                               ↔ rest.cat-bed.prone
-                                               ↔ rest.cat-bed.side-stretched
-                                               ↔ rest.cat-bed.stretch-open-belly
+装载宠物包…
+
+显示宠物
+  全部
+  <已装载宠物动态列表>
+
+隐藏宠物
+  全部
+  <已装载宠物动态列表>
+
+卸载宠物
+  全部
+  <已装载宠物动态列表>
+
+大小
+  0.5 至 2.0
+
+退出 PetsGraph
 ```
 
-其中每个 `↔` 都代表两条独立有向边。当前最小素材集合为 11 个节点循环或稳定 hold，加 20 条有向过渡，共 31 个唯一素材。`sit.front.floor` 当前使用已批准静态端点作为稳定 hold，不得用旧的收爪趴睡路径或其他坐姿视频替代。
+Player 不提供动作、睡姿、场景或声音菜单。
 
-当前批准播放速度：
+## 9. 装载、更新与卸载
 
-| 素材范围 | 批准播放速度 |
-|---|---:|
-| 平趴睡、侧身伸展睡、紧蜷睡循环 | 12 FPS |
-| 半仰睡、仰躺睡、全部猫窝循环和普通过渡 | 24 FPS |
-| 平趴睡进入猫窝蜷睡 | 18 FPS |
-| 猫窝蜷睡返回平趴睡 | 16.2 FPS |
+装载事务：
 
-精抠整链状态为 `human-approved-selective-fine-matte-graph-tour`。12 条地面素材使用选择性精抠，19 条已干净素材逐字节复用；所有 clip 继续使用粗抠整链批准的唯一固定变换，未改变帧序和批准速度。该状态不是 `runtime-chain-approved`，也不能据此设置 `installable=true`。
+1. 在临时位置读取并验证完整包。
+2. 拒绝绝对路径、`..` 越界、符号链接、未知必需能力、哈希不匹配和可执行内容。
+3. 确认本平台存在可播放 media representation。
+4. 复制完整 source file 或其规范化不可变副本到内部 canonical 库。
+5. 回读验证后原子注册，失败时保留当前内部库不变。
 
-当前飞流低功耗正式包从上述精抠事实源确定性编译，包含 31 个 clip 与 5,147 帧，制作坐标为 656×224，`baseHeightPt=181.125`，`groundYPx=183`。它只校准包级桌面显示基准，不修改任何素材帧、固定变换、帧序或批准速度。它已经通过结构、图可达性、媒体长度、哈希、逐帧可读校验和真实桌面运行时验收，状态为 `runtime-chain-approved` 与 `installable=true`。
+重复与更新：
 
-桌面透明窗口不直接采用制作坐标的宽高比。每条 clip 从固定媒体 alpha 并集裁剪或整段 `contentBoundsPx` 并集计算一个固定正方形视口。视口边长取整段最大宽高，中心与整段边界中心一致；同一 clip 内所有帧共用一个视口，不逐帧跟踪、不改变素材缩放。切换 clip 时，窗口根据统一制作坐标换算新正方形视口，保持原始像素在桌面上的绝对位置连续。跨场景宽动作允许临时使用更大的正方形窗口，不能为了缩小窗口裁掉动作。
-水平屏幕边界限制使用当帧 `contentBoundsPx`，不使用透明正方形视口的外框。只有真实可见内容即将离开屏幕时才能平移逻辑制作画布原点，不得因为透明留白在 clip 切换时制造额外位移。行为规划使用当帧 ground anchor 的桌面 x 坐标，不使用可能远离宠物的宽视口中心。
+- 相同 `package.id`、相同 `contentVersion` 是幂等装载。
+- 更高版本需要用户确认后原子替换，保留位置和可见状态；失败继续使用旧版。
+- 更低版本默认拒绝，除非未来提供明确降级流程。
+- 不同 `package.id` 作为新宠物装载。
 
-## 8. App 级多宠宿主契约
+卸载：
 
-`.petsgraph-pet` 继续是一包一宠。多宠由 App 宿主组合，不把两只宠物、两个时钟或两个窗口塞进同一个包：
+- 删除内部 canonical copy、缓存和该宠物本地设置。
+- 不删除用户外部保存的 source file。
+- 卸载全部必须二次确认并明确再次恢复需要原始 `.petpack`。
 
-- App 可以从命令行接收多个连续宠物包路径，也可以从 `Contents/Resources/Pets/` 自动发现全部内嵌包。
-- 同一进程内 `package.id` 的目录名和 `pet.id` 必须唯一。重复宠物 ID 必须在创建菜单或窗口前拒绝，不能覆盖已加载实例。
-- 首次安装没有持久化选择时默认装载全部宠物。之后持久化所选宠物 ID 集合；被移除的旧宠物 ID 在恢复时过滤掉。
-- 每只宠物拥有独立行为会话、当前节点、随机目标、停留截止时间、点击命令和窗口位置。共享 scheduler 只推进渲染，不共享行为状态。
-- 当前默认横排顺序为五百、飞流、其他宠物按 ID。第一只放在物理屏幕左下角，后一只从前一只窗口右边加 12 pt 开始。默认布局不重叠，用户拖动后允许重叠。
-- 全局显示倍率只允许 `0.5`、`0.75`、`1.0`、`1.25`、`1.5`、`1.75`、`2.0`。每只宠物的实际显示高度为自己的 `baseHeightPt × globalScale`，因此不抹平宠物包已经校准的相对体型。
-- 缩放必须保持当前帧 ground anchor 的屏幕坐标，不重启行为、不切换 clip、不逐帧重采样素材。窗口超出屏幕时允许只为留在屏幕内进行一次位置限制。
-- 卸载宠物立即关闭其窗口和道具窗口，释放控制器与媒体缓存。重新装载从该包 `art.defaultNode` 开始，不恢复卸载前的动作中间态。
-- 每只宠物菜单按自身 scene 目录和自主 `dwell` 节点生成中文睡姿。未装载宠物的姿态菜单保留但禁用。
+## 10. 版本与长期兼容
 
-## 9. 生成母片与运行时片段
+- `formatVersion` 使用语义化版本。未知必需主版本拒绝并给出可读错误。
+- 同一主版本的新可选字段允许旧 Player 忽略；未知必需能力必须拒绝，不能静默错误播放。
+- 一旦某包在 Player 中成功装载，其基础动作图、时序、锚点和媒体必须在后续 Player 继续可用。
+- Player 升级不得把 canonical copy 放在应用安装目录，也不得在迁移时原位改写正式包。
+- 新功能只能通过 Player 兼容能力或新版 `.petpack` 增量提供。旧包缺少声音等新内容时继续静音播放。
+- 平台 Player 可以有不同导入 UI、窗口或全屏呈现，但不能改变包内动作图和生命节奏。
 
-- 一个生成任务可以产出一条较长的连续母片，再确定性切出多个运行时片段。
-- 例如一条 `趴卧→侧躺→稳定呼吸→返回趴卧` 母片可以切出出站边、稳定循环和独立回程边。
-- 切分只允许选择连续直接帧、统一画布、重定位、抠图和编码，不允许交叉淡化、光流、RIFE 或自动补间。
-- 每个切出的运行时片段仍需独立机械检查；涉及图边时还要验收首尾接缝和完整链。
+## 11. 完整性、安全与隐私
 
-## 10. 验收契约
+- `integrity.json` 为所有运行时文件保存规范相对路径、字节数、媒体类型和 SHA-256。
+- 包不得包含脚本、动态库、插件入口、绝对路径、符号链接、网络请求、provider token、签名 URL 或客户原始资料。
+- 路径使用 `/`、区分稳定大小写规则并做 Unicode 规范化，避免 macOS 与 Windows 解析差异。
+- 坏包、重复包、更新失败和解码失败不得让 Player 崩溃或替换当前可用宠物。
+- `signature.json` 可证明官方制作来源与内容身份。未签名合规包可以运行，但 Player 应明确显示其不是官方定制包。
+- 签名不限制复制、备份、离线播放或开源 Player 的实现。
+- 五百与飞流的首批 PetPack 1.0 只实现 `integrity.json`，不生成 `signature.json`。官方签名算法在装载、更新、卸载和双平台播放稳定后另行冻结。
 
-`reviews/index.json` 记录每个动作、图边和整链的状态，不依赖文档口头描述。
+## 12. 制作与验收契约
 
-状态层级：
-
-1. `draft`
-2. `mechanical-pass`
-3. `human-action-approved`
-4. `human-edge-approved`
-5. `runtime-chain-approved`
-6. `rejected`
-
-每条验收记录至少包含：
-
-- `subjectType` 与 `subjectId`
-- 被验收文件的 SHA-256
-- 检查时的显示高度、浅色背景、深色背景和真实桌面背景
-- 机械检查摘要及其非最终性声明
-- 人工验收人、时间、明确结论和备注
-- 是否允许进入安装包
-
-必需路径没有达到 `runtime-chain-approved` 时，包验证器必须拒绝正式安装。预览模式可以加载 draft，但必须显著标记为未批准。
-
-睡眠 MVP 的整包评审还必须记录：
-
-- 真实时间行为观察的时长、睡眠占比、姿势切换次数、场景切换次数和是否出现近期重复。
-- 点击到首个可见醒来反应、到完整坐姿、再次点击到恢复睡眠的时间。
-- 普通场景和枕头场景的道具连续性、点击命中与拖动结果。
-- 默认启动没有安装全桌面点击 monitor，也不要求辅助功能权限。
-- 用户放置的 y 在随机睡姿、点击和枕头场景内部切换中保持不变。
-
-### 10.1 已批准素材的生产履历
-
-每个进入 `human-action-approved` 或 `human-edge-approved` 的动作或图边，都必须在私有制作工作区保存独立的 `approved-recipe.json`。每只宠物还必须维护 `approved-assets.json`，逐项索引当前已批准版本及其履历路径。生产履历是跨猫狗复用生成方法的依据，不是运行时安装包内容。
-
-`approved-recipe.json` 至少记录：
-
-- 宠物、动作或图边 ID、版本、批准状态、批准时间、人工结论、评审证据和剩余验收闸门。
-- provider、模型、任务 ID、受控尝试序号、实际自动重试次数，以及是否产生过未计费的前置校验失败。
-- 提示词文件路径和 SHA-256。每个输入记录角色、路径、SHA-256 与来源说明。
-- 时长、分辨率、比例、音频、水印等生成参数，以及原始母片路径、SHA-256、seed、FPS 和总帧数。
-- 被采用的连续原始帧起止、排除帧、片段时长、下一动作入口相位和循环旋转顺序。
-- 抠图、画布处理和编译脚本的路径、版本或 SHA-256，以及是否禁用了补间、光流、RIFE、骨骼和交叉淡化。
-- 按文件名排序的 PNG 制作事实源总帧数、总字节数和序列摘要，以及关键输出文件的 SHA-256。
-- 图入口姿态、出口姿态、安全退出策略、已批准的相邻入口相位、已知取舍与可复用于其他宠物的方法。
-- 当前是否可安装。未达到 `runtime-chain-approved` 时必须明确列出剩余闸门。
-
-PNG 序列摘要固定按文件名字典序处理。每帧依次写入 UTF-8 文件名、一个 NUL 字节、小写文件 SHA-256 十六进制文本和一个 LF 字节，最后对完整字节流计算 SHA-256。实现不得依赖文件系统遍历顺序。
-
-可复现性分为两层：已有母片到运行时事实源的确定性处理必须能够按脚本和哈希复现；生成 provider 即使记录相同 seed，也不保证再次生成逐像素相同结果，因此履历保证方法、输入和选择可追溯，不承诺随机模型逐像素重演。
-
-生产履历禁止保存密钥、访问令牌、签名 URL、临时下载地址和未脱敏日志。原始私密照片可以只留在受控工作区，履历只记录本地角色、相对路径、哈希和来源说明。若历史素材缺少某项信息，必须显式记录为不可恢复的已知限制，不能用推测值补齐；新素材不得带着此类缺口进入批准状态。
-
-## 11. 完整性与安全
-
-- `integrity.json` 对所有运行时文件保存 SHA-256、字节数和媒体类型。
-- 导入时拒绝绝对路径、`..` 越界、符号链接逃逸、未知 schema 主版本和哈希不匹配。
-- 宠物包不得包含可执行文件、动态库、脚本入口、provider token 或任意运行时网络地址。
-- 坏包不得导致运行时崩溃；验证失败时不替换当前可用宠物包。
-- 逐帧抠图失败不得静默复用上一帧蒙版。失败帧必须标记、修复并重新验收，或拒绝该片段。
-- `behavior.json` 只能引用图中存在的场景、网关和交互目标。无法满足点击往返或把非自主节点加入候选集时拒绝安装。
-- 枕头节点缺少宠物命中区域、道具区域或联合屏幕边界时，只能进入显式工程预览，不能成为正式 MVP 包。
-
-## 12. 版本与兼容
-
-- `schemaVersion` 使用语义化版本。
-- `0.1.0` 包是走跑与睡眠工程预览契约。`0.2.0` 已加入必需的 `behavior.json`、节点职责、场景和猫道具命中字段，并由加载器、编译器和回归测试执行。
-- 公开宠物包版本 `0.3.0` 继续使用 schema `0.2.0`，只新增向后兼容的节点 `displayName` 数据和运行时指定睡姿交互，不改变帧、坐标或动作图语义。
-- App 名称、Bundle ID 与宠物包身份是不同契约。运行时使用 `PetsGraph` 与 `com.maxwell.petsgraph`；当前宠物名称来自 `package.json.pet.displayName`，不能写死在通用菜单或反馈中。
-- `0.3.1` 继续使用 schema `0.2.0`，帧与 `0.3.0` 完全一致。版本变化只涉及 App 品牌分层、动态宠物名称和发布载体。
-- `0.4.0` 使用 schema `0.4.0` 与 `cropped-rgba-clips`。它从 `0.3.1` 已批准 PNG 包确定性编译，帧序、时间、完整画布坐标、动作图、锚点、碰撞区与 root motion 保持不变；PNG 继续作为制作事实源和回滚基线。
-- v0.5.10 App 继续读取 schema `0.2.0` 至 `0.4.0` 的单宠包，同时在宿主层组合多个包。多宠装载、持久化和全局显示倍率不改变单包 schema；公开内嵌的五百与飞流 `0.5.10` 包都已获得可安装批准。
-- 同一主版本新增未知字段时，旧运行时应忽略未知字段并读取已知部分。
-- 未知主版本必须拒绝，并给出可读错误。
-- 任何改变坐标、root motion、图语义或验收要求的变更都视为潜在破坏性变更，必须追加 ADR 并升级 schema。
-
-## 13. Codex 宠物导出契约
-
-`codex-pets/` 是独立于 `.petsgraph-pet` 的公开分发面。它只服务 Codex 自定义 Pets 系统，不进入 PetsGraph 的 Swift 或 .NET 包加载器。
+正式生产顺序：
 
 ```text
-codex-pets/
-  README.md
-  manifest.json
-  <codex-pet-id>/
-    pet.json
-    spritesheet.webp
+客户资料与习惯证据
+  → 身份母版
+  → 未抠图连续视频与完整动作链
+  → 单段、接缝和完整图正常速度人工验收
+  → 整体背景色族抠图与去色溢
+  → 固定几何
+  → PetPack 编译
+  → macOS 与 Windows 真实 Player 验收
 ```
 
-- 当前 manifest schema 为整数 `1`。每条记录固定目录、Codex pet ID、显示名、两个文件的字节数和 SHA-256。
-- 每个目录只允许 `pet.json` 与 `spritesheet.webp`。目录名、manifest ID 和 `pet.json.id` 必须一致，不能使用符号链接或路径越界。
-- `pet.json.spriteVersionNumber` 固定为 `2`，`spritesheetPath` 固定为 `spritesheet.webp`。
-- v2 图集固定为 1536×2288 RGBA WebP，由 8 列、11 行、每格 192×208 组成。仓库校验器和 Hatch Pet 原生校验器都必须通过。
-- 当前导出为五百 `wubai-v0` 与飞流 `feiliu-hatch-native-v1`。更新视觉内容时使用新的版本化 ID，不原位改写已经公开的稳定 ID。
-- Codex 导出的机械通过不映射为 `human-action-approved`、`runtime-chain-approved` 或 `installable=true`。这些状态只属于 PetsGraph 连续动作包自己的证据链。
-- 安装器必须先校验全部仓库资产。目标内容相同则保持不变，内容不同时默认拒绝覆盖；显式 `--force` 只能在先移动旧目录到 `pets-backups` 后替换。
+每个批准单元至少记录 provider、模型、任务 ID、输入摘要、提示词摘要、原始母片摘要、原生 FPS、帧数、正式倍率、速度处理、连续原始帧范围、抠图配方、固定几何、输出摘要和人工结论。记录不得包含密钥、临时下载地址或客户外部可识别路径。
+
+批准层级至少区分身份、单动作、图边、完整未抠图链、统一抠图链、双平台运行时和可交付包。机械校验或某一段通过不能自动提升后续状态。
+
+## 13. Legacy as-built：`.petsgraph-pet` schema `0.4.0`
+
+当前 `v0.6.0` 实现仍使用目录型 `.petsgraph-pet`：
+
+```text
+<package-id>.petsgraph-pet/
+  package.json
+  graph.json
+  behavior.json
+  clips/
+  media/
+  reviews/
+  integrity.json
+```
+
+- 渲染模式是 `cropped-rgba-clips`，每个 clip 使用固定裁剪的预乘 RGBA 连续帧流。
+- Swift 与 .NET 加载器验证 schema、图、安全路径、固定 crop、媒体长度和完整性。
+- 旧包支持点击坐姿、指定睡姿、内嵌包发现、逐帧 root motion 和历史角色 `interaction`。
+- v0.6.0 在 macOS DMG 与 Windows ZIP 中内嵌五百、飞流两个 `0.5.10` 包。
+- 这些事实继续作为离线转换输入，不是 PetPack 1.0 的目标交互和分发方式。新 Player 不直接装载 schema `0.4.0`。
+- 迁移不得修改已经批准的媒体字节、帧序、正式速度和固定几何。旧交互节点可以在新行为图中废弃，或在确实自然时改为自主生活状态，但不能继续暴露点击操作。
+- 五百与飞流由私有 Studio 转换器生成新 `.petpack`，只保留自主睡眠、换姿和已批准自主活动；点击坐立、步行、interaction 与窗口 root motion 不进入新包。转换失败继续保留旧批准包和 `v0.6.0` 回滚事实。
+- 精确的旧发布事实、摘要和验证结果见 `DEPLOYMENT.md`、`CHANGELOG.md` 与 Git 标签。
+
+## 14. Codex 宠物导出契约
+
+当前 As-built 使用 `codex-pets/`，目标目录名为 `codexpets/`。在目录迁移完成并通过前，当前安装与校验命令继续读取旧路径；不能只改文档或默认路径后留下半迁移状态。
+
+目标 `codexpets/` 是独立于 PetsGraph Player 的小型 Codex v2 自定义宠物制作与分发面：
+
+- 每个目录只包含 `pet.json` 与 1536×2288 RGBA `spritesheet.webp`，使用 8 列、11 行、每格 192×208 的 v2 图集。
+- 公开包位于 `codexpets/packages/public/<package-id>/`；私有包位于根 Git 忽略的 `codexpets/packages/private/`。
+- `codexpets/manifests/public.json` 固定公开目录、ID、显示名、字节数、SHA-256、`public=true`、素材所有者和 `licenseRef`，不得包含私有包条目或客户元数据。
+- `codexpets/manifests/private.json` 保持私有，不得向公开清单泄漏客户 ID、宠物名、路径或摘要。
+- 当前公开导出为五百 `wubai-v0` 与飞流 `feiliu-hatch-native-v1`；迁移不得改变包 ID、媒体字节、摘要或限定授权。
+- Codex 专用选帧、生成、布局和 QA 位于 `codexpets/workspaces/<pet-id>/`，通过相对路径和摘要引用 `pets/` 唯一事实源，不复制客户原始资料。
+- Codex 图集的机械通过不映射为 PetPack 连续视频、生命感、动作图或可交付批准。
+- Codex 导出不进入 `.petpack`，也不改变 Player 零内置宠物素材的目标。
+
+目录、根 Git 跟踪与迁移门禁见 `DIRECTORY.md` 第 10 至 14 节。

@@ -2,6 +2,30 @@
 
 > Append-only。记录版本与里程碑，决策理由见 `DECISIONS.md`。
 
+## Unreleased · 2026-08-23
+
+- Changed: PetPack 1.0 冻结为普通 ZIP 单文件容器，并把 `cropped-rgba-clips` 作为长期兼容基础表示。五百与飞流先离线转换，首批包只含完整性哈希，不实现官方签名；新 Player 不直接加载旧 schema `0.4.0`。
+- Changed: `studio/` 明确为根 Git 忽略且不创建独立 Git 的本机私有目录；dotenv 与生产工具一次性迁入，不保留根目录或 `petsdesk` 旧路径兼容。
+- Changed: 重构直接在 `main` 上按验证切片提交并及时 push。失败大型媒体、字节重复文件、可重建缓存和临时产物在生成审计记录后移入系统回收站，不再逐项请求二次确认。
+- Changed: 五百与飞流先使用现有批准媒体制作 PetPack 1.0；小葵本轮只整理已有资料，不继续生成、抠图或制作 PetPack。
+- Added: 新增 `DIRECTORY.md`，冻结整个项目继续以 `petsgraph/` 为唯一物理根，并定义 `player/`、`petpack/`、`studio/`、`pets/`、`petpacks/`、`codexpets/` 与 `.local/` 的目标职责。
+- Changed: “零素材”边界精确为 Player 子树与 Player 发布物不包含真实宠物；根公开 Git 允许在 `codexpets/packages/public/` 保存单独授权的 Codex 宠物图集。
+- Changed: Codex 目标目录名确定为 `codexpets/`，公开包、私有包、工作区和清单分开；当前 `codex-pets/`、旧清单和管理工具继续作为 As-built，尚未迁移。
+- Added: 目录迁移必须逐切片记录源目标、文件数、字节数、摘要、备份和回读；禁止整体删除 `workspaces/` 或在项目根递归清理 ignored 私有目录。
+- Review: 本里程碑只更新目录与 Git 边界文档，没有创建目标目录、移动素材、重命名 Codex 包、修改工具默认路径或改变 Player 构建发布物。
+
+## Unreleased · 2026-08-22
+
+- Changed: 产品定位收敛为宠物离世纪念陪伴。下一代宠物只按各自时钟自主播放连续生活视频，不响应点击，不提供动作或睡姿菜单，窗口不再随步行动作移动。
+- Changed: 下一代架构分为开源零素材 PetsGraph Player、私有 PetsGraph Studio 和客户自持 `.petpack`。Seedance 等制作工具、提示词、客户资料和正式宠物素材保持私有。
+- Added: PetPack 1.0 目标契约覆盖一包一宠、装载导入、内部 canonical 库、版本更新、长期兼容、固定舞台、独立时钟、完整性与可选来源签名。容器和透明媒体基线仍待小葵双平台原型冻结。
+- Changed: Player 支持同时装载多只宠物，每只宠物独立计时、独立位置和独立可见状态，全部宠物共享 `0.5` 至 `2.0` 全局倍率，不做宠物互动或动作协调。
+- Changed: 目标菜单固定为装载宠物包、显示宠物、隐藏宠物、卸载宠物、大小和退出。显示、隐藏与卸载均支持“全部”和动态宠物列表；卸载删除内部包，再次使用需要用户保存的原始 `.petpack`。
+- Changed: 当前实现范围保持 Apple Silicon macOS 与 Windows x64。iPadOS 与电视端推迟，但 PetPack 1.0 保持平台无关，未来 Player 不应要求客户重新定制。
+- Changed: 客户资料按客户和宠物独立私有目录保存，默认不训练、不公开，暂定从最终交付日起保留一年；正式接单前补齐到期处理与授权文本。
+- Deprecated: 面向下一代产品的点击坐立、指定睡姿、动作菜单、窗口 root motion、桌面巡游和 Player 内嵌真实宠物素材。历史 `v0.6.0` 发布物与已批准媒体继续保留并作为迁移输入。
+- Review: 本里程碑只完成产品与文档决策，没有实现 Player/PetPack 1.0，没有重编五百、飞流或小葵媒体，也没有改变现有 `v0.6.0` Release。
+
 ## Unreleased · 2026-08-19
 
 - Added: 在 `codex-pets/` 同时维护五百 `wubai-v0` 与飞流 `feiliu-hatch-native-v1` 两套 Codex v2 自定义宠物。每套包含 `pet.json` 与 1536×2288 RGBA WebP 图集，两张图集合计约 4.4 MB。
