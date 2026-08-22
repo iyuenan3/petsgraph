@@ -20,7 +20,7 @@
 - Player 源码、PetPack 规范、验证器、合成测试包、坏包样例、构建和发布流程。
 - 不具有真实宠物身份的最小测试媒体。
 - 单独授权的 `codexpets/packages/public/`、公开清单和安全安装校验工具。
-- 根迁移期 `.env.example` 中的变量名和非敏感占位值；目标配置模板归私有 `studio/.env.example`。
+- Player 不需要 provider 环境变量。生成服务的变量名与安全占位模板只位于根 Git 忽略的 `studio/.env.example`。
 
 私有 Studio 必须保存：
 

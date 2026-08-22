@@ -1,6 +1,6 @@
 # DIRECTORY：PetsGraph 项目目录与 Git 边界
 
-> Target: 本文件定义下一代目录结构和迁移护栏。As-built: Codex 公开包已迁入 `codexpets/`，平台源码已迁入 `player/`，公开品牌已迁入 `assets/brand/`；私有媒体仍位于 `workspaces/`，Studio、宠物事实源、PetPack 与本地产物继续按小切片迁移。
+> Target: 本文件定义下一代目录结构和迁移护栏。As-built: Codex 公开包、平台源码、公开品牌以及私有 Studio 工具与配置已迁入目标路径；私有媒体仍位于 `workspaces/`，宠物事实源、PetPack 与本地产物继续按小切片迁移。
 
 ## 1. 根目录原则
 
@@ -36,7 +36,7 @@ petsgraph/
 └── .gitignore
 ```
 
-根目录不再使用职责不明的长期 `workspaces/`、`output/` 和 `tmp/` 作为新内容入口。现有目录在逐项迁移和回读完成前继续保留，不能因为目标结构已经写入文档就整体删除或改名。
+根目录不再使用职责不明的长期 `workspaces/`、`output/` 和 `tmp/` 作为新内容入口。`output/` 与 `tmp/` 已在清理审计后移除，`workspaces/` 在逐项迁移和回读完成前继续保留，不能因为目标结构已经写入文档就整体删除或改名。
 
 ## 3. 根公开 Git 的边界
 
@@ -75,7 +75,7 @@ codexpets/manifests/private.json
 .env.*
 ```
 
-例外是明确允许跟踪的安全模板，例如迁移前仍位于根目录的 `.env.example`。目标状态下生成服务配置模板迁入私有 `studio/.env.example`，Player 不需要 provider 环境变量。
+生成服务的安全配置模板与本地真实配置现均位于根 Git 忽略的 `studio/`。根目录不再为 `.env.example` 设置跟踪例外，Player 不需要 provider 环境变量。
 
 公开根 Git 的 CI 不得读取、复制、枚举或假设上述私有目录存在。公开 clone 缺少全部私有目录时，Player、PetPack 验证和公开 Codex 包校验仍必须可以独立执行。
 
@@ -286,7 +286,7 @@ codexpets/
 
 - 新的临时脚本、生成预览、缓存、虚拟环境和候选发布物不再散落到根目录。
 - 只有具备已验证源文件、重建配方和摘要的内容才能归类为可重建。
-- 当前 `output/`、`tmp/`、`dist/`、`.cache/`、`.venv*` 和 `workspaces/*/release-dist` 必须逐项审计；不能按目录名直接迁入 `.local/` 或删除。
+- 根 `output/` 与 `tmp/` 已完成审计并移除。`dist/`、`.cache/`、`.venv*` 和 `workspaces/*/release-dist` 仍须逐项审计，不能按目录名直接迁入 `.local/` 或删除。
 - 已成为正式评审证据、获批帧事实源或未上传正式发布物的文件必须进入对应 `pets/`、`petpacks/` 或归档位置。明确失败的大型媒体可以在审计记录完成后移入系统回收站。
 
 ## 12. 当前到目标的迁移映射
@@ -296,14 +296,14 @@ codexpets/
 | `Package.swift`、`Sources/`、`Tests/` | `player/macos/` | 已在 `84bbc5e` 完成；67 项测试迁移前后均通过 |
 | `windows/`、`global.json` | `player/windows/` | 已在 `84bbc5e` 完成；7 项测试通过，解决方案 0 警告 0 错误 |
 | Player 构建、测试和公开验证工具 | 对应平台 `scripts/` 或 `petpack/validator/` | 不能依赖私有目录也能运行 |
-| Seedance、Seedream、抠图、评审和宠物专用工具 | `studio/` | 迁入根 Git 忽略的本机私有目录，不创建独立 Git，不再保留公开工作副本 |
+| Seedance、Seedream、抠图、评审和宠物专用工具 | `studio/` | 已在 `6da41e3` 完成公开边界切换；私有内容由根 Git 忽略，不创建独立 Git，不保留公开工作副本 |
 | `workspaces/<pet>-private/` | `pets/personal/<pet-id>/` 及 `petpacks/personal/<pet-id>/` | 逐宠、逐类映射；源、批准、失败、包和缓存不可混迁 |
 | 未来客户目录 | `pets/customers/<customer-id>/<pet-id>/` | 客户 ID 稳定且不含姓名，保留期单独记录 |
 | `codex-pets/` | `codexpets/packages/public/` | 已在 `76ad2ea` 完成；不保留旧路径兼容 |
 | `codex-pets/manifest.json` | `codexpets/manifests/public.json` | 已完成；公开条目增加 `public`、素材所有者和授权指针 |
 | `tools/manage-codex-pets.py` | `codexpets/tools/manage.py` | 已完成；安装、校验、冲突拒绝和可恢复备份语义保持 |
 | `assets/app-icon/` | `assets/brand/` | 已在 `90bfaa8` 完成；公开定稿哈希不变，7 个候选与 QA 文件迁入私有 `studio/brand/` |
-| `output/`、`tmp/`、`.cache/`、`.venv*` | `.local/` 或对应私有事实目录 | 先证明可重建，不能机械移动或删除 |
+| `output/`、`tmp/`、`.cache/`、`.venv*` | `.local/` 或对应私有事实目录 | `output/` 与 `tmp/` 已审计并移除；`.cache/` 与 `.venv*` 仍须先证明可重建 |
 | `dist/`、`workspaces/release-dist/` | `.local/dist/`、`petpacks/*/delivery/` 或私有归档 | 先核对远端 Release、摘要和唯一性 |
 | `workspaces/cleanup-audits/` | `pets/audit/` | 保留迁移、恢复位置、哈希和回读证据 |
 
@@ -349,4 +349,4 @@ codexpets/
 
 状态为 `directory-contract-frozen / migration-in-progress`。
 
-目标目录和 Git 边界已经确认。清理审计、`codexpets`、`player/` 源码路径和 `assets/brand/` 已迁移并验证；Player 行为仍为 v0.6.0 as-built，Studio 生产工具、宠物事实源、PetPack 工作区和本地产物仍待切换。任何后续报告必须逐子树说明实际状态，不能把路径迁移写成新运行时已经完成。
+目标目录和 Git 边界已经确认。清理审计、`codexpets`、`player/` 源码路径、`assets/brand/` 以及私有 Studio 工具与配置路径已迁移并验证；Player 行为仍为 v0.6.0 as-built，宠物事实源、PetPack 工作区和本地产物仍待切换。任何后续报告必须逐子树说明实际状态，不能把路径迁移写成新运行时已经完成。

@@ -95,7 +95,7 @@ bash player/macos/scripts/test.sh
 构建唯一发布附件：
 
 ```bash
-.venv/bin/python tools/build-release-artifacts.py \
+.venv/bin/python studio/packaging/build-release-artifacts.py \
   --app dist/PetsGraph-0.6.0.app \
   --output workspaces/release-dist/v0.6.0 \
   --version 0.6.0

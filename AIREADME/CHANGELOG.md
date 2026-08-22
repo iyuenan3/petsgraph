@@ -375,3 +375,10 @@
 - Changed: 公开 Logo、ICNS、ICO、PNG 和跨平台图标生成器迁入 `assets/brand/`，Player 与日常 Windows CI 同步使用新路径，不保留 `assets/app-icon/` 兼容入口。
 - Changed: 7 个未定稿品牌候选、提示记录和 QA 文件迁入根 Git 忽略的 `studio/brand/`，没有删除，也没有进入公开品牌目录。
 - Review: 私有品牌候选迁移前后共 7 个文件、5,378,099 bytes，纯内容摘要保持 `01b055d119af9b37e504cc31264db2e793a589227bd504595a1d59de6865e3e8`。四个公开定稿文件 SHA-256 不变，Windows 解决方案构建 0 警告、0 错误。
+
+## Unreleased Studio path migration · 2026-08-23
+
+- Changed: Seedance、Seedream、GPT Image、生成、抠图、几何、评审、打包和清理工具从公开根 `tools/` 分类迁入根 Git 完整忽略的 `studio/`，不创建独立 Git，也不保留旧路径兼容入口。
+- Changed: 根 `.env.example` 与 `.env.local` 机械迁入 `studio/`，真实配置在迁移中从未被读取。工具只读取 Studio 本地配置，不再回退到根目录或 `petsdesk` 的配置路径。
+- Changed: 三个可复用的绿幕原型从根 `tmp/` 迁入 `studio/matting/prototypes/`，根 `tools/` 与 `tmp/` 已移除。Studio 仍通过受控项目根定位访问尚未迁移的宠物工作区。
+- Review: 共检查 34 个 Python 与 Swift 文件，Python 编译检查和三个 provider 命令入口检查通过。公开 Git 中不存在 Studio 工作副本，`studio/` 没有嵌套 `.git`，全部私有内容保持未跟踪状态。
