@@ -127,7 +127,7 @@ python3 player/macos/scripts/build-app.py \
 - 公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
 - App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
 - App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
-- 当前已安装 App 来自 `.local/dist/PetsGraph-0.7.0-review-build16.app`，版本 `0.7.0-review`、构建号 16，主程序为 1,222,864 bytes，SHA-256 为 `45a1c4f0776c71b63d956ce2bda8c786d23f58cb308fb315cd501453524cdb4d`。构建后与安装后的严格签名通过，主程序为 `arm64`，App 资源只有 `PetsGraph.icns`，没有 `.petpack`、`Resources/Pets` 或真实宠物素材。Info.plist 导出 `com.maxwell.petsgraph.petpack` 并把 `.petpack` 注册为可打开文档类型。首次 GUI 启动仍待用户确认本地临时签名软件的系统提示。
+- 当前已安装 App 来自 `.local/dist/PetsGraph-0.7.0-review-build16.app`，版本 `0.7.0-review`、构建号 16，主程序为 1,222,864 bytes，SHA-256 为 `45a1c4f0776c71b63d956ce2bda8c786d23f58cb308fb315cd501453524cdb4d`。构建后与安装后的严格签名通过，主程序为 `arm64`，App 资源只有 `PetsGraph.icns`，没有 `.petpack`、`Resources/Pets` 或真实宠物素材。Info.plist 导出 `com.maxwell.petsgraph.petpack` 并把 `.petpack` 注册为可打开文档类型。用户已经允许并完成首次 GUI 启动，当前人工门禁见本节后续记录。
 - build 6 完成构建但从未安装。build 7 完成安装和双宠稳定态 A/B 后由 build 8 取代，build 8 完成首次低 CPU 动作链后由增加四边公式回归的 build 9 取代，build 9 又由改善装载导航的 build 10 取代，build 10 再由增加系统文件关联的 build 11 取代，build 11 由修正菜单灰显的 build 12 取代，build 12 最后由修正 Dock 遮挡的 build 13 取代。build 5、build 7、build 8、build 9、build 10、build 11 与 build 12 均以带构建号和时间的名称可恢复保存在系统回收站。
 - build 4 已在真实 macOS 桌面启动五百与飞流。对两只默认睡眠循环分别取得 4 个正常速度画面摘要，画面持续缓慢变化且锚点不动；通过设置状态重启验证了单只隐藏、双宠显示、1.0 与 2.0 全局倍率恢复。自动化测试留下的 `Synthetic Cat` 彩色夹具资料库已完整移入系统回收站，真正空库启动没有宠物窗口。
 - 同一五百候选的原生 `--validate-only` A/B 中，build 3 最大常驻内存为 2,162,049,024 bytes，build 4 为 19,333,120 bytes。双宠 GUI 的 `vmmap` 物理占用由修前 1.6 GB 降至 55.8 MB，稳定取样约 3.3% CPU，唯一当前进程没有崩溃报告。该结果只覆盖默认睡眠循环，不替代长时间过渡、菜单、透明命中、拖动、卸载和用户视觉批准。
@@ -150,6 +150,7 @@ python3 player/macos/scripts/build-app.py \
 - `d0cc03e` 与 build 15 把透明命中坐标和 alpha 阈值提取为可测试核心契约，29 项 Swift 测试、严格格式、arm64、零素材和严格签名通过。远端 macOS Apple Silicon 运行 `32637170614` 成功。
 - `5fdc03f` 与 build 16 把七个倍率标题固定为 `0.5×`、`0.75×`、`1.0×`、`1.25×`、`1.5×`、`1.75×`、`2.0×`，不再使用会把四分之一档位舍入的 `%.2g`。30 项 Swift 测试、严格格式、arm64、零素材、构建后和安装后严格签名均通过；远端 macOS Apple Silicon 运行 `32638115738` 成功。build 15 已可恢复地移入 `~/.Trash/PetsGraph-build15-20260823-200200.app`。
 - build 16 已在用户明确允许后首次真实启动。唯一 PID 97269 从 App Translocation 中运行的主程序 SHA-256 仍为 `45a1c4f0776c71b63d956ce2bda8c786d23f58cb308fb315cd501453524cdb4d`，严格签名通过，并加载五百与飞流各自 canonical cache。五百按 2.5 秒间隔取得的 4 个窗口图像 SHA-256 均不同。十次 CPU 取样排除首样本后平均约为 0.79%，内存列稳定为 52 MB；探测前后设置文件摘要完全一致，没有误改倍率、可见状态或锚点。Computer Use 无法向透明、非激活的 `NSPanel` 注入点击，因此实际菜单标签、透明穿透和宠物点击无动作仍需用户人工确认。
+- build 16 运行 18 分 34 秒后，飞流从 `no-prop-prone-loop-v1` 自主切换并稳定进入 `no-prop-tight-curled-loop-v1`，五百仍保持自己的 `prone-left-long-loop-v1`。回读只剩这两个当前稳定循环的 RGBA 映射，旧飞流循环和过渡媒体已经淘汰，证明双宠独立时钟、自主换姿和有界缓存同时工作。切换后的十次 CPU 取样排除首样本后平均约为 1.38%，内存列稳定为 51 MB。该采样紧随动作切换，不作为长期稳定态基线，也不替代用户对完整过渡的正常速度观看。
 
 上述结果不替代真实 macOS 桌面上的其余菜单、透明命中、宠物点击无动作、多宠并发、隐藏恢复、应用升级保留和正常速度视觉验收。
 
