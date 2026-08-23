@@ -137,6 +137,14 @@ def main() -> None:
         info = {
             "CFBundleDevelopmentRegion": "zh_CN",
             "CFBundleDisplayName": app_name,
+            "CFBundleDocumentTypes": [
+                {
+                    "CFBundleTypeName": "PetsGraph PetPack",
+                    "CFBundleTypeRole": "Viewer",
+                    "LSHandlerRank": "Owner",
+                    "LSItemContentTypes": ["com.maxwell.petsgraph.petpack"],
+                }
+            ],
             "CFBundleExecutable": "petsgraph",
             "CFBundleIdentifier": args.bundle_identifier,
             "CFBundleInfoDictionaryVersion": "6.0",
@@ -148,6 +156,16 @@ def main() -> None:
             "LSMinimumSystemVersion": "14.0",
             "LSUIElement": True,
             "NSHighResolutionCapable": True,
+            "UTExportedTypeDeclarations": [
+                {
+                    "UTTypeConformsTo": ["public.zip-archive"],
+                    "UTTypeDescription": "PetsGraph PetPack",
+                    "UTTypeIdentifier": "com.maxwell.petsgraph.petpack",
+                    "UTTypeTagSpecification": {
+                        "public.filename-extension": ["petpack"],
+                    },
+                }
+            ],
         }
         with (contents / "Info.plist").open("wb") as handle:
             plistlib.dump(info, handle, sort_keys=True)

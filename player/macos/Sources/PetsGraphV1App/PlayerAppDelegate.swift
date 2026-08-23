@@ -14,6 +14,8 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
   private var controllers: [String: PetWindowController] = [:]
   private var statusItem: NSStatusItem?
   private var settingsSaveAlertShown = false
+  private var applicationFinishedLaunching = false
+  private var pendingOpenURLs: [URL] = []
 
   static func make() throws -> PlayerAppDelegate {
     let library = try CanonicalPetLibrary()
@@ -41,6 +43,21 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     persistState()
     rebuildMenu()
     if let warning = stateStore.loadWarning { showMessage("已安全隐藏全部宠物", warning) }
+    applicationFinishedLaunching = true
+    if !pendingOpenURLs.isEmpty {
+      let urls = pendingOpenURLs
+      pendingOpenURLs.removeAll()
+      importPetPacks(from: urls)
+    }
+  }
+
+  func application(_ application: NSApplication, open urls: [URL]) {
+    guard applicationFinishedLaunching else {
+      pendingOpenURLs.append(contentsOf: urls)
+      return
+    }
+    application.activate(ignoringOtherApps: true)
+    importPetPacks(from: urls)
   }
 
   func applicationWillTerminate(_ notification: Notification) {
@@ -61,10 +78,13 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     if let type = UTType(filenameExtension: "petpack") { panel.allowedContentTypes = [type] }
     configureInitialImportDirectory(for: panel)
     guard panel.runModal() == .OK else { return }
-    rememberImportDirectory(for: panel.urls)
+    importPetPacks(from: panel.urls)
+  }
 
+  private func importPetPacks(from urls: [URL]) {
+    rememberImportDirectory(for: urls)
     var messages: [String] = []
-    for url in panel.urls {
+    for url in urls {
       do {
         let outcome = try library.importPetPack(from: url) { current, proposed in
           let alert = NSAlert()
