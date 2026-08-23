@@ -140,6 +140,7 @@ final class PetWindowController {
   let panel: PetPanel
   private let stageView: PetStageView
   private let session: PassiveBehaviorSession
+  private let contentEnvelopePx: CGRect
   private var stores: [String: MappedRGBAClip] = [:]
   private var timer: Timer?
   private var globalMonitor: Any?
@@ -169,6 +170,7 @@ final class PetWindowController {
     self.package = package
     self.scale = PlayerState.normalizedScale(scale)
     self.anchor = anchor
+    contentEnvelopePx = Self.contentEnvelope(for: package)
     session = try PassiveBehaviorSession(package: package, startedAt: startedAt)
     panel = PetPanel(
       contentRect: .zero,
@@ -400,24 +402,46 @@ final class PetWindowController {
   }
 
   private func clampedAnchor(_ candidate: NSPoint) -> NSPoint {
-    let proposed = NSRect(
-      x: candidate.x - panel.frame.width / 2,
-      y: candidate.y,
-      width: panel.frame.width,
-      height: panel.frame.height
-    )
+    let proposed = contentFrame(at: candidate)
     let screen = NSScreen.screens.first(where: { $0.frame.intersects(proposed) }) ?? NSScreen.main
-    guard let visible = screen?.visibleFrame else { return candidate }
+    guard let screenFrame = screen?.frame else { return candidate }
+    let canvas = package.manifest.stage.referenceCanvasPx
+    let pixelScale = panel.frame.height / Double(canvas[1])
+    let localMinX = contentEnvelopePx.minX * pixelScale
+    let localMaxX = contentEnvelopePx.maxX * pixelScale
+    let localMinY = (Double(canvas[1]) - contentEnvelopePx.maxY) * pixelScale
+    let localMaxY = (Double(canvas[1]) - contentEnvelopePx.minY) * pixelScale
+    let minimumX = screenFrame.minX + panel.frame.width / 2 - localMinX
+    let maximumX = screenFrame.maxX + panel.frame.width / 2 - localMaxX
+    let minimumY = screenFrame.minY - localMinY
+    let maximumY = screenFrame.maxY - localMaxY
     let x =
-      panel.frame.width >= visible.width
-      ? visible.midX
-      : min(
-        visible.maxX - panel.frame.width / 2,
-        max(visible.minX + panel.frame.width / 2, candidate.x))
+      minimumX > maximumX
+      ? screenFrame.midX + panel.frame.width / 2 - (localMinX + localMaxX) / 2
+      : min(maximumX, max(minimumX, candidate.x))
     let y =
-      panel.frame.height >= visible.height
-      ? visible.minY
-      : min(visible.maxY - panel.frame.height, max(visible.minY, candidate.y))
+      minimumY > maximumY
+      ? screenFrame.midY - (localMinY + localMaxY) / 2
+      : min(maximumY, max(minimumY, candidate.y))
     return NSPoint(x: x, y: y)
+  }
+
+  private func contentFrame(at candidate: NSPoint) -> NSRect {
+    let canvas = package.manifest.stage.referenceCanvasPx
+    let pixelScale = panel.frame.height / Double(canvas[1])
+    return NSRect(
+      x: candidate.x - panel.frame.width / 2 + contentEnvelopePx.minX * pixelScale,
+      y: candidate.y + (Double(canvas[1]) - contentEnvelopePx.maxY) * pixelScale,
+      width: contentEnvelopePx.width * pixelScale,
+      height: contentEnvelopePx.height * pixelScale
+    )
+  }
+
+  private static func contentEnvelope(for package: LoadedPetPack) -> CGRect {
+    package.clips.values.reduce(CGRect.null) { result, clip in
+      let crop = clip.geometry.cropPx
+      return result.union(
+        CGRect(x: crop[0], y: crop[1], width: crop[2], height: crop[3]))
+    }
   }
 }

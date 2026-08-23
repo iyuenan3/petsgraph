@@ -23,6 +23,7 @@ internal sealed partial class PetWindow : Window, IDisposable
     private readonly LoadedPetPack package;
     private readonly PassiveBehaviorSession session;
     private readonly RgbaFrameRenderer renderer;
+    private readonly Rect contentEnvelopePx;
     private readonly System.Windows.Controls.Canvas surface;
     private readonly System.Windows.Controls.Image image;
     private readonly DispatcherTimer timer;
@@ -49,6 +50,7 @@ internal sealed partial class PetWindow : Window, IDisposable
         anchorY = initialAnchorY;
         session = new(package, UptimeSeconds());
         renderer = new(package);
+        contentEnvelopePx = ContentEnvelope(package);
 
         Title = $"PetsGraph · {DisplayName}";
         WindowStyle = WindowStyle.None;
@@ -325,10 +327,30 @@ internal sealed partial class PetWindow : Window, IDisposable
         var top = SystemParameters.VirtualScreenTop;
         var right = left + SystemParameters.VirtualScreenWidth;
         var bottom = top + SystemParameters.VirtualScreenHeight;
-        anchorX = Width >= right - left
-            ? (left + right) / 2
-            : Math.Clamp(anchorX, left + Width / 2, right - Width / 2);
-        anchorY = Height >= bottom - top ? bottom : Math.Clamp(anchorY, top + Height, bottom);
+        var pixelScale = PixelScale();
+        var localMinX = contentEnvelopePx.Left * pixelScale;
+        var localMaxX = contentEnvelopePx.Right * pixelScale;
+        var localMinY = contentEnvelopePx.Top * pixelScale;
+        var localMaxY = contentEnvelopePx.Bottom * pixelScale;
+        var minimumX = left + Width / 2 - localMinX;
+        var maximumX = right + Width / 2 - localMaxX;
+        var minimumY = top + Height - localMinY;
+        var maximumY = bottom + Height - localMaxY;
+        anchorX = minimumX > maximumX
+            ? (left + right) / 2 + Width / 2 - (localMinX + localMaxX) / 2
+            : Math.Clamp(anchorX, minimumX, maximumX);
+        anchorY = minimumY > maximumY
+            ? (top + bottom) / 2 + Height - (localMinY + localMaxY) / 2
+            : Math.Clamp(anchorY, minimumY, maximumY);
+    }
+
+    private static Rect ContentEnvelope(LoadedPetPack package)
+    {
+        var left = package.Clips.Values.Min(clip => clip.Geometry.CropPx[0]);
+        var top = package.Clips.Values.Min(clip => clip.Geometry.CropPx[1]);
+        var right = package.Clips.Values.Max(clip => clip.Geometry.CropPx[0] + clip.Geometry.CropPx[2]);
+        var bottom = package.Clips.Values.Max(clip => clip.Geometry.CropPx[1] + clip.Geometry.CropPx[3]);
+        return new(left, top, right - left, bottom - top);
     }
 
     private static double UptimeSeconds() => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
