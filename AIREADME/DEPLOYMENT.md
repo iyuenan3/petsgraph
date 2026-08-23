@@ -127,13 +127,15 @@ python3 player/macos/scripts/build-app.py \
 - 公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
 - App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
 - App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
-- 当前已安装 App 来自 `/private/tmp/PetsGraph-0.7.0-review5.app`，版本 `0.7.0-review`、构建号 5，主程序为 1,209,680 bytes，SHA-256 为 `aa5af337b2482fc9ff27d9d5e4c6114e7eed4850f2132ec71831a08d2b6e2b9b`。延迟 5 秒与安装后的严格签名复验通过，App 资源只有 `PetsGraph.icns`。安装后二进制通过基线、前向兼容、五百和飞流四包原生校验；构建 4 已可恢复移入系统回收站。
-- build 6 完成 arm64、严格签名和零素材检查但从未安装，已由删除每帧 Swift `Task` 调度的 build 7 取代。build 7 位于 `/private/tmp/PetsGraph-0.7.0-review7.app`，主程序为 1,210,800 bytes，SHA-256 为 `17b7a5f54dfad0238f92dfba546d76356fecf971c6d69990a3fe36e532616cb2`。锁屏前尚未替换安装，因此贴边、CPU 与视觉对比不得写成真实 GUI 已验收。
+- 当前已安装 App 来自 `/private/tmp/PetsGraph-0.7.0-review8.app`，版本 `0.7.0-review`、构建号 8，主程序为 1,212,720 bytes，SHA-256 为 `fa971ee7444fea93db8215418c2d560246263d40d3e3085d14c84f6f11506687`。延迟复验和安装后的严格签名通过，主程序为 `arm64`，App 资源只有 `PetsGraph.icns`，没有 `.petpack`、`Resources/Pets` 或真实宠物素材。
+- build 6 完成构建但从未安装。build 7 完成安装和双宠稳定态 A/B 后，由减少 Core Animation 与鼠标事件掩码重复提交的 build 8 取代。build 5 与 build 7 分别可恢复保存在系统回收站的 `PetsGraph-build5-20260823-171243.app` 与 `PetsGraph-build7-20260823-171758.app`。
 - build 4 已在真实 macOS 桌面启动五百与飞流。对两只默认睡眠循环分别取得 4 个正常速度画面摘要，画面持续缓慢变化且锚点不动；通过设置状态重启验证了单只隐藏、双宠显示、1.0 与 2.0 全局倍率恢复。自动化测试留下的 `Synthetic Cat` 彩色夹具资料库已完整移入系统回收站，真正空库启动没有宠物窗口。
 - 同一五百候选的原生 `--validate-only` A/B 中，build 3 最大常驻内存为 2,162,049,024 bytes，build 4 为 19,333,120 bytes。双宠 GUI 的 `vmmap` 物理占用由修前 1.6 GB 降至 55.8 MB，稳定取样约 3.3% CPU，唯一当前进程没有崩溃报告。该结果只覆盖默认睡眠循环，不替代长时间过渡、菜单、透明命中、拖动、卸载和用户视觉批准。
 - build 4 双宠持续运行 17 分钟后的补充回读仍只有一个进程，当前物理占用 53.7 MB、峰值 55.9 MB、CPU 约 3.4%，没有新增崩溃报告。媒体映射显示两只仍在各自默认睡眠循环，因此只能证明稳定态资源没有持续增长，不能证明完整动作切换。
 - build 4 在飞流与五百分别进入首轮动作链后，旧 RGBA 映射和逐帧图像没有释放，物理占用达到 287.6 MB。`8749ea6` 将缓存边界收敛为当前片段及尚未执行的完整预载链。
 - build 5 中飞流与五百分别在 21 分 12 秒与 28 分 42 秒进入真实多段动作链。预载映射随路径执行逐段减少，进入两个新稳定循环后只保留 `cat-bed-prone-loop-v1` 与 `semi-supine-left-loop-v1`；物理峰值为 126.1 MB，稳定回读为 46.7 MB。60 Hz 版本十次稳定态 CPU 取样平均为 2.98%。
+- build 7 安装后默认双宠稳定态约为 3.0% CPU，证明只改原生帧率与删除每帧 Swift `Task` 没有形成可声明的 CPU 下降。5 秒进程采样把主要重复成本定位到每帧立即提交 Core Animation 事务、重复写入相同窗口事件掩码和相同图层几何。
+- build 8 的相同默认双宠稳定态十次 `top` 取样为 `0.9, 0.9, 0.9, 1.0, 0.9, 0.9, 1.0, 1.0, 1.1, 1.1`，平均 0.97%。`vmmap` 初次稳定回读的物理占用为 55.4 MB、峰值 55.5 MB，运行 7 分 32 秒后为 54.3 MB、约 0.9% CPU，并且没有新增崩溃报告；进程只映射飞流 `no-prop-prone-loop-v1` 与五百 `prone-left-long-loop-v1`。2.5 秒间隔窗口图像摘要不同，排除停帧或隐藏宠物造成的低 CPU 假象。进一步降低这组内存需要改变 PetPack 原始 RGBA 表示或增加反复缺页，必须先通过流畅度与透明边缘对照，不能作为无风险微优化。
 
 上述结果不替代真实 macOS 桌面上的菜单、拖动、透明命中、多宠并发、隐藏恢复、应用升级保留和正常速度视觉验收。
 

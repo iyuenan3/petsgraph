@@ -15,6 +15,9 @@
 - Review: 最终代码 `cadf095` 的 macOS 运行 `32627927411` 与 Windows 运行 `32627927365` 均成功。build 6 已完成 arm64、严格签名和零素材构建，主程序 SHA-256 为 `5a3b397d4475df3e821f635d2cfca422188a37a396888aeb9e3553214c709d3a`，但锁屏前尚未替换安装。
 - Fixed: 对 build 5 的 5 秒进程采样显示，主 RunLoop 上的每次 Timer 回调仍会创建 Swift 并发 `Task` 并重新入队。`cb28c6e` 改为在已确认的 MainActor 上直接执行 tick，不改变计时来源、帧序或速度。
 - Review: build 7 取代未安装的 build 6 成为下一候选，arm64、严格签名和零素材检查通过。主程序为 1,210,800 bytes，SHA-256 为 `17b7a5f54dfad0238f92dfba546d76356fecf971c6d69990a3fe36e532616cb2`，安装态 CPU 与视觉对比仍待 Mac 解锁。
+- Fixed: `234e8fe` 为帧图层永久关闭隐式动画，由 RunLoop 合并 Core Animation 提交，并缓存鼠标位置、命中状态与 clip 几何，只在状态真实变化时写入窗口事件掩码或图层几何。
+- Review: build 7 安装后的默认双宠稳定态约为 3.0% CPU，不能证明前一轮微优化有效。build 8 相同场景十次取样平均为 0.97%，物理占用为 55.4 MB、峰值 55.5 MB；运行 7 分 32 秒后为 54.3 MB、约 0.9% CPU，并且没有新增崩溃报告。窗口图像摘要持续变化且只有两个当前循环映射。自动拖动仍因非激活透明面板返回 `AXError.notImplemented`，四边贴靠没有提升为人工通过。
+- Review: build 8 为 `arm64` 零素材 App，主程序 1,212,720 bytes，SHA-256 为 `fa971ee7444fea93db8215418c2d560246263d40d3e3085d14c84f6f11506687`，安装后严格签名通过；提交 `234e8fe` 的 macOS 运行 `32630596224` 成功。
 
 ## Unreleased · 2026-08-23
 
