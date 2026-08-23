@@ -5,6 +5,8 @@ import UniformTypeIdentifiers
 
 @MainActor
 final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
+  private static let lastImportDirectoryKey = "PetsGraphLastImportDirectory"
+
   private let library: CanonicalPetLibrary
   private let stateStore: PlayerStateStore
   private var state: PlayerState
@@ -52,11 +54,14 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     let panel = NSOpenPanel()
     panel.title = "装载宠物包"
     panel.prompt = "装载"
+    panel.message = "双击文件夹可继续进入；按 ⌘⇧G 可直接输入宠物包所在文件夹的路径。"
     panel.allowsMultipleSelection = true
     panel.canChooseDirectories = false
     panel.canChooseFiles = true
     if let type = UTType(filenameExtension: "petpack") { panel.allowedContentTypes = [type] }
+    configureInitialImportDirectory(for: panel)
     guard panel.runModal() == .OK else { return }
+    rememberImportDirectory(for: panel.urls)
 
     var messages: [String] = []
     for url in panel.urls {
@@ -117,6 +122,31 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     persistState()
     rebuildMenu()
     if !messages.isEmpty { showMessage("装载结果", messages.joined(separator: "\n")) }
+  }
+
+  private func configureInitialImportDirectory(for panel: NSOpenPanel) {
+    if let savedPath = UserDefaults.standard.string(forKey: Self.lastImportDirectoryKey) {
+      let savedURL = URL(fileURLWithPath: savedPath, isDirectory: true).standardizedFileURL
+      var isDirectory: ObjCBool = false
+      if FileManager.default.fileExists(atPath: savedURL.path, isDirectory: &isDirectory),
+        isDirectory.boolValue
+      {
+        panel.directoryURL = savedURL
+        return
+      }
+    }
+    panel.directoryURL =
+      FileManager.default.urls(
+        for: .downloadsDirectory,
+        in: .userDomainMask
+      ).first
+  }
+
+  private func rememberImportDirectory(for urls: [URL]) {
+    guard let directory = urls.first?.deletingLastPathComponent().standardizedFileURL else {
+      return
+    }
+    UserDefaults.standard.set(directory.path, forKey: Self.lastImportDirectoryKey)
   }
 
   @objc private func showPet(_ sender: NSMenuItem) {
