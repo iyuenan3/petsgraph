@@ -356,6 +356,48 @@ final class PetPackValidatorTests: XCTestCase {
     XCTAssertFalse(FileManager.default.fileExists(atPath: orphan.path))
   }
 
+  func testCanonicalLibraryRollsBackInterruptedUninstallBeforeRegistryCommit() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent(
+        "petsgraph-uninstall-rollback-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let library = try CanonicalPetLibrary(rootURL: root)
+    let fixture = repositoryRoot().appendingPathComponent(
+      "petpack/fixtures/synthetic-cat-v1.petpack")
+    let outcome = try library.importPetPack(from: fixture) { _, _ in false }
+    try library.commitImport(outcome)
+    let installed = try XCTUnwrap(try library.installedPets().first)
+    let transaction = try stageInterruptedUninstall(
+      root: root, installed: installed, registryKeepsPet: true)
+
+    let recovered = try CanonicalPetLibrary(rootURL: root)
+
+    XCTAssertEqual(try recovered.installedPets(), [installed])
+    XCTAssertEqual(try recovered.loadInstalledPetPacks().count, 1)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: transaction.path))
+  }
+
+  func testCanonicalLibraryFinishesInterruptedUninstallAfterRegistryCommit() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent(
+        "petsgraph-uninstall-commit-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let library = try CanonicalPetLibrary(rootURL: root)
+    let fixture = repositoryRoot().appendingPathComponent(
+      "petpack/fixtures/synthetic-cat-v1.petpack")
+    let outcome = try library.importPetPack(from: fixture) { _, _ in false }
+    try library.commitImport(outcome)
+    let installed = try XCTUnwrap(try library.installedPets().first)
+    let transaction = try stageInterruptedUninstall(
+      root: root, installed: installed, registryKeepsPet: false)
+
+    let recovered = try CanonicalPetLibrary(rootURL: root)
+
+    XCTAssertTrue(try recovered.installedPets().isEmpty)
+    XCTAssertTrue(try recovered.loadInstalledPetPacks().isEmpty)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: transaction.path))
+  }
+
   func testCanonicalLibraryRebuildsSameLengthCorruptMediaCache() throws {
     let root = FileManager.default.temporaryDirectory
       .appendingPathComponent("petsgraph-cache-corrupt-\(UUID().uuidString)", isDirectory: true)
@@ -585,5 +627,49 @@ final class PetPackValidatorTests: XCTestCase {
       to: destination
     ).package
     try body(package)
+  }
+
+  private func stageInterruptedUninstall(
+    root: URL,
+    installed: InstalledPet,
+    registryKeepsPet: Bool
+  ) throws -> URL {
+    let transaction = root.appendingPathComponent(
+      "Staging/uninstall-interrupted-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: transaction, withIntermediateDirectories: true)
+    let record: [String: Any] = [
+      "packageID": installed.packageID,
+      "petID": installed.petID,
+      "displayName": installed.displayName,
+      "species": installed.species,
+      "contentVersion": installed.contentVersion.stringValue,
+      "archiveSHA256": installed.archiveSHA256,
+      "archiveBytes": installed.archiveBytes,
+    ]
+    let journal = try JSONSerialization.data(
+      withJSONObject: ["formatVersion": 1, "records": [record]],
+      options: [.prettyPrinted, .sortedKeys]
+    )
+    try journal.write(
+      to: transaction.appendingPathComponent("transaction.json"), options: [.atomic])
+    for component in ["Library", "Cache"] {
+      let source = root.appendingPathComponent(
+        "\(component)/\(installed.packageID)/\(installed.contentVersion.stringValue)",
+        isDirectory: true)
+      let destination = transaction.appendingPathComponent(
+        "\(component)/\(installed.packageID)/\(installed.contentVersion.stringValue)",
+        isDirectory: true)
+      try FileManager.default.createDirectory(
+        at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+      try FileManager.default.moveItem(at: source, to: destination)
+    }
+    if !registryKeepsPet {
+      let registry = try JSONSerialization.data(
+        withJSONObject: ["formatVersion": 1, "packages": []],
+        options: [.prettyPrinted, .sortedKeys]
+      )
+      try registry.write(to: root.appendingPathComponent("registry.json"), options: [.atomic])
+    }
+    return transaction
   }
 }

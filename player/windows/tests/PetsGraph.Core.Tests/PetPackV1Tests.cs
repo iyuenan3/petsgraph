@@ -461,6 +461,42 @@ public sealed class PetPackV1Tests
     }
 
     [TestMethod]
+    public void CanonicalLibraryRollsBackInterruptedUninstallBeforeRegistryCommit()
+    {
+        using var workspace = new TestWorkspace();
+        var root = workspace.CreateDirectory("library-root");
+        var library = new CanonicalPetLibrary(root);
+        var outcome = library.Import(FixturePath);
+        library.CommitImport(outcome);
+        var installed = library.InstalledPets().Single();
+        var transaction = StageInterruptedUninstall(root, installed, registryKeepsPet: true);
+
+        var recovered = new CanonicalPetLibrary(root);
+
+        Assert.AreEqual(installed, recovered.InstalledPets().Single());
+        Assert.HasCount(1, recovered.LoadInstalledPetPacks());
+        Assert.IsFalse(Directory.Exists(transaction));
+    }
+
+    [TestMethod]
+    public void CanonicalLibraryFinishesInterruptedUninstallAfterRegistryCommit()
+    {
+        using var workspace = new TestWorkspace();
+        var root = workspace.CreateDirectory("library-root");
+        var library = new CanonicalPetLibrary(root);
+        var outcome = library.Import(FixturePath);
+        library.CommitImport(outcome);
+        var installed = library.InstalledPets().Single();
+        var transaction = StageInterruptedUninstall(root, installed, registryKeepsPet: false);
+
+        var recovered = new CanonicalPetLibrary(root);
+
+        Assert.IsEmpty(recovered.InstalledPets());
+        Assert.IsEmpty(recovered.LoadInstalledPetPacks());
+        Assert.IsFalse(Directory.Exists(transaction));
+    }
+
+    [TestMethod]
     public void ImportRecoveryUsesExactVersionPathIdentity()
     {
         using var workspace = new TestWorkspace();
@@ -761,6 +797,47 @@ public sealed class PetPackV1Tests
             workspace.Dispose();
             throw;
         }
+    }
+
+    private static string StageInterruptedUninstall(
+        string root, InstalledPet installed, bool registryKeepsPet)
+    {
+        var transaction = Path.Combine(root, "staging", $"uninstall-interrupted-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(transaction);
+        var record = new JsonObject
+        {
+            ["packageId"] = installed.PackageId,
+            ["petId"] = installed.PetId,
+            ["displayName"] = installed.DisplayName,
+            ["species"] = installed.Species,
+            ["contentVersion"] = installed.ContentVersion.Value,
+            ["archiveSha256"] = installed.ArchiveSha256,
+            ["archiveBytes"] = installed.ArchiveBytes,
+        };
+        var journal = new JsonObject
+        {
+            ["formatVersion"] = 1,
+            ["records"] = new JsonArray(record),
+        };
+        File.WriteAllText(Path.Combine(transaction, "transaction.json"), journal.ToJsonString());
+        foreach (var component in new[] { "library", "cache" })
+        {
+            var source = Path.Combine(root, component, installed.PackageId, installed.ContentVersion.Value);
+            var destination = Path.Combine(
+                transaction, component, installed.PackageId, installed.ContentVersion.Value);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            Directory.Move(source, destination);
+        }
+        if (!registryKeepsPet)
+        {
+            File.WriteAllText(Path.Combine(root, "registry.json"),
+                new JsonObject
+                {
+                    ["formatVersion"] = 1,
+                    ["packages"] = new JsonArray(),
+                }.ToJsonString());
+        }
+        return transaction;
     }
 
     private const int RegularFileAttributes = unchecked((int)(0x81A4u << 16));
