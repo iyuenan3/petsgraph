@@ -385,24 +385,28 @@ final class PetWindowController {
   }
 
   private func updatePointer(at point: NSPoint) {
-    guard petIsVisible, !dragging, panel.frame.contains(point),
+    let canvas = package.manifest.stage.referenceCanvasPx
+    guard petIsVisible, !dragging,
       let presentation = currentPresentation,
-      let store = stores[presentation.clipID]
+      let store = stores[presentation.clipID],
+      let canvasPixel = PetPointerHitTest.canvasPixel(
+        at: point,
+        panelFrame: panel.frame,
+        canvasWidth: canvas[0],
+        canvasHeight: canvas[1]
+      )
     else {
       if !dragging { setIgnoresMouseEvents(true) }
       return
     }
-    let canvas = package.manifest.stage.referenceCanvasPx
-    let normalizedX = (point.x - panel.frame.minX) / panel.frame.width
-    let normalizedY = (point.y - panel.frame.minY) / panel.frame.height
-    let canvasX = min(canvas[0] - 1, max(0, Int(floor(normalizedX * Double(canvas[0])))))
-    let canvasY = min(canvas[1] - 1, max(0, Int(floor((1 - normalizedY) * Double(canvas[1])))))
     setIgnoresMouseEvents(
-      store.alpha(
-        frameIndex: presentation.frameIndex,
-        canvasX: canvasX,
-        canvasY: canvasY
-      ) <= 0.05)
+      PetPointerHitTest.ignoresMouseEvents(
+        alpha: store.alpha(
+          frameIndex: presentation.frameIndex,
+          canvasX: canvasPixel.x,
+          canvasY: canvasPixel.y
+        )
+      ))
   }
 
   private func setIgnoresMouseEvents(_ value: Bool) {

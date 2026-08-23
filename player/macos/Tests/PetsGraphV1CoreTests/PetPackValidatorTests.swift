@@ -5,6 +5,56 @@ import XCTest
 @testable import PetsGraphCore
 
 final class PetPackValidatorTests: XCTestCase {
+  func testPetPointerHitTestMapsScreenCoordinatesToTopOriginCanvasPixels() throws {
+    let panel = CGRect(x: 100, y: 200, width: 400, height: 200)
+
+    let bottomLeft = try XCTUnwrap(
+      PetPointerHitTest.canvasPixel(
+        at: CGPoint(x: 100, y: 200),
+        panelFrame: panel,
+        canvasWidth: 800,
+        canvasHeight: 400
+      ))
+    XCTAssertEqual(bottomLeft.x, 0)
+    XCTAssertEqual(bottomLeft.y, 399)
+
+    let center = try XCTUnwrap(
+      PetPointerHitTest.canvasPixel(
+        at: CGPoint(x: 300, y: 300),
+        panelFrame: panel,
+        canvasWidth: 800,
+        canvasHeight: 400
+      ))
+    XCTAssertEqual(center.x, 400)
+    XCTAssertEqual(center.y, 200)
+
+    let topRight = try XCTUnwrap(
+      PetPointerHitTest.canvasPixel(
+        at: CGPoint(x: 499.999, y: 399.999),
+        panelFrame: panel,
+        canvasWidth: 800,
+        canvasHeight: 400
+      ))
+    XCTAssertEqual(topRight.x, 799)
+    XCTAssertEqual(topRight.y, 0)
+
+    XCTAssertNil(
+      PetPointerHitTest.canvasPixel(
+        at: CGPoint(x: 500, y: 300),
+        panelFrame: panel,
+        canvasWidth: 800,
+        canvasHeight: 400
+      ))
+  }
+
+  func testPetPointerHitTestPassesTransparentPixelsAndCapturesVisiblePixels() {
+    XCTAssertTrue(PetPointerHitTest.ignoresMouseEvents(alpha: 0))
+    XCTAssertTrue(PetPointerHitTest.ignoresMouseEvents(alpha: 0.05))
+    XCTAssertFalse(PetPointerHitTest.ignoresMouseEvents(alpha: 0.050_001))
+    XCTAssertFalse(PetPointerHitTest.ignoresMouseEvents(alpha: 1))
+    XCTAssertTrue(PetPointerHitTest.ignoresMouseEvents(alpha: .nan))
+  }
+
   func testPetWindowPlacementAlignsVisibleContentToEveryScreenEdge() {
     let cases: [(screen: CGRect, panel: CGSize, canvasHeight: CGFloat, content: CGRect)] = [
       (
