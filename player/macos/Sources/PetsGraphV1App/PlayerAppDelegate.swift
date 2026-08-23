@@ -12,6 +12,9 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
   private var state: PlayerState
   private var packages: [String: LoadedPetPack]
   private var controllers: [String: PetWindowController] = [:]
+  private var renderTimer: Timer?
+  private var globalPointerMonitor: Any?
+  private var localPointerMonitor: Any?
   private var statusItem: NSStatusItem?
   private var settingsSaveAlertShown = false
   private var applicationFinishedLaunching = false
@@ -40,6 +43,7 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
         showMessage("无法装载宠物", "\(package.manifest.pet.displayName)：\(friendly(error))")
       }
     }
+    refreshRuntimeCoordinators()
     persistState()
     rebuildMenu()
     if let warning = stateStore.loadWarning { showMessage("已安全隐藏全部宠物", warning) }
@@ -61,6 +65,8 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationWillTerminate(_ notification: Notification) {
+    stopRenderTimer()
+    removePointerMonitors()
     persistState()
     for controller in controllers.values { controller.dispose() }
     controllers.removeAll()
@@ -197,6 +203,7 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
       confirmUninstall(names: [package.manifest.pet.displayName])
     else { return }
     controllers.removeValue(forKey: id)?.dispose()
+    refreshRuntimeCoordinators()
     do {
       _ = try library.uninstall(packageID: id)
       packages.removeValue(forKey: id)
@@ -219,6 +226,7 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     guard !names.isEmpty, confirmUninstall(names: names) else { return }
     for controller in controllers.values { controller.dispose() }
     controllers.removeAll()
+    refreshRuntimeCoordinators()
     do {
       _ = try library.uninstallAll()
       packages.removeAll()
@@ -391,6 +399,7 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     petState.anchorY = anchor.y
     state.pets[id] = petState
     if petState.visible { controller.show() } else { controller.hide() }
+    refreshRuntimeCoordinators()
   }
 
   private func nextDefaultAnchor(for package: LoadedPetPack) -> NSPoint {
@@ -429,11 +438,13 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
       try installController(for: package)
     }
     packages = next
+    refreshRuntimeCoordinators()
   }
 
   private func setVisible(_ visible: Bool, packageID: String, persist: Bool = true) {
     guard let controller = controllers[packageID] else { return }
     if visible { controller.show() } else { controller.hide() }
+    refreshRuntimeCoordinators()
     var value = state.pets[packageID] ?? PetPlayerState()
     value.visible = visible
     state.pets[packageID] = value
@@ -451,6 +462,74 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     alert.addButton(withTitle: "卸载")
     alert.addButton(withTitle: "取消")
     return alert.runModal() == .alertFirstButtonReturn
+  }
+
+  private func refreshRuntimeCoordinators() {
+    refreshRenderTimer()
+    refreshPointerMonitors()
+  }
+
+  private func refreshRenderTimer() {
+    let interval = SharedRenderCadence.interval(
+      for: controllers.values.filter(\.needsRenderTick).map(\.renderInterval)
+    )
+    guard let interval else {
+      stopRenderTimer()
+      return
+    }
+    if let renderTimer, abs(renderTimer.timeInterval - interval) <= 0.000_001 { return }
+    stopRenderTimer()
+    let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+      MainActor.assumeIsolated { self?.advanceVisiblePets() }
+    }
+    RunLoop.main.add(timer, forMode: .common)
+    renderTimer = timer
+  }
+
+  private func stopRenderTimer() {
+    renderTimer?.invalidate()
+    renderTimer = nil
+  }
+
+  private func advanceVisiblePets() {
+    let now = ProcessInfo.processInfo.systemUptime
+    for controller in controllers.values where controller.needsRenderTick {
+      controller.advance(at: now)
+    }
+    refreshRenderTimer()
+  }
+
+  private func refreshPointerMonitors() {
+    let hasVisiblePet = controllers.values.contains { $0.petIsVisible }
+    if !hasVisiblePet {
+      removePointerMonitors()
+      return
+    }
+    guard globalPointerMonitor == nil, localPointerMonitor == nil else { return }
+    let mask: NSEvent.EventTypeMask = [
+      .mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp,
+    ]
+    globalPointerMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] _ in
+      Task { @MainActor [weak self] in self?.pointerMoved(to: NSEvent.mouseLocation) }
+    }
+    localPointerMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
+      self?.pointerMoved(to: NSEvent.mouseLocation)
+      return event
+    }
+    pointerMoved(to: NSEvent.mouseLocation)
+  }
+
+  private func removePointerMonitors() {
+    if let globalPointerMonitor { NSEvent.removeMonitor(globalPointerMonitor) }
+    if let localPointerMonitor { NSEvent.removeMonitor(localPointerMonitor) }
+    self.globalPointerMonitor = nil
+    self.localPointerMonitor = nil
+  }
+
+  private func pointerMoved(to point: NSPoint) {
+    for controller in controllers.values where controller.petIsVisible {
+      controller.pointerMoved(to: point)
+    }
   }
 
   private func persistState() {

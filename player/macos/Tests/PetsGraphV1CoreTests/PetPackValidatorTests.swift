@@ -5,6 +5,32 @@ import XCTest
 @testable import PetsGraphCore
 
 final class PetPackValidatorTests: XCTestCase {
+  func testRuntimeFrameCacheRetainsLoopsButOnlyLatestTransitionFrame() {
+    var loop = RuntimeFrameCache<String>(retainsAllFrames: true)
+    loop.insert("zero", for: 0)
+    loop.insert("one", for: 1)
+    loop.insert("two", for: 2)
+    XCTAssertEqual(loop.retainedFrameIndices, [0, 1, 2])
+    XCTAssertEqual(loop.value(for: 0), "zero")
+
+    var transition = RuntimeFrameCache<String>(retainsAllFrames: false)
+    transition.insert("zero", for: 0)
+    transition.insert("one", for: 1)
+    transition.insert("two", for: 2)
+    XCTAssertEqual(transition.retainedFrameIndices, [2])
+    XCTAssertNil(transition.value(for: 0))
+    XCTAssertEqual(transition.value(for: 2), "two")
+  }
+
+  func testSharedRenderCadenceUsesFastestActivePetWithoutChangingFrameRate() {
+    XCTAssertNil(SharedRenderCadence.interval(for: []))
+    XCTAssertEqual(SharedRenderCadence.interval(for: [1.0 / 12.0]), 1.0 / 12.0)
+    XCTAssertEqual(
+      SharedRenderCadence.interval(for: [1.0 / 12.0, 1.0 / 24.0]),
+      1.0 / 24.0
+    )
+  }
+
   func testPetPointerHitTestMapsScreenCoordinatesToTopOriginCanvasPixels() throws {
     let panel = CGRect(x: 100, y: 200, width: 400, height: 200)
 

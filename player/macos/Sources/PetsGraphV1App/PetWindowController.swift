@@ -51,7 +51,7 @@ private final class MappedRGBAClip {
   let representation: ClipRepresentation
   private let data: NSData
   private let colorSpace: CGColorSpace
-  private var images: [Int: CGImage] = [:]
+  private var images: RuntimeFrameCache<CGImage>
 
   init(package: LoadedPetPack, clip: PetClip) throws {
     guard let representation = clip.representations.first,
@@ -59,6 +59,7 @@ private final class MappedRGBAClip {
     else { throw PetPackError("missing_media", "clip has no baseline media") }
     self.clip = clip
     self.representation = representation
+    images = RuntimeFrameCache(retainsAllFrames: clip.type == "loop")
     data = try Data(contentsOf: url, options: [.mappedIfSafe]) as NSData
     guard data.length == representation.bytes else {
       throw PetPackError("invalid_media_length", "runtime media length changed")
@@ -73,7 +74,7 @@ private final class MappedRGBAClip {
     guard (0..<clip.frameCount).contains(frameIndex) else {
       throw PetPackError("invalid_frame", "runtime requested an invalid frame")
     }
-    if let image = images[frameIndex] { return image }
+    if let image = images.value(for: frameIndex) { return image }
     let frameBytes = representation.bytesPerRow * representation.heightPx
     let offset = frameIndex * frameBytes
     guard offset >= 0, offset + frameBytes <= data.length else {
@@ -116,7 +117,7 @@ private final class MappedRGBAClip {
     else {
       throw PetPackError("render_unavailable", "could not create an RGBA frame")
     }
-    images[frameIndex] = image
+    images.insert(image, for: frameIndex)
     return image
   }
 
@@ -147,9 +148,6 @@ final class PetWindowController {
   private let session: PassiveBehaviorSession
   private let contentEnvelopePx: CGRect
   private var stores: [String: MappedRGBAClip] = [:]
-  private var timer: Timer?
-  private var globalMonitor: Any?
-  private var localMonitor: Any?
   private var currentPresentation: PetPlaybackPresentation?
   private var scale: Double
   private(set) var anchor: NSPoint
@@ -167,6 +165,8 @@ final class PetWindowController {
   var packageID: String { package.manifest.package.id }
   var displayName: String { package.manifest.pet.displayName }
   var frame: NSRect { panel.frame }
+  var needsRenderTick: Bool { petIsVisible || session.shouldTickWhenHidden }
+  var renderInterval: TimeInterval { tickInterval(for: currentPresentation?.clipID) }
 
   init(
     package: LoadedPetPack,
@@ -204,7 +204,7 @@ final class PetWindowController {
     stageView.onMouseDown = { [weak self] point in self?.beginDrag(at: point) }
     stageView.onMouseDragged = { [weak self] point in self?.continueDrag(to: point) }
     stageView.onMouseUp = { [weak self] point in self?.finishDrag(at: point) }
-    installPointerMonitors()
+    lastPointerLocation = NSEvent.mouseLocation
     try render(at: startedAt)
   }
 
@@ -212,9 +212,9 @@ final class PetWindowController {
     do {
       try session.setVisible(true, at: now)
       petIsVisible = true
+      try render(at: now)
       panel.orderFrontRegardless()
       updatePointer(at: lastPointerLocation)
-      startTimer()
     } catch { onFault?(error) }
   }
 
@@ -224,7 +224,7 @@ final class PetWindowController {
       petIsVisible = false
       panel.orderOut(nil)
       setIgnoresMouseEvents(true)
-      if session.shouldTickWhenHidden { startTimer() } else { stopTimer() }
+      if !session.shouldTickWhenHidden { suspendRenderingResources() }
     } catch { onFault?(error) }
   }
 
@@ -239,39 +239,23 @@ final class PetWindowController {
   }
 
   func dispose() {
-    stopTimer()
-    if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
-    if let localMonitor { NSEvent.removeMonitor(localMonitor) }
-    self.globalMonitor = nil
-    self.localMonitor = nil
+    suspendRenderingResources()
     panel.orderOut(nil)
     panel.close()
-    stores.removeAll()
   }
 
-  private func startTimer() {
-    guard timer == nil else { return }
-    let interval = tickInterval(for: currentPresentation?.clipID)
-    let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
-      MainActor.assumeIsolated { self?.tick() }
-    }
-    RunLoop.main.add(timer, forMode: .common)
-    self.timer = timer
-  }
-
-  private func stopTimer() {
-    timer?.invalidate()
-    timer = nil
-  }
-
-  private func tick() {
+  func advance(at now: TimeInterval) {
     do {
-      try render(at: ProcessInfo.processInfo.systemUptime)
-      if !petIsVisible, !session.shouldTickWhenHidden { stopTimer() }
+      try render(at: now)
+      if !petIsVisible, !session.shouldTickWhenHidden { suspendRenderingResources() }
     } catch {
-      stopTimer()
       onFault?(error)
     }
+  }
+
+  func pointerMoved(to point: NSPoint) {
+    lastPointerLocation = point
+    updatePointer(at: point)
   }
 
   private func render(at now: TimeInterval) throws {
@@ -303,7 +287,6 @@ final class PetWindowController {
     if clipChanged { updateLayerGeometry(for: store.clip) }
     currentPresentation = presentation
     retainStores(for: retainedClipIDs)
-    updateTimerInterval(for: presentation.clipID)
     updatePointer(at: lastPointerLocation)
   }
 
@@ -322,19 +305,17 @@ final class PetWindowController {
     for clipID in obsolete { stores.removeValue(forKey: clipID) }
   }
 
-  private func updateTimerInterval(for clipID: String) {
-    guard let timer else { return }
-    let interval = tickInterval(for: clipID)
-    guard abs(timer.timeInterval - interval) > 0.000_001 else { return }
-    stopTimer()
-    startTimer()
-  }
-
   private func tickInterval(for clipID: String?) -> TimeInterval {
-    guard let clipID, let clip = package.clips[clipID] else { return 1.0 / 30.0 }
+    guard let clipID, let clip = package.clips[clipID] else { return 1.0 / 24.0 }
     let frameDuration =
       Double(clip.frameRate.denominator) / Double(clip.frameRate.numerator)
     return max(1.0 / 60.0, frameDuration)
+  }
+
+  private func suspendRenderingResources() {
+    stageView.frameLayer.contents = nil
+    currentPresentation = nil
+    stores.removeAll(keepingCapacity: false)
   }
 
   private func applyGeometry() {
@@ -363,25 +344,6 @@ final class PetWindowController {
       width: Double(crop[2]) * pixelScale,
       height: Double(crop[3]) * pixelScale
     )
-  }
-
-  private func installPointerMonitors() {
-    lastPointerLocation = NSEvent.mouseLocation
-    let mask: NSEvent.EventTypeMask = [
-      .mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp,
-    ]
-    globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] _ in
-      Task { @MainActor [weak self] in self?.pointerMoved(to: NSEvent.mouseLocation) }
-    }
-    localMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
-      self?.pointerMoved(to: NSEvent.mouseLocation)
-      return event
-    }
-  }
-
-  private func pointerMoved(to point: NSPoint) {
-    lastPointerLocation = point
-    updatePointer(at: point)
   }
 
   private func updatePointer(at point: NSPoint) {
