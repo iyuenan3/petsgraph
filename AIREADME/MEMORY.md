@@ -232,3 +232,9 @@
 - 现象: build 7 已把双宠 60 Hz 计时改为素材原生 12 FPS 与 24 FPS，并删除每次回调创建 Swift `Task` 的开销，但稳定态 CPU 仍约为 3.0%，与 build 5 的 2.98% 基线基本持平。
 - 根因: 5 秒进程采样显示，主要重复成本是每个有效帧立即提交 Core Animation 事务、重复设置没有变化的图层几何，以及重复写入相同的透明命中窗口事件掩码。减少没有换帧的 Timer 回调没有消除这些真实帧成本。
 - 结论/避免: 性能优化必须先做安装态同场景 A/B 和调用栈采样，不能从代码删行推断收益。`234e8fe` 关闭帧图层隐式动画，让 RunLoop 合并提交，并对 clip 几何、鼠标位置与命中状态去重；build 8 十次稳定态取样平均降至 0.97%，同时用图像摘要变化排除停帧假象。
+
+## AppKit 菜单自动启用会覆盖运行态灰显 · 2026-08-23
+
+- 现象: Player 已根据 `petIsVisible` 把当前目标状态的菜单项设置为 `isEnabled=false`，但真实状态栏菜单仍可能把具有有效 target 与 action 的项目恢复为可点。只创建独立 `NSMenu` 并调用 `update()` 时禁用状态保持不变，容易误判没有覆盖；把同一菜单挂到 `NSApplication.shared.mainMenu` 后，默认 `autoenablesItems=true` 会把项目重新启用。
+- 根因: AppKit 的自动菜单校验只在真实应用菜单上下文中完整生效。脱离 `NSApplication` 的最小实验没有触发与状态栏菜单等价的验证路径，因此形成假阴性。
+- 结论/避免: 依赖运行态手工计算 `isEnabled` 的主菜单和子菜单都显式设置 `autoenablesItems=false`。相关最小复现必须创建 `NSApplication.shared` 并把菜单挂到应用菜单后再调用 `update()`；只测试孤立 `NSMenu` 不足以证明真实界面行为。build 12 已按此规则修复，最终灰显仍由用户在真实状态栏菜单确认。
