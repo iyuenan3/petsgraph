@@ -2,6 +2,12 @@
 
 > Append-only。记录版本与里程碑，决策理由见 `DECISIONS.md`。
 
+## Unreleased verification hardening · 2026-08-23
+
+- Added: macOS 与 Windows 各新增双宠状态保存加载回归，覆盖单只隐藏、两组独立锚点、统一 `1.75` 倍恢复，以及已卸载宠物的陈旧状态不会重新进入运行态。
+- Added: 两个平台各新增注册表提交前与提交后两个卸载中断恢复场景。提交前中断必须恢复原宠物和 canonical 数据，提交后中断必须完成清理且不能复活已卸载宠物。
+- Review: Swift 25 项、MSTest 42 项、`swift-format lint --strict` 与 `dotnet format --verify-no-changes` 本地通过。代码切片 `0481211` 与 `c48cf52` 已分别推送并完成远端 `main` 回读，macOS 运行 `32626778829` 与 Windows 运行 `32626778828` 在最终代码提交上成功。
+
 ## Unreleased · 2026-08-23
 
 - Changed: PetPack 1.0 冻结为普通 ZIP 单文件容器，并把 `cropped-rgba-clips` 作为长期兼容基础表示。五百与飞流先离线转换，首批包只含完整性哈希，不实现官方签名；新 Player 不直接加载旧 schema `0.4.0`。

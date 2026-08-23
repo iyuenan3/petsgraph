@@ -119,11 +119,11 @@ python3 player/macos/scripts/build-app.py \
   --version 0.7.0-dev
 ```
 
-当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。输出只能位于仓库或系统临时目录，人工安装候选优先放在 `/private/tmp`。Desktop 的 File Provider 可能在签名后异步重新加入 `com.apple.FinderInfo`，导致严格签名复验失败，所以不要把 Desktop 同步目录当作安装候选事实源。构建器在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 33 项公开 PetPack 回归、22 项 Swift 测试并上传保留 7 天的代码开发 App。
+当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。输出只能位于仓库或系统临时目录，人工安装候选优先放在 `/private/tmp`。Desktop 的 File Provider 可能在签名后异步重新加入 `com.apple.FinderInfo`，导致严格签名复验失败，所以不要把 Desktop 同步目录当作安装候选事实源。构建器在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 33 项公开 PetPack 回归、25 项 Swift 测试并上传保留 7 天的代码开发 App。
 
 本地已验证：
 
-- Swift 严格警告编译与 22 项测试通过，新增回归证明每只宠物按独立随机时钟推进，并继续覆盖旧运行时只迁移位置和全局大小、首装、更新与进程中断回滚、事务卸载、损坏设置和行为预加载失败。
+- Swift 严格警告编译与 25 项测试通过，新增回归直接覆盖双宠显示状态、独立锚点与统一倍率的保存加载往返，并模拟卸载事务在注册表提交前后中断，分别证明原宠物恢复与已卸载宠物不会复活；其余回归继续覆盖独立随机时钟、旧运行时只迁移位置和全局大小、首装、更新与进程中断回滚、损坏设置和行为预加载失败。
 - 公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
 - App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
 - App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
@@ -179,7 +179,7 @@ DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
 
 `build-portable.sh` 拒绝覆盖同名 ZIP，先用 C# 原生验证器检查公开合成 PetPack，再交叉发布 `win-x64` self-contained 应用，强制产物不含 `Pets/` 或 `.petpack`，最后执行 ZIP 解压测试与 SHA-256。当前本地机械证据：
 
-- 39 项 MSTest 通过，覆盖 store、deflate、未知可选能力与默认权重、严格 ZIP、重复 JSON key、路径越界、大小写冲突、符号链接、摘要不符、canonical copy、cache 重建、首装与更新回滚、进程中断恢复、事务卸载、不安全安装索引、损坏设置、独立行为与独立随机时钟、隐藏过渡、RGBA 到 PBGRA、长时间帧索引、全局大小、旧状态迁移和语义版本。
+- 42 项 MSTest 通过，覆盖 store、deflate、未知可选能力与默认权重、严格 ZIP、重复 JSON key、路径越界、大小写冲突、符号链接、摘要不符、canonical copy、cache 重建、首装与更新回滚、进程中断恢复、事务卸载及其注册表提交前后恢复、双宠状态与统一倍率往返、不安全安装索引、损坏设置、独立行为与独立随机时钟、隐藏过渡、RGBA 到 PBGRA、长时间帧索引、全局大小、旧状态迁移和语义版本。
 - WPF 与全解决方案 Release 构建为 0 警告、0 错误；`dotnet format` 空白校验通过。
 - C# 原生验证器通过公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选，五个包的 SHA-256 分别与参考验证器和私有转换记录一致。
 - 当前本地零素材 ZIP 为 75,267,412 bytes，SHA-256 为 `6d90aa7cada380a30d8a348cac1a5e3c6806ca67ca08be7a135b31da036abac8`。该 ZIP 可完整解压，主程序由 `file` 识别为 `PE32+ executable (GUI) x86-64`，内部没有 `Pets/` 或 `.petpack`。它只是当前机械证明，不是冻结交付物或 Release 附件。
@@ -193,6 +193,8 @@ DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
 首次把重构提交推送到远端后，macOS Apple Silicon 工作流在 `a7c2cb5` 通过。PetPack contract 的 Windows job 暴露 Python `ZipInfo.filename` 会把原始反斜线规范化，Windows x64 job 另暴露 .NET `ZipArchive` 在 Windows 上不会自动把 Unix 权限位标记为 Unix 创建主机。`1937a03` 改为验证 `orig_filename` 并让测试写入真实原始路径，`f6b855f` 让 C# 恶意 symlink 测试包在所有平台固定中央目录创建主机。修复后远端 `main` 回读为 `97485a0c5ccc557748773738dac5e009cf221753`，PetPack contract 运行 `32596460282`、macOS 运行 `32596460260`、Windows 运行 `32596460309` 均通过。远端上传的 macOS 与 Windows 代码开发产物分别为 1,806,750 和 77,508,772 bytes，保留 7 天。完整步骤回读见 `docs/audits/refactor-2026-08-23.md`。
 
 最终审查代码推送后，PetPack contract 运行 `32600312955` 在 `8b8f902` 通过，macOS 与 Windows 运行 `32600330583`、`32600330777` 在 `b417a6b` 通过。历史公开 Release 的新只读流程也已真实触发：macOS 运行 `32600568305` 从 `v0.6.0` 标签执行历史 Swift 基线、双附件摘要和 DMG 挂载复验，Windows 运行 `32600570363` 使用 `contents: read` 完成 ZIP 摘要、AMD64 PE、双包和运行时完整性复验。五个运行均成功。
+
+状态恢复与卸载事务加固继续以两个独立切片推送。最终代码提交 `c48cf52` 的 macOS 运行 `32626778829` 通过 25 项 Swift 测试、零素材 arm64 App 构建和上传，Windows 运行 `32626778828` 通过 42 项 MSTest、WPF、self-contained x64 ZIP、零素材检查和上传。
 
 ### Windows `v0.6.0` 历史 Release 复验
 
