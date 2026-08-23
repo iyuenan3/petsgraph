@@ -5,6 +5,23 @@ import XCTest
 @testable import PetsGraphCore
 
 final class PetPackValidatorTests: XCTestCase {
+  func testPlayerAboutInfoFormatsBundleVersionAndSafeFallbacks() {
+    XCTAssertEqual(
+      PlayerAboutInfo(
+        infoDictionary: [
+          "CFBundleShortVersionString": "0.7.0-review",
+          "CFBundleVersion": "18",
+        ]
+      ).versionLine,
+      "版本 0.7.0-review（构建 18）"
+    )
+    XCTAssertEqual(
+      PlayerAboutInfo(infoDictionary: ["CFBundleShortVersionString": " 1.0.0 "]).versionLine,
+      "版本 1.0.0"
+    )
+    XCTAssertEqual(PlayerAboutInfo(infoDictionary: nil).versionLine, "开发版本")
+  }
+
   func testRuntimeFrameCacheRetainsLoopsButOnlyLatestTransitionFrame() {
     var loop = RuntimeFrameCache<String>(retainsAllFrames: true)
     loop.insert("zero", for: 0)

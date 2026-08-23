@@ -259,6 +259,19 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
 
   @objc private func quit() { NSApplication.shared.terminate(nil) }
 
+  @objc private func showAbout() {
+    let about = PlayerAboutInfo(infoDictionary: Bundle.main.infoDictionary)
+    let alert = NSAlert()
+    alert.alertStyle = .informational
+    alert.icon = NSApplication.shared.applicationIconImage
+    alert.messageText = "PetsGraph"
+    alert.informativeText =
+      "\(about.versionLine)\n\n开放源代码的宠物播放器。宠物内容由独立的 .petpack 文件提供。"
+    alert.addButton(withTitle: "好")
+    NSApplication.shared.activate(ignoringOtherApps: true)
+    alert.runModal()
+  }
+
   private func makeStatusItem() {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     if let button = item.button {
@@ -299,6 +312,11 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     sizeRoot.submenu = sizes
     menu.addItem(sizeRoot)
     menu.addItem(.separator())
+    let about = NSMenuItem(
+      title: "关于 PetsGraph", action: #selector(showAbout), keyEquivalent: ""
+    )
+    about.target = self
+    menu.addItem(about)
     let quit = NSMenuItem(title: "退出 PetsGraph", action: #selector(quit), keyEquivalent: "q")
     quit.target = self
     menu.addItem(quit)
