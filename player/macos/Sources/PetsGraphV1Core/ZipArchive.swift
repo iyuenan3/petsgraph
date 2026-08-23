@@ -272,11 +272,13 @@ final class SafeZipArchive {
     var result = Data()
     result.reserveCapacity(count)
     while result.count < count {
-      guard let data = try handle.read(upToCount: count - result.count), !data.isEmpty else {
-        try fail(
-          "invalid_container", "unexpected end of ZIP archive at byte \(offset), wanted \(count)")
+      try autoreleasepool {
+        guard let data = try handle.read(upToCount: count - result.count), !data.isEmpty else {
+          try fail(
+            "invalid_container", "unexpected end of ZIP archive at byte \(offset), wanted \(count)")
+        }
+        result.append(data)
       }
-      result.append(data)
     }
     return result
   }
@@ -698,8 +700,15 @@ final class SafeZipArchive {
     let input = try FileHandle(forReadingFrom: url)
     defer { try? input.close() }
     var hasher = SHA256()
-    while let data = try input.read(upToCount: 1024 * 1024), !data.isEmpty {
-      hasher.update(data: data)
+    while true {
+      let reachedEnd = try autoreleasepool {
+        guard let data = try input.read(upToCount: 1024 * 1024), !data.isEmpty else {
+          return true
+        }
+        hasher.update(data: data)
+        return false
+      }
+      if reachedEnd { break }
     }
     return hasher.finalize().map { String(format: "%02x", $0) }.joined()
   }
@@ -710,11 +719,13 @@ final class SafeZipArchive {
     var result = Data()
     result.reserveCapacity(count)
     while result.count < count {
-      guard let data = try handle.read(upToCount: count - result.count), !data.isEmpty else {
-        try fail(
-          "invalid_container", "unexpected end of ZIP archive at byte \(offset), wanted \(count)")
+      try autoreleasepool {
+        guard let data = try handle.read(upToCount: count - result.count), !data.isEmpty else {
+          try fail(
+            "invalid_container", "unexpected end of ZIP archive at byte \(offset), wanted \(count)")
+        }
+        result.append(data)
       }
-      result.append(data)
     }
     return result
   }

@@ -506,6 +506,22 @@ public sealed class PetPackV1Tests
     }
 
     [TestMethod]
+    public void PassiveBehaviorSessionsAdvanceOnIndependentClocks()
+    {
+        using var package = LoadedFixture();
+        var earlier = new PassiveBehaviorSession(package.Value, startedAt: 0, seed: 3);
+        var later = new PassiveBehaviorSession(package.Value, startedAt: 0, seed: 6);
+
+        var earlierAtForty = earlier.Update(40);
+        var laterAtForty = later.Update(40);
+
+        Assert.IsNotEmpty(earlierAtForty.PreloadClipIds);
+        Assert.IsEmpty(laterAtForty.PreloadClipIds);
+        Assert.AreEqual("rest.primary", earlierAtForty.CurrentNodeId);
+        Assert.AreEqual("rest.primary", laterAtForty.CurrentNodeId);
+    }
+
+    [TestMethod]
     public void PassiveBehaviorPreloadsWholeGatewayPathAndTargetLoop()
     {
         using var fixture = LoadedFixture();

@@ -405,6 +405,21 @@ final class PetPackValidatorTests: XCTestCase {
     }
   }
 
+  func testPassiveBehaviorSessionsAdvanceOnIndependentClocks() throws {
+    try withSyntheticPackage { package in
+      let earlier = try PassiveBehaviorSession(package: package, startedAt: 0, seed: 3)
+      let later = try PassiveBehaviorSession(package: package, startedAt: 0, seed: 6)
+
+      let earlierAtForty = try earlier.update(at: 40)
+      let laterAtForty = try later.update(at: 40)
+
+      XCTAssertFalse(earlierAtForty.preloadClipIDs.isEmpty)
+      XCTAssertTrue(laterAtForty.preloadClipIDs.isEmpty)
+      XCTAssertEqual(earlierAtForty.currentNodeID, "rest.primary")
+      XCTAssertEqual(laterAtForty.currentNodeID, "rest.primary")
+    }
+  }
+
   func testPassiveBehaviorPreloadsWholeGatewayPathAndTargetLoop() throws {
     try withSyntheticPackage { package in
       let primary = package.graph.nodes.first { $0.id == "rest.primary" }!

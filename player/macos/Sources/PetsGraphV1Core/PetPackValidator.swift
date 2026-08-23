@@ -93,9 +93,13 @@ public struct PetPackValidator: Sendable {
     defer { try? handle.close() }
     var hasher = SHA256()
     while true {
-      let data = try handle.read(upToCount: 1024 * 1024) ?? Data()
-      if data.isEmpty { break }
-      hasher.update(data: data)
+      let reachedEnd = try autoreleasepool {
+        let data = try handle.read(upToCount: 1024 * 1024) ?? Data()
+        guard !data.isEmpty else { return true }
+        hasher.update(data: data)
+        return false
+      }
+      if reachedEnd { break }
     }
     return hasher.finalize().map { String(format: "%02x", $0) }.joined()
   }
