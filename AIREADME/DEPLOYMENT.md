@@ -127,10 +127,13 @@ python3 player/macos/scripts/build-app.py \
 - 公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
 - App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
 - App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
-- 当前最终审查 App 从 `/private/tmp/PetsGraph-0.7.0-review4.app` 安装到 `/Applications/PetsGraph.app`，版本 `0.7.0-review`、构建号 4，主程序为 1,209,088 bytes，SHA-256 为 `db70b62c0c6e4ba1d277126d6b54cb88541342d54582b6effbc06b90f293b326`。延迟 5 秒与安装后的严格签名复验通过，App 资源只有 `PetsGraph.icns`。安装后二进制通过基线、前向兼容、五百和飞流四包原生校验；构建 3 已可恢复移入系统回收站。
+- 当前已安装 App 来自 `/private/tmp/PetsGraph-0.7.0-review5.app`，版本 `0.7.0-review`、构建号 5，主程序为 1,209,680 bytes，SHA-256 为 `aa5af337b2482fc9ff27d9d5e4c6114e7eed4850f2132ec71831a08d2b6e2b9b`。延迟 5 秒与安装后的严格签名复验通过，App 资源只有 `PetsGraph.icns`。安装后二进制通过基线、前向兼容、五百和飞流四包原生校验；构建 4 已可恢复移入系统回收站。
+- build 6 已生成于 `/private/tmp/PetsGraph-0.7.0-review6.app`，主程序为 1,211,152 bytes，SHA-256 为 `5a3b397d4475df3e821f635d2cfca422188a37a396888aeb9e3553214c709d3a`。arm64、严格签名和零素材检查通过，锁屏前尚未替换安装，因此贴边与 CPU 对比不得写成真实 GUI 已验收。
 - build 4 已在真实 macOS 桌面启动五百与飞流。对两只默认睡眠循环分别取得 4 个正常速度画面摘要，画面持续缓慢变化且锚点不动；通过设置状态重启验证了单只隐藏、双宠显示、1.0 与 2.0 全局倍率恢复。自动化测试留下的 `Synthetic Cat` 彩色夹具资料库已完整移入系统回收站，真正空库启动没有宠物窗口。
 - 同一五百候选的原生 `--validate-only` A/B 中，build 3 最大常驻内存为 2,162,049,024 bytes，build 4 为 19,333,120 bytes。双宠 GUI 的 `vmmap` 物理占用由修前 1.6 GB 降至 55.8 MB，稳定取样约 3.3% CPU，唯一当前进程没有崩溃报告。该结果只覆盖默认睡眠循环，不替代长时间过渡、菜单、透明命中、拖动、卸载和用户视觉批准。
 - build 4 双宠持续运行 17 分钟后的补充回读仍只有一个进程，当前物理占用 53.7 MB、峰值 55.9 MB、CPU 约 3.4%，没有新增崩溃报告。媒体映射显示两只仍在各自默认睡眠循环，因此只能证明稳定态资源没有持续增长，不能证明完整动作切换。
+- build 4 在飞流与五百分别进入首轮动作链后，旧 RGBA 映射和逐帧图像没有释放，物理占用达到 287.6 MB。`8749ea6` 将缓存边界收敛为当前片段及尚未执行的完整预载链。
+- build 5 中飞流与五百分别在 21 分 12 秒与 28 分 42 秒进入真实多段动作链。预载映射随路径执行逐段减少，进入两个新稳定循环后只保留 `cat-bed-prone-loop-v1` 与 `semi-supine-left-loop-v1`；物理峰值为 126.1 MB，稳定回读为 46.7 MB。60 Hz 版本十次稳定态 CPU 取样平均为 2.98%。
 
 上述结果不替代真实 macOS 桌面上的菜单、拖动、透明命中、多宠并发、隐藏恢复、应用升级保留和正常速度视觉验收。
 
