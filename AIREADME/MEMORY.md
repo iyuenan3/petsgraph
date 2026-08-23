@@ -238,3 +238,9 @@
 - 现象: Player 已根据 `petIsVisible` 把当前目标状态的菜单项设置为 `isEnabled=false`，但真实状态栏菜单仍可能把具有有效 target 与 action 的项目恢复为可点。只创建独立 `NSMenu` 并调用 `update()` 时禁用状态保持不变，容易误判没有覆盖；把同一菜单挂到 `NSApplication.shared.mainMenu` 后，默认 `autoenablesItems=true` 会把项目重新启用。
 - 根因: AppKit 的自动菜单校验只在真实应用菜单上下文中完整生效。脱离 `NSApplication` 的最小实验没有触发与状态栏菜单等价的验证路径，因此形成假阴性。
 - 结论/避免: 依赖运行态手工计算 `isEnabled` 的主菜单和子菜单都显式设置 `autoenablesItems=false`。相关最小复现必须创建 `NSApplication.shared` 并把菜单挂到应用菜单后再调用 `update()`；只测试孤立 `NSMenu` 不足以证明真实界面行为。build 12 已按此规则修复，最终灰显仍由用户在真实状态栏菜单确认。
+
+## 普通浮动窗口层级低于 Dock · 2026-08-23
+
+- 现象: macOS 宠物面板使用 `NSWindow.Level.floating` 时，实际窗口层级为 3，Dock 的窗口层级为 20。宠物靠近屏幕边缘后会被 Dock 压住，严重时用户可能无法抓住宠物拖回。
+- 根因: `floating` 只表示高于普通应用窗口，不保证高于 Dock。旧文档中的“浮动窗口”描述不能替代对真实系统窗口层级的数值回读。
+- 结论/避免: 宠物面板使用 `CGWindowLevelForKey(.dockWindow) + 1`，当前实际值为 21，并保持低于系统主菜单 24。不要直接使用过高的弹出菜单层级，否则会遮挡系统关键界面。自动化同时回读已安装进程的实际窗口层级，真实遮挡与拖动可达继续保留用户视觉门禁。
