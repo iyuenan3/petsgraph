@@ -265,6 +265,7 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
 
   private func rebuildMenu() {
     let menu = NSMenu(title: "PetsGraph")
+    menu.autoenablesItems = false
     let load = NSMenuItem(title: "装载宠物包…", action: #selector(loadPetPacks), keyEquivalent: "o")
     load.target = self
     menu.addItem(load)
@@ -276,6 +277,7 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
 
     let sizeRoot = NSMenuItem(title: "大小", action: nil, keyEquivalent: "")
     let sizes = NSMenu(title: "大小")
+    sizes.autoenablesItems = false
     for value in PlayerState.allowedScales {
       let item = NSMenuItem(
         title: String(format: "%.2g×", value), action: #selector(selectScale(_:)), keyEquivalent: ""
@@ -297,6 +299,7 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
   private func visibilityMenu(title: String, visible: Bool) -> NSMenuItem {
     let root = NSMenuItem(title: title, action: nil, keyEquivalent: "")
     let submenu = NSMenu(title: title)
+    submenu.autoenablesItems = false
     let all = NSMenuItem(
       title: "全部",
       action: visible ? #selector(showAllPets) : #selector(hideAllPets),
@@ -329,6 +332,7 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
   private func uninstallMenu() -> NSMenuItem {
     let root = NSMenuItem(title: "卸载宠物", action: nil, keyEquivalent: "")
     let submenu = NSMenu(title: "卸载宠物")
+    submenu.autoenablesItems = false
     let all = NSMenuItem(title: "全部", action: #selector(uninstallAllPets), keyEquivalent: "")
     all.target = self
     all.isEnabled = !packages.isEmpty
