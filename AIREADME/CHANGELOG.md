@@ -24,6 +24,7 @@
 - Review: 当前 `main` 再次通过 PetPack 33 项、Codex 宠物 3 项、Swift 26 项和 MSTest 43 项。Python、Swift Build 9 与 C# 三个验证器对五百和飞流候选给出相同包摘要及 clip、node、edge 数；人工拖动入口修正为当前安装的 build 9，菜单、卸载与正常速度视觉结论仍不由自动化替代。
 - Changed: `76856e0` 为 macOS PetPack 装载窗口增加文件夹双击与 `⌘⇧G` 提示，首次进入下载目录，并在后续装载时恢复上次选择目录。
 - Review: 用户确认卸载成功，内部注册表为 0 个宠物，`Library`、`Cache` 与 `Staging` 均为空，原始五百和飞流候选仍在用户保存位置。build 10 为 `arm64` 零素材 App，主程序 1,214,752 bytes，SHA-256 为 `b4a65aa1abf0c383fa4a4436362999f647f71dd6824919be5ebc3165525008b1`；严格签名、格式检查与 26 项 Swift 测试通过。
+- Review: 装载导航代码提交 `76856e0` 的 macOS Apple Silicon 运行 `32632413985` 成功，远端再次通过 26 项 Swift 测试、arm64 严格签名与零素材 App 构建。
 
 ## Unreleased · 2026-08-23
 
