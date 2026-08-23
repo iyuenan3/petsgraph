@@ -13,6 +13,8 @@
 - Fixed: `d354f98` 与 `cadf095` 将拖动限位从整块透明画布收敛为当前显示片段的裁剪框，并使用完整屏幕边界，宠物可以贴近上下左右屏幕边缘，锚点不会随之后换姿自动移动。
 - Changed: `399fef5` 将每宠固定 60 Hz 计时器改为跟随当前素材原生帧率，避免 12 至 24 FPS 素材产生无效 UI 唤醒。build 5 的 60 Hz 双宠稳定态十次 CPU 取样平均为 2.98%，build 6 的安装后对比仍待 Mac 解锁。
 - Review: 最终代码 `cadf095` 的 macOS 运行 `32627927411` 与 Windows 运行 `32627927365` 均成功。build 6 已完成 arm64、严格签名和零素材构建，主程序 SHA-256 为 `5a3b397d4475df3e821f635d2cfca422188a37a396888aeb9e3553214c709d3a`，但锁屏前尚未替换安装。
+- Fixed: 对 build 5 的 5 秒进程采样显示，主 RunLoop 上的每次 Timer 回调仍会创建 Swift 并发 `Task` 并重新入队。`cb28c6e` 改为在已确认的 MainActor 上直接执行 tick，不改变计时来源、帧序或速度。
+- Review: build 7 取代未安装的 build 6 成为下一候选，arm64、严格签名和零素材检查通过。主程序为 1,210,800 bytes，SHA-256 为 `17b7a5f54dfad0238f92dfba546d76356fecf971c6d69990a3fe36e532616cb2`，安装态 CPU 与视觉对比仍待 Mac 解锁。
 
 ## Unreleased · 2026-08-23
 
