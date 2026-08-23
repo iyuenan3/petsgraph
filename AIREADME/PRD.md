@@ -1,6 +1,6 @@
 # PRD：PetsGraph 纪念陪伴 Player 与定制 PetPack
 
-> 状态：产品方向与 PetPack 1.0 公开契约已经实现，Apple Silicon macOS 与 Windows x64 零素材 Player 已冻结为 `v1.0.0` 源码和双平台附件。macOS 已完成人工验收，Windows 已完成机械验证但本轮没有真实 GUI 复验；五百与飞流 PetPack 1.0 仍是私有候选，不随 Player 发布。历史 `v0.6.0` 继续作为内嵌双宠的旧架构回滚版本。
+> 状态：产品方向与 PetPack 1.0 公开契约已经实现，Apple Silicon macOS 与 Windows x64 零素材 Player 已正式发布为 `v1.0.0`。macOS 已完成人工验收，Windows 已完成机械验证但本轮没有真实 GUI 复验；五百与飞流 PetPack 1.0 仍是私有候选，不随 Player 发布。历史 `v0.6.0` 继续作为内嵌双宠的旧架构回滚版本。
 
 ## 1. 产品目标
 

@@ -2,7 +2,7 @@
 
 ## 状态与当前分发目标
 
-`v1.0.0` 零素材 Player 源码、注解标签、双平台本地附件与 schema 3 发布清单已经冻结，GitHub Release 尚待公开与远端回读。Apple Silicon macOS 已完成真实桌面人工验收；Windows x64 已完成 45 项测试、WPF 构建、AMD64 ZIP 与原生 PetPack 校验，本轮没有真实 Windows GUI 复验。历史 `v0.6.0` 继续作为内嵌五百与飞流的旧架构回滚依据。
+`v1.0.0` 零素材 Player 源码、注解标签、双平台附件与 schema 3 发布清单已经正式公开，GitHub Release 状态、双附件服务端摘要和两个只读平台验证工作流均已回读通过。Apple Silicon macOS 已完成真实桌面人工验收；Windows x64 已完成 45 项测试、WPF 构建、AMD64 ZIP 与原生 PetPack 校验，本轮没有真实 Windows GUI 复验。历史 `v0.6.0` 继续作为内嵌五百与飞流的旧架构回滚依据。
 
 下一代发布边界：
 
@@ -47,7 +47,7 @@ cmp petpack/fixtures/synthetic-cat-forward-v1.petpack \
 
 转换前完整回读旧 integrity，转换后公开验证器通过，旧媒体到新媒体的字节数与 SHA-256 不匹配数均为 0。两个候选分别重复构建一次，前后包级 SHA-256 不变。五百排除 2 个 interaction 节点、2 个网关停留循环及 15 个其他交互 clip，保留两条场景过渡的像素，但不携带其旧窗口 root motion；飞流排除 2 个 interaction 节点及 6 个交互 clip。Apple Silicon macOS build 16 的真实桌面验收已经用户通过；Windows GUI 按当前要求暂缓。两个包仍位于 `candidates/`，尚未进入 `approved/` 或 `delivery/`，不能当作正式交付物。
 
-## v1.0.0 本地冻结基线
+## v1.0.0 正式发布基线
 
 源码与发布契约：
 
@@ -62,7 +62,9 @@ cmp petpack/fixtures/synthetic-cat-forward-v1.petpack \
 | Apple Silicon macOS 14+ | `PetsGraph-v1.0.0-macOS-arm64.dmg` | 2,133,882 | `f23a7ddf05125f20953e936f094647d98c846ec24af25dfc94b1d65913a5d925` | `hdiutil verify`、只读挂载、arm64、版本 `1.0.0`、构建 19、严格 ad-hoc 签名、零素材、合成包原生校验 |
 | Windows 11 x64 | `PetsGraph-v1.0.0-Windows-x64.zip` | 75,279,944 | `c6ffd9a9aa517596e704376c864b7a55cd6180b604501bbcdf9b951fc718b684` | ZIP 完整性、292 个文件、AMD64 PE、`VERSION.txt=1.0.0`、零素材、无 macOS 杂项 |
 
-本地冻结目录为 `.local/dist/builds/v1.0.0/`，它被 Git 忽略并且只是可下载副本。GitHub Release、不可移动标签和公开清单在发布完成后共同构成公开事实源。
+公开入口：<https://github.com/iyuenan3/petsgraph/releases/tag/v1.0.0>。Release 于 2026-08-23 23:22（UTC+8）公开，不是草稿或预发布，服务端回读恰好包含表中两个 `uploaded` 附件，字节数与 SHA-256 逐项匹配清单。注解标签解引用后精确指向 `b98a3bf3a0dc692e6f0b88bd34e679bc018bf3fe`。macOS 只读复验运行 `32648372438` 成功，Windows 只读复验运行 `32648371959` 成功。
+
+本地冻结目录为 `.local/dist/builds/v1.0.0/`，它被 Git 忽略并且只是可下载副本。GitHub Release、不可移动标签和公开清单共同构成公开事实源。
 
 `v1.0.0` 的发布工作流不再读取 v0.6.0 的 `embeddedPets` 或 schema `0.4.0`。macOS 与 Windows 工作流都从标签检出不可变源码，运行当前平台测试，下载公开双附件并核对精确集合、字节数和摘要。macOS 只读挂载 DMG 并运行合成 PetPack 原生校验；Windows 解压 ZIP、检查文件版本与 AMD64 PE，并在 Windows Runner 上运行同一合成包。两个工作流都只有 `contents: read`。
 
@@ -187,7 +189,7 @@ PETSGRAPH_OUTPUT_DMG=/private/tmp/PetsGraph-v1.0.0-macOS-arm64.dmg \
 - `57ce0b0` 与 build 18 在大小和退出之间增加“关于 PetsGraph”。关于窗口从 App bundle 读取版本与构建号，正式安装显示 `版本 0.7.0-review（构建 18）`，并说明 Player 与独立 `.petpack` 内容边界。33 项 Swift 测试、严格格式、arm64 Release 构建、合成包校验、零素材边界和构建后与安装后严格签名通过；唯一 PID 26443 启动，替换前后设置与注册表摘要一致。Computer Use 已确认实际宠物窗口启动，状态栏菜单与关于窗口仍需用户实际点击确认。
 - 远端 `main` 已独立回读为 `8e99288f16d5ea3e42a5eadbcaa4712ec977a7b0`。macOS Apple Silicon 运行 `32646574447` 在 1 分 8 秒内成功完成 PetPack 与 Swift 测试、零素材 arm64 App 构建、严格签名和代码产物上传。
 
-上述 macOS 实际菜单、透明命中、宠物点击无动作和正常速度视觉门禁已经由用户结论关闭。Windows 真实 GUI 与正式发布仍按后续里程碑处理。
+上述 macOS 实际菜单、透明命中、宠物点击无动作和正常速度视觉门禁已经由用户结论关闭。正式发布已经完成；Windows 真实 GUI 继续作为后续人工质量任务，不回写为本次发布证据。
 
 ## macOS `v0.6.0` 历史构建基线
 

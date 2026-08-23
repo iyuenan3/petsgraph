@@ -2,6 +2,13 @@
 
 > Append-only。记录版本与里程碑，决策理由见 `DECISIONS.md`。
 
+## v1.0.0 public release · 2026-08-23
+
+- Released: `v1.0.0` 已公开为非草稿、非预发布的 Latest GitHub Release。注解标签解引用后精确指向源码提交 `b98a3bf3a0dc692e6f0b88bd34e679bc018bf3fe`，历史 `v0.6.0` 标签和附件未改变。
+- Review: Release 恰好包含 2,133,882 bytes 的 macOS arm64 DMG 与 75,279,944 bytes 的 Windows x64 ZIP，两个附件状态均为 `uploaded`，服务端 SHA-256 与 schema 3 清单逐项一致。
+- Review: macOS 只读 Release 验证运行 `32648372438` 在 48 秒内成功；Windows 只读 Release 验证运行 `32648371959` 在 1 分 53 秒内成功。两者均从不可变标签重跑平台测试、下载公开附件并完成原生零素材校验。
+- Review: Windows 本轮仍没有真实 GUI 人工复验。公开发布和 Windows Runner 成功不等于透明窗口、DPI、拖动、托盘、多显示器或正常速度长时观看已经人工通过。
+
 ## v1.0.0 release freeze · 2026-08-23
 
 - Added: Apple Silicon macOS 与 Windows x64 Player 正式版本统一为 `1.0.0`。两个平台都支持 PetPack `formatVersion=1.0.0`、多宠独立时钟、固定舞台、显示隐藏、事务卸载、统一七档大小和零宠物启动。

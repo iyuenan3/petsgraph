@@ -58,6 +58,6 @@ PetsGraph 是面向宠物离世纪念场景的安静陪伴产品。客户提供�
 
 ## 生命周期
 
-生命周期为 `refactor-complete / macos-accepted / windows-gui-deferred / v1.0.0-release-frozen`。
+生命周期为 `refactor-complete / macos-accepted / windows-gui-deferred / v1.0.0-released`。
 
-`v1.0.0` 源码标签和两个零素材附件已经冻结，GitHub Release 尚待公开与远端复验。历史 `v0.6.0` 继续包含五百和飞流并作为旧架构回滚基线。五百飞流 PetPack 1.0 仍是私有候选，不随 Player Release 发布；Windows GUI 本轮未复验，这一边界不因发布授权而消失。
+`v1.0.0` 源码标签和两个零素材附件已经正式发布，服务端摘要及 macOS、Windows 两条只读 Release 验证均已通过。历史 `v0.6.0` 继续包含五百和飞流并作为旧架构回滚基线。五百飞流 PetPack 1.0 仍是私有候选，不随 Player Release 发布；Windows GUI 本轮未复验，这一边界不因发布结果而消失。
