@@ -119,16 +119,16 @@ python3 player/macos/scripts/build-app.py \
   --version 0.7.0-dev
 ```
 
-当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。输出只能位于仓库或系统临时目录，人工安装候选优先放在 `/private/tmp`。Desktop 的 File Provider 可能在签名后异步重新加入 `com.apple.FinderInfo`，导致严格签名复验失败，所以不要把 Desktop 同步目录当作安装候选事实源。构建器在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 33 项公开 PetPack 回归、25 项 Swift 测试并上传保留 7 天的代码开发 App。
+当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。输出只能位于仓库或系统临时目录，人工安装候选优先放在 `/private/tmp`。Desktop 的 File Provider 可能在签名后异步重新加入 `com.apple.FinderInfo`，导致严格签名复验失败，所以不要把 Desktop 同步目录当作安装候选事实源。构建器在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 33 项公开 PetPack 回归、26 项 Swift 测试并上传保留 7 天的代码开发 App。
 
 本地已验证：
 
-- Swift 严格警告编译与 25 项测试通过，新增回归直接覆盖双宠显示状态、独立锚点与统一倍率的保存加载往返，并模拟卸载事务在注册表提交前后中断，分别证明原宠物恢复与已卸载宠物不会复活；其余回归继续覆盖独立随机时钟、旧运行时只迁移位置和全局大小、首装、更新与进程中断回滚、损坏设置和行为预加载失败。
+- Swift 严格警告编译与 26 项测试通过，新增回归使用飞流、五百两种舞台比例和带负坐标屏幕直接证明可见裁剪框能贴到上下左右四条边；其余回归继续覆盖双宠状态往返、卸载事务恢复、独立随机时钟、旧运行时只迁移位置和全局大小、首装、更新与进程中断回滚、损坏设置和行为预加载失败。
 - 公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
 - App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
 - App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
-- 当前已安装 App 来自 `/private/tmp/PetsGraph-0.7.0-review8.app`，版本 `0.7.0-review`、构建号 8，主程序为 1,212,720 bytes，SHA-256 为 `fa971ee7444fea93db8215418c2d560246263d40d3e3085d14c84f6f11506687`。延迟复验和安装后的严格签名通过，主程序为 `arm64`，App 资源只有 `PetsGraph.icns`，没有 `.petpack`、`Resources/Pets` 或真实宠物素材。
-- build 6 完成构建但从未安装。build 7 完成安装和双宠稳定态 A/B 后，由减少 Core Animation 与鼠标事件掩码重复提交的 build 8 取代。build 5 与 build 7 分别可恢复保存在系统回收站的 `PetsGraph-build5-20260823-171243.app` 与 `PetsGraph-build7-20260823-171758.app`。
+- 当前已安装 App 来自 `/private/tmp/PetsGraph-0.7.0-review9.app`，版本 `0.7.0-review`、构建号 9，主程序为 1,213,984 bytes，SHA-256 为 `e7825902a0259b8da4a89f70b81d8a97085ddface6ceb3bf4e2f8ba3369135a1`。延迟复验和安装后的严格签名通过，主程序为 `arm64`，App 资源只有 `PetsGraph.icns`，没有 `.petpack`、`Resources/Pets` 或真实宠物素材。
+- build 6 完成构建但从未安装。build 7 完成安装和双宠稳定态 A/B 后由 build 8 取代，build 8 完成首次低 CPU 动作链后由增加四边公式回归的 build 9 取代。build 5、build 7 与 build 8 均以带构建号和时间的名称可恢复保存在系统回收站。
 - build 4 已在真实 macOS 桌面启动五百与飞流。对两只默认睡眠循环分别取得 4 个正常速度画面摘要，画面持续缓慢变化且锚点不动；通过设置状态重启验证了单只隐藏、双宠显示、1.0 与 2.0 全局倍率恢复。自动化测试留下的 `Synthetic Cat` 彩色夹具资料库已完整移入系统回收站，真正空库启动没有宠物窗口。
 - 同一五百候选的原生 `--validate-only` A/B 中，build 3 最大常驻内存为 2,162,049,024 bytes，build 4 为 19,333,120 bytes。双宠 GUI 的 `vmmap` 物理占用由修前 1.6 GB 降至 55.8 MB，稳定取样约 3.3% CPU，唯一当前进程没有崩溃报告。该结果只覆盖默认睡眠循环，不替代长时间过渡、菜单、透明命中、拖动、卸载和用户视觉批准。
 - build 4 双宠持续运行 17 分钟后的补充回读仍只有一个进程，当前物理占用 53.7 MB、峰值 55.9 MB、CPU 约 3.4%，没有新增崩溃报告。媒体映射显示两只仍在各自默认睡眠循环，因此只能证明稳定态资源没有持续增长，不能证明完整动作切换。
@@ -136,6 +136,8 @@ python3 player/macos/scripts/build-app.py \
 - build 5 中飞流与五百分别在 21 分 12 秒与 28 分 42 秒进入真实多段动作链。预载映射随路径执行逐段减少，进入两个新稳定循环后只保留 `cat-bed-prone-loop-v1` 与 `semi-supine-left-loop-v1`；物理峰值为 126.1 MB，稳定回读为 46.7 MB。60 Hz 版本十次稳定态 CPU 取样平均为 2.98%。
 - build 7 安装后默认双宠稳定态约为 3.0% CPU，证明只改原生帧率与删除每帧 Swift `Task` 没有形成可声明的 CPU 下降。5 秒进程采样把主要重复成本定位到每帧立即提交 Core Animation 事务、重复写入相同窗口事件掩码和相同图层几何。
 - build 8 的相同默认双宠稳定态十次 `top` 取样为 `0.9, 0.9, 0.9, 1.0, 0.9, 0.9, 1.0, 1.0, 1.1, 1.1`，平均 0.97%。`vmmap` 初次稳定回读的物理占用为 55.4 MB、峰值 55.5 MB，运行 7 分 32 秒后为 54.3 MB、约 0.9% CPU，并且没有新增崩溃报告；进程只映射飞流 `no-prop-prone-loop-v1` 与五百 `prone-left-long-loop-v1`。2.5 秒间隔窗口图像摘要不同，排除停帧或隐藏宠物造成的低 CPU 假象。进一步降低这组内存需要改变 PetPack 原始 RGBA 表示或增加反复缺页，必须先通过流畅度与透明边缘对照，不能作为无风险微优化。
+- build 8 运行 17 分 5 秒后，五百从趴卧经侧蜷过渡进入侧伸展循环。过渡时只保留两条待执行边、目标循环和飞流当前循环，物理占用为 26.8 MB；21 秒后只剩两只当前循环，物理占用为 29.6 MB、CPU 约 0.9%，进程峰值仍为 55.5 MB。该证据证明低 CPU 提交路径没有破坏自主切换或有界缓存。
+- build 9 安装后的默认双宠稳定态十次 `top` 取样为 `0.9, 0.9, 1.0, 1.0, 1.1, 1.0, 1.0, 0.9, 1.0, 1.0`，平均 0.98%；物理占用为 55.7 MB、峰值 55.8 MB，2.5 秒间隔窗口图像摘要不同。提交 `ded3df1` 的 macOS 运行 `32631375700` 成功。
 
 上述结果不替代真实 macOS 桌面上的菜单、拖动、透明命中、多宠并发、隐藏恢复、应用升级保留和正常速度视觉验收。
 
