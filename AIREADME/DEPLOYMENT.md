@@ -119,7 +119,7 @@ python3 player/macos/scripts/build-app.py \
   --version 0.7.0-dev
 ```
 
-当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。输出只能位于仓库或系统临时目录，人工安装候选优先放在 `/private/tmp`。Desktop 的 File Provider 可能在签名后异步重新加入 `com.apple.FinderInfo`，导致严格签名复验失败，所以不要把 Desktop 同步目录当作安装候选事实源。构建器在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 33 项公开 PetPack 回归、30 项 Swift 测试并上传保留 7 天的代码开发 App。
+当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。输出只能位于仓库或系统临时目录，人工安装候选优先放在 `/private/tmp`。Desktop 的 File Provider 可能在签名后异步重新加入 `com.apple.FinderInfo`，导致严格签名复验失败，所以不要把 Desktop 同步目录当作安装候选事实源。构建器在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 33 项公开 PetPack 回归、当前全部 32 项 Swift 测试并上传保留 7 天的代码开发 App。
 
 本地已验证：
 
@@ -127,7 +127,7 @@ python3 player/macos/scripts/build-app.py \
 - 公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
 - App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
 - App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
-- 当前已安装 App 来自 `.local/dist/PetsGraph-0.7.0-review-build16.app`，版本 `0.7.0-review`、构建号 16，主程序为 1,222,864 bytes，SHA-256 为 `45a1c4f0776c71b63d956ce2bda8c786d23f58cb308fb315cd501453524cdb4d`。构建后与安装后的严格签名通过，主程序为 `arm64`，App 资源只有 `PetsGraph.icns`，没有 `.petpack`、`Resources/Pets` 或真实宠物素材。Info.plist 导出 `com.maxwell.petsgraph.petpack` 并把 `.petpack` 注册为可打开文档类型。用户已经允许并完成首次 GUI 启动，当前人工门禁见本节后续记录。
+- 当前已安装 App 来自 `.local/dist/PetsGraph-0.7.0-review-build17.app`，版本 `0.7.0-review`、构建号 17，主程序为 1,261,168 bytes，SHA-256 为 `699baf257f1ad1d63c764f1e4ce07523b5fa411c078c1b6a6b39ffb4b1c5e813`。构建后与安装后的严格签名通过，主程序为 `arm64`，App 资源只有 `PetsGraph.icns`，没有 `.petpack`、`Resources/Pets` 或真实宠物素材。Info.plist 导出 `com.maxwell.petsgraph.petpack` 并把 `.petpack` 注册为可打开文档类型。build 16 已可恢复地移入 `~/.Trash/PetsGraph-build16-20260823-213335.app`。
 - build 6 完成构建但从未安装。build 7 完成安装和双宠稳定态 A/B 后由 build 8 取代，build 8 完成首次低 CPU 动作链后由增加四边公式回归的 build 9 取代，build 9 又由改善装载导航的 build 10 取代，build 10 再由增加系统文件关联的 build 11 取代，build 11 由修正菜单灰显的 build 12 取代，build 12 最后由修正 Dock 遮挡的 build 13 取代。build 5、build 7、build 8、build 9、build 10、build 11 与 build 12 均以带构建号和时间的名称可恢复保存在系统回收站。
 - build 4 已在真实 macOS 桌面启动五百与飞流。对两只默认睡眠循环分别取得 4 个正常速度画面摘要，画面持续缓慢变化且锚点不动；通过设置状态重启验证了单只隐藏、双宠显示、1.0 与 2.0 全局倍率恢复。自动化测试留下的 `Synthetic Cat` 彩色夹具资料库已完整移入系统回收站，真正空库启动没有宠物窗口。
 - 同一五百候选的原生 `--validate-only` A/B 中，build 3 最大常驻内存为 2,162,049,024 bytes，build 4 为 19,333,120 bytes。双宠 GUI 的 `vmmap` 物理占用由修前 1.6 GB 降至 55.8 MB，稳定取样约 3.3% CPU，唯一当前进程没有崩溃报告。该结果只覆盖默认睡眠循环，不替代长时间过渡、菜单、透明命中、拖动、卸载和用户视觉批准。
@@ -153,6 +153,9 @@ python3 player/macos/scripts/build-app.py \
 - build 16 运行 18 分 34 秒后，飞流从 `no-prop-prone-loop-v1` 自主切换并稳定进入 `no-prop-tight-curled-loop-v1`，五百仍保持自己的 `prone-left-long-loop-v1`。回读只剩这两个当前稳定循环的 RGBA 映射，旧飞流循环和过渡媒体已经淘汰，证明双宠独立时钟、自主换姿和有界缓存同时工作。切换后的十次 CPU 取样排除首样本后平均约为 1.38%，内存列稳定为 51 MB。该采样紧随动作切换，不作为长期稳定态基线，也不替代用户对完整过渡的正常速度观看。
 - 2026-08-23 20:49（Asia/Shanghai）再次运行当前 macOS 测试入口，30 项 Swift 测试全部通过。直接覆盖隐藏期间完成当前过渡后暂停、删除 cache 后从 canonical 归档重建、同长度媒体损坏后重建、更新失败回滚、双宠状态往返、透明像素穿透计算和七档精确倍率标签。build 11 至 build 16 的实际应用替换持续保留双宠 canonical 资料库，因此隐藏过渡、cache 重建和应用升级保留不再列为当前人工门禁。
 - 用户于 2026-08-23 20:54（Asia/Shanghai）确认 build 16 的 `1.25×` 与 `1.75×` 实际菜单、透明区域点击穿透、宠物点击无动作和正常速度视觉表现四项全部通过。收尾复验再次通过 PetPack 33 项、Codex 宠物 3 项、Swift 30 项、MSTest 44 项、Windows 零警告构建和 Python、Swift、C# 对五百飞流同包的一致性读取。
+- `80d5763` 与 build 17 将 macOS 每宠 Timer 合并为一个按最快活动素材帧率自适应的共享 Timer，并把每宠全局与本地鼠标监听合并为进程级各一个监听。每只宠物的行为会话、随机状态、动作计划与切换截止时间继续独立；鼠标事件和拖动没有节流，24 FPS、帧序与播放倍率不变。稳定隐藏后释放图层、展示状态和媒体 store，全部稳定隐藏时停止 Timer 和鼠标监听；循环全缓存，转场只保留最近一帧。
+- build 17 的 32 项 Swift 测试、严格格式、arm64 Release 构建、合成包原生校验、零素材边界以及构建后与安装后严格签名通过。两个新增策略测试都完成故意破坏验证，错误的最慢帧率调度与转场无限缓存会按预期失败。
+- build 17 从 `/Applications/PetsGraph.app` 启动为唯一 PID 18906，替换前后设置与注册表摘要不变。五百显示、飞流隐藏时，4 个间隔 1.5 秒的窗口摘要均不同；十次 CPU 样本排除首样本后平均 0.50%，上下文切换约每秒 56 次，物理占用 49.4 MB。当前只映射五百 `prone-left-long-loop-v1` 的 28.9 MB RGBA 和对应 236 个帧对象，飞流没有 RGBA 映射或帧对象。不同循环的物理占用不能直接作 A/B；双宠共享监听、全隐藏深度休眠、真实鼠标拖动和完整自主转场继续保留 build 17 后续观察。
 
 上述 macOS 实际菜单、透明命中、宠物点击无动作和正常速度视觉门禁已经由用户结论关闭。Windows 真实 GUI 与正式发布仍按后续里程碑处理。
 
@@ -270,7 +273,7 @@ python3 codexpets/tools/manage.py install feiliu-hatch-native-v1
 - 历史标签、Release、五百 PNG 基线和飞流制作事实源保留，不覆盖或删除。
 - 正式媒体不进入 Git 历史，只保留小型清单、构建器与验证逻辑。
 - 重复启动由每用户进程锁在加载大媒体前退出，避免出现两个 PetsGraph 进程。
-- 当前两个 Player 的 As-built 都由每个宠物窗口持有 60 Hz UI Timer，只在 clip 或帧实际变化时提交画面；每只宠物拥有独立行为会话和随机时钟。共享低开销 scheduler 仍是后续多宠优化目标，不能把历史 24 Hz 实现描述为当前事实。
+- macOS build 17 使用单一共享 UI Timer，周期跟随最快活动素材帧率，并使用进程级鼠标监听；Windows 当前仍由每个宠物窗口持有独立的原生帧率 Timer。两个平台都只在 clip 或帧实际变化时提交画面，每只宠物继续拥有独立行为会话和随机时钟。不能把 macOS 的共享唤醒描述成共享动作计划，也不能把 Windows 写成已经完成同一优化。
 - 双宠长期 CPU 与内存继续收集真实数据。性能结论必须注明唯一 PID、测量工具、稳定睡眠或过渡场景，不能把旧 AppTranslocation 进程计入当前版本。
 - 下一版如改变素材、位置、体型、窗口命中、动作图或发布附件，必须重跑相应自动检查和真实桌面人工闸门。
 - Windows 历史候选 ZIP 已清理，不用旧哈希冒充最新产物。后续重建写入 `.local/dist/builds/`，必须使用新版本名并重新记录字节数和 SHA-256，已上传的正式附件不原位覆盖。
