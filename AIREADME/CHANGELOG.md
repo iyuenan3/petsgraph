@@ -36,6 +36,8 @@
 - Review: 用户确认 build 12 的卸载、原包重新装载、显示、隐藏和目标状态菜单灰显均通过。灰显不再是当前人工门禁。
 - Fixed: `c9e9790` 将 macOS 宠物面板从普通浮动层级 3 提升为 Dock 层级加 1，使宠物不会被 Dock 压在后面，同时避免覆盖系统主菜单、状态栏和弹出菜单。
 - Review: build 13 为 `arm64` 零素材 App，主程序 1,216,288 bytes，SHA-256 为 `65fb9b16f90f90ea85e5efac83de00556a27a09b97fccb843e8787f64aabd479`；26 项 Swift 测试、严格格式、构建后与安装后签名均通过。安装态两个宠物窗口实际层级为 21，高于 Dock 的 20，低于系统主菜单的 24；远端 macOS 运行 `32634129068` 成功。真实 Dock 前方显示和拖动可达仍需用户确认。
+- Review: 完整机械复验再次通过 PetPack 33 项、Codex 宠物 3 项、Swift 26 项、MSTest 43 项、Swift 与 .NET 格式检查，以及 Windows 全解决方案 0 警告、0 错误构建。Python、Swift 与 C# 对五百候选共同给出 `14f719b...`、36 clip、12 node、26 edge，对飞流候选共同给出 `f0308cd...`、25 clip、9 node、16 edge；公开 Git 和 Player 仍不包含私有目录或真实宠物媒体。
+- Review: 当前屏幕 Dock 占用底部 89 点，两只宠物窗口底部已经进入该区域，实际层级仍为宠物 21、Dock 20、主菜单 24，直接证明 Dock 前方堆叠。build 13 运行约 14 分钟后，后 9 次 CPU 取样平均为 0.70%，物理占用为 54.3 MB、峰值 55.1 MB，只映射双宠各自当前循环。Computer Use 拖动仍返回 `AXError.notImplemented`，不能替代真实鼠标验收。
 
 ## Unreleased · 2026-08-23
 
