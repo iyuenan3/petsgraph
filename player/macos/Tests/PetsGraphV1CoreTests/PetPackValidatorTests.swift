@@ -1,9 +1,100 @@
+import CoreGraphics
 import Foundation
 import XCTest
 
 @testable import PetsGraphCore
 
 final class PetPackValidatorTests: XCTestCase {
+  func testPetWindowPlacementAlignsVisibleContentToEveryScreenEdge() {
+    let cases: [(screen: CGRect, panel: CGSize, canvasHeight: CGFloat, content: CGRect)] = [
+      (
+        CGRect(x: 0, y: 0, width: 1_728, height: 1_117),
+        CGSize(width: 530.5, height: 181.125),
+        224,
+        CGRect(x: 226, y: 103, width: 206, height: 75)
+      ),
+      (
+        CGRect(x: -1_440, y: 80, width: 1_440, height: 900),
+        CGSize(width: 225, height: 172.5),
+        368,
+        CGRect(x: 106, y: 192, width: 265, height: 121)
+      ),
+    ]
+
+    for item in cases {
+      let center = CGPoint(x: item.screen.midX, y: item.screen.midY)
+      let left = PetWindowPlacement.clampedAnchor(
+        CGPoint(x: -10_000, y: center.y),
+        panelSize: item.panel,
+        canvasHeight: item.canvasHeight,
+        contentBounds: item.content,
+        screenFrame: item.screen
+      )
+      let right = PetWindowPlacement.clampedAnchor(
+        CGPoint(x: 10_000, y: center.y),
+        panelSize: item.panel,
+        canvasHeight: item.canvasHeight,
+        contentBounds: item.content,
+        screenFrame: item.screen
+      )
+      let bottom = PetWindowPlacement.clampedAnchor(
+        CGPoint(x: center.x, y: -10_000),
+        panelSize: item.panel,
+        canvasHeight: item.canvasHeight,
+        contentBounds: item.content,
+        screenFrame: item.screen
+      )
+      let top = PetWindowPlacement.clampedAnchor(
+        CGPoint(x: center.x, y: 10_000),
+        panelSize: item.panel,
+        canvasHeight: item.canvasHeight,
+        contentBounds: item.content,
+        screenFrame: item.screen
+      )
+
+      XCTAssertEqual(
+        visibleContentFrame(
+          anchor: left,
+          panel: item.panel,
+          canvasHeight: item.canvasHeight,
+          content: item.content
+        ).minX,
+        item.screen.minX,
+        accuracy: 0.000_001
+      )
+      XCTAssertEqual(
+        visibleContentFrame(
+          anchor: right,
+          panel: item.panel,
+          canvasHeight: item.canvasHeight,
+          content: item.content
+        ).maxX,
+        item.screen.maxX,
+        accuracy: 0.000_001
+      )
+      XCTAssertEqual(
+        visibleContentFrame(
+          anchor: bottom,
+          panel: item.panel,
+          canvasHeight: item.canvasHeight,
+          content: item.content
+        ).minY,
+        item.screen.minY,
+        accuracy: 0.000_001
+      )
+      XCTAssertEqual(
+        visibleContentFrame(
+          anchor: top,
+          panel: item.panel,
+          canvasHeight: item.canvasHeight,
+          content: item.content
+        ).maxY,
+        item.screen.maxY,
+        accuracy: 0.000_001
+      )
+    }
+  }
+
   func testLoadsPublicSyntheticPetPack() throws {
     let fixture = repositoryRoot()
       .appendingPathComponent("petpack/fixtures/synthetic-cat-v1.petpack")
@@ -607,6 +698,21 @@ final class PetPackValidatorTests: XCTestCase {
       try session.setVisible(true, at: now + 2)
       XCTAssertFalse(session.isPaused)
     }
+  }
+
+  private func visibleContentFrame(
+    anchor: CGPoint,
+    panel: CGSize,
+    canvasHeight: CGFloat,
+    content: CGRect
+  ) -> CGRect {
+    let pixelScale = panel.height / canvasHeight
+    return CGRect(
+      x: anchor.x - panel.width / 2 + content.minX * pixelScale,
+      y: anchor.y + (canvasHeight - content.maxY) * pixelScale,
+      width: content.width * pixelScale,
+      height: content.height * pixelScale
+    )
   }
 
   private func repositoryRoot() -> URL {

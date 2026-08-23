@@ -442,24 +442,13 @@ final class PetWindowController {
     let screen = NSScreen.screens.first(where: { $0.frame.intersects(proposed) }) ?? NSScreen.main
     guard let screenFrame = screen?.frame else { return candidate }
     let canvas = package.manifest.stage.referenceCanvasPx
-    let pixelScale = panel.frame.height / Double(canvas[1])
-    let localMinX = contentBounds.minX * pixelScale
-    let localMaxX = contentBounds.maxX * pixelScale
-    let localMinY = (Double(canvas[1]) - contentBounds.maxY) * pixelScale
-    let localMaxY = (Double(canvas[1]) - contentBounds.minY) * pixelScale
-    let minimumX = screenFrame.minX + panel.frame.width / 2 - localMinX
-    let maximumX = screenFrame.maxX + panel.frame.width / 2 - localMaxX
-    let minimumY = screenFrame.minY - localMinY
-    let maximumY = screenFrame.maxY - localMaxY
-    let x =
-      minimumX > maximumX
-      ? screenFrame.midX + panel.frame.width / 2 - (localMinX + localMaxX) / 2
-      : min(maximumX, max(minimumX, candidate.x))
-    let y =
-      minimumY > maximumY
-      ? screenFrame.midY - (localMinY + localMaxY) / 2
-      : min(maximumY, max(minimumY, candidate.y))
-    return NSPoint(x: x, y: y)
+    return PetWindowPlacement.clampedAnchor(
+      candidate,
+      panelSize: panel.frame.size,
+      canvasHeight: CGFloat(canvas[1]),
+      contentBounds: contentBounds,
+      screenFrame: screenFrame
+    )
   }
 
   private func contentFrame(at candidate: NSPoint, contentBounds: CGRect) -> NSRect {
