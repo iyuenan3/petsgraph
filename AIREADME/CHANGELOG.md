@@ -2,6 +2,16 @@
 
 > Append-only。记录版本与里程碑，决策理由见 `DECISIONS.md`。
 
+## v1.0.0 release freeze · 2026-08-23
+
+- Added: Apple Silicon macOS 与 Windows x64 Player 正式版本统一为 `1.0.0`。两个平台都支持 PetPack `formatVersion=1.0.0`、多宠独立时钟、固定舞台、显示隐藏、事务卸载、统一七档大小和零宠物启动。
+- Added: Windows 托盘菜单增加“关于 PetsGraph”，从程序集版本动态显示 `1.0.0`，并说明 Player 与独立 `.petpack` 的边界；MSTest 增至 45 项。
+- Changed: 双平台普通 CI、构建器、README、Windows 使用说明与发布工作流切换到 `1.0.0`。新 schema 3 发布清单要求零内嵌宠物、PetPack 1.0、macOS arm64 DMG 与 Windows x64 ZIP 精确双附件集合。
+- Changed: `v1.0.0` 注解标签固定指向源码提交 `b98a3bf3a0dc692e6f0b88bd34e679bc018bf3fe`，双平台清单提交为 `9bea548`。历史 `v0.6.0` 标签、附件与清单保持不变。
+- Review: PetPack 33 项、Codex 宠物 3 项、Swift 33 项、MSTest 45 项、Swift 严格格式、dotnet format、WPF 零警告构建和 YAML 解析通过。Windows 测试宿主需要本机回环与命名管道权限，获准环境复跑通过，不把受限环境权限错误归因于代码。
+- Review: 冻结 macOS DMG 为 2,133,882 bytes，SHA-256 `f23a7ddf05125f20953e936f094647d98c846ec24af25dfc94b1d65913a5d925`；只读挂载后为 arm64、版本 `1.0.0`、构建 19、严格 ad-hoc 签名且零宠物素材。冻结 Windows ZIP 为 75,279,944 bytes，SHA-256 `c6ffd9a9aa517596e704376c864b7a55cd6180b604501bbcdf9b951fc718b684`；含 292 个文件、AMD64 PE、版本 `1.0.0` 且零宠物素材。
+- Review: macOS build 18 的双宠 60 秒稳定态样本平均 CPU 约 0.74%、常态 0.6%、峰值 2.0%，物理内存 64.7 MB、峰值 67.4 MB。该短时样本不代表所有转场上限。Windows 本轮没有真实 GUI 人工复验，发布授权不改变这一证据边界。GitHub Release 公开与远端附件复验尚未完成。
+
 ## Unreleased macOS about window · 2026-08-23
 
 - Added: macOS 状态菜单在大小和退出之间增加“关于 PetsGraph”。关于窗口显示 App 图标、从当前 bundle 动态读取的版本号与构建号，以及 Player 与独立 `.petpack` 宠物内容的边界说明。

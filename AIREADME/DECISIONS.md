@@ -445,3 +445,11 @@
 - Decision: macOS Player 使用一个主 RunLoop Timer，以全部活动宠物中最快的素材间隔调度，并把同一单调时间传给各自独立的 `PassiveBehaviorSession`。进程只安装一组全局与本地鼠标监听，每个事件仍立即分发给全部可见宠物，拖动继续直接走 `NSView` 回调。隐藏宠物完成不可中断转场到稳定节点后清空图层、展示状态和媒体 store；全部稳定隐藏时停止 Timer 并移除鼠标监听。稳定循环保留全部帧对象，转场只保留最近一帧。
 - Alternatives（否决）: 把正式素材降到 12 FPS；增加 Timer tolerance；节流鼠标移动；把全部宠物绑定到同一个动作状态机；用 Core Animation 关键帧或透明视频替换当前运行时；循环也只缓存最近一帧；把所有循环改成小型 LRU 后接受持续重复创建图像对象。
 - Tradeoff: 多宠不再重复安装系统监听和计时器，稳定隐藏宠物释放渲染资源，长转场不会把全部帧对象长期留在 Core Animation。共享唤醒只减少调度对象，不减少每只宠物应显示的帧，也不改变独立动作时钟；混合帧率时低帧率宠物会随最快 Timer 被检查但只在自身帧变化时提交。正在显示的稳定循环仍以完整帧缓存换取低 CPU 与无抖动播放，内存会随当前循环尺寸变化。
+
+## ADR-056 · v1.0.0 冻结零素材双平台 Player · 2026-08-23
+
+- Problem: 历史 `v0.6.0` 发布链硬编码内嵌五百、飞流和 schema `0.4.0`，不能证明新 Player 的零素材边界、PetPack 1.0 长期契约或应用与宠物内容分离。若继续复用旧清单，会把不存在的内嵌宠物当成正式要求。
+- Constraint: Player Release 只能包含 Apple Silicon macOS 与 Windows x64 两个平台附件，不包含任何 `.petpack`、客户资料或真实宠物媒体；macOS 使用已人工验收的 build 18 播放路径，正式 build 19 只改变版本与包装；Windows 本轮没有真实 GUI 复验，不能由自动化替代；历史标签不得移动。
+- Decision: `v1.0.0` 注解标签固定指向源码提交 `b98a3bf3a0dc692e6f0b88bd34e679bc018bf3fe`。Release 精确包含 `PetsGraph-v1.0.0-macOS-arm64.dmg` 与 `PetsGraph-v1.0.0-Windows-x64.zip`，使用 schema 3 清单固定平台、版本、构建号、零宠物属性、PetPack 1.0 能力、字节数和 SHA-256。公开后的两个验证工作流只用 `contents: read` 下载全部附件，核对精确集合与摘要，再分别验证只读挂载 App 和 AMD64 ZIP。五百与飞流私有候选不随 Player Release 发布，也不因 Player 1.0 自动进入 approved 或 delivery。
+- Alternatives（否决）: 继续沿用 v0.6.0 的内嵌双宠清单；把五百与飞流候选一并公开；只发布 macOS 而遗漏用户要求的 Windows x64；让 GitHub Actions 重新构建另一份未冻结附件；把 Windows Runner 写成真实 GUI 验收；移动历史 `v0.6.0` 标签。
+- Tradeoff: Player 下载体积显著下降，公开源码、应用升级、客户宠物和商业定制边界清楚；首次使用必须另行获得 `.petpack`。Windows 用户得到正式 ZIP，但真实 GUI 风险仍需在后续 Windows 环境中透明记录，不能用版本号掩盖。

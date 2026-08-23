@@ -20,8 +20,8 @@ PetsGraph Player 的目标运行时完全离线，不依赖账号、数据库、
 
 ## 入向（谁用我）
 
-- 当前公开 `v0.6.0` 的 Swift/AppKit 与 .NET/WPF 宿主仍内嵌五百和飞流 schema `0.4.0` 包，这是历史已发布事实，不是下一代分发目标。
-- 下一代 Apple Silicon macOS 与 Windows x64 PetsGraph Player 将消费平台无关 `.petpack`，一包一宠，一个 Player 可同时装载多个包。
+- 历史 `v0.6.0` 的 Swift/AppKit 与 .NET/WPF 宿主仍内嵌五百和飞流 schema `0.4.0` 包，这是回滚事实，不是当前分发目标。
+- `v1.0.0` Apple Silicon macOS 与 Windows x64 PetsGraph Player 消费平台无关 `.petpack`，一包一宠，一个 Player 可同时装载多个包；两个平台附件都不内嵌宠物。
 - 客户自行保留 `.petpack`，装载后 Player 使用内部副本。Player 升级不得损坏或改写已装载正式包。
 - 第三方可以按公开 PetPack 规范制作合规包；首个 1.0 不带签名，未来 Maxwell 官方定制包可以用后续格式的签名表明来源和质量流程，但不通过签名限制离线使用。
 - 当前没有其他项目把 PetsGraph 当作代码或服务依赖。
