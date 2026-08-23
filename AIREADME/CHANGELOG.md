@@ -21,6 +21,7 @@
 - Added: `ded3df1` 将当前可见 clip 的屏幕限位公式提取到核心模块，并新增飞流、五百两种舞台比例与负坐标屏幕回归，26 项 Swift 测试直接证明上下左右极限拖动都让可见裁剪框贴到屏幕边缘。
 - Review: build 8 在 17 分 5 秒时让五百完成趴卧、侧蜷到侧伸展的自主动作链，过渡物理占用为 26.8 MB，进入新稳定循环后为 29.6 MB、约 0.9% CPU，峰值仍为 55.5 MB。
 - Review: build 9 为 `arm64` 零素材 App，主程序 1,213,984 bytes，SHA-256 为 `e7825902a0259b8da4a89f70b81d8a97085ddface6ceb3bf4e2f8ba3369135a1`。安装后十次 CPU 取样平均为 0.98%，物理占用为 55.7 MB、峰值 55.8 MB，画面摘要持续变化；`ded3df1` 的 macOS 运行 `32631375700` 成功。
+- Review: 当前 `main` 再次通过 PetPack 33 项、Codex 宠物 3 项、Swift 26 项和 MSTest 43 项。Python、Swift Build 9 与 C# 三个验证器对五百和飞流候选给出相同包摘要及 clip、node、edge 数；人工拖动入口修正为当前安装的 build 9，菜单、卸载与正常速度视觉结论仍不由自动化替代。
 
 ## Unreleased · 2026-08-23
 

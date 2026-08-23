@@ -187,7 +187,7 @@ DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
 
 `build-portable.sh` 拒绝覆盖同名 ZIP，先用 C# 原生验证器检查公开合成 PetPack，再交叉发布 `win-x64` self-contained 应用，强制产物不含 `Pets/` 或 `.petpack`，最后执行 ZIP 解压测试与 SHA-256。当前本地机械证据：
 
-- 42 项 MSTest 通过，覆盖 store、deflate、未知可选能力与默认权重、严格 ZIP、重复 JSON key、路径越界、大小写冲突、符号链接、摘要不符、canonical copy、cache 重建、首装与更新回滚、进程中断恢复、事务卸载及其注册表提交前后恢复、双宠状态与统一倍率往返、不安全安装索引、损坏设置、独立行为与独立随机时钟、隐藏过渡、RGBA 到 PBGRA、长时间帧索引、全局大小、旧状态迁移和语义版本。
+- 43 项 MSTest 通过，覆盖 store、deflate、未知可选能力与默认权重、严格 ZIP、重复 JSON key、路径越界、大小写冲突、符号链接、摘要不符、canonical copy、cache 重建、首装与更新回滚、进程中断恢复、事务卸载及其注册表提交前后恢复、双宠状态与统一倍率往返、不安全安装索引、损坏设置、独立行为与独立随机时钟、隐藏过渡、RGBA 到 PBGRA、长时间帧索引、全局大小、旧状态迁移、缓存淘汰和语义版本。
 - WPF 与全解决方案 Release 构建为 0 警告、0 错误；`dotnet format` 空白校验通过。
 - C# 原生验证器通过公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选，五个包的 SHA-256 分别与参考验证器和私有转换记录一致。
 - 当前本地零素材 ZIP 为 75,267,412 bytes，SHA-256 为 `6d90aa7cada380a30d8a348cac1a5e3c6806ca67ca08be7a135b31da036abac8`。该 ZIP 可完整解压，主程序由 `file` 识别为 `PE32+ executable (GUI) x86-64`，内部没有 `Pets/` 或 `.petpack`。它只是当前机械证明，不是冻结交付物或 Release 附件。
