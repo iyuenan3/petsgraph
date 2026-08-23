@@ -245,7 +245,7 @@ final class PetWindowController {
     guard timer == nil else { return }
     let interval = tickInterval(for: currentPresentation?.clipID)
     let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
-      Task { @MainActor [weak self] in self?.tick() }
+      MainActor.assumeIsolated { self?.tick() }
     }
     RunLoop.main.add(timer, forMode: .common)
     self.timer = timer
