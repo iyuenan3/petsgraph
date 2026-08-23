@@ -26,6 +26,11 @@ final class PetStageView: NSView {
     frameLayer.contentsGravity = .resize
     frameLayer.minificationFilter = .linear
     frameLayer.magnificationFilter = .linear
+    frameLayer.actions = [
+      "bounds": NSNull(),
+      "contents": NSNull(),
+      "position": NSNull(),
+    ]
     layer?.addSublayer(frameLayer)
   }
 
@@ -153,6 +158,8 @@ final class PetWindowController {
   private var dragStartMouse = NSPoint.zero
   private var dragStartAnchor = NSPoint.zero
   private var didDrag = false
+  private var lastPointerLocation = NSPoint.zero
+  private var ignoresMouseEvents = true
 
   var onAnchorChanged: ((NSPoint) -> Void)?
   var onFault: ((Error) -> Void)?
@@ -206,6 +213,7 @@ final class PetWindowController {
       try session.setVisible(true, at: now)
       petIsVisible = true
       panel.orderFrontRegardless()
+      updatePointer(at: lastPointerLocation)
       startTimer()
     } catch { onFault?(error) }
   }
@@ -215,7 +223,7 @@ final class PetWindowController {
       try session.setVisible(false, at: now)
       petIsVisible = false
       panel.orderOut(nil)
-      panel.ignoresMouseEvents = true
+      setIgnoresMouseEvents(true)
       if session.shouldTickWhenHidden { startTimer() } else { stopTimer() }
     } catch { onFault?(error) }
   }
@@ -290,15 +298,13 @@ final class PetWindowController {
     }
     let store = try store(for: presentation.clipID)
     let image = try store.image(frameIndex: presentation.frameIndex)
-    CATransaction.begin()
-    CATransaction.setDisableActions(true)
+    let clipChanged = currentPresentation?.clipID != presentation.clipID
     stageView.frameLayer.contents = image
-    updateLayerGeometry(for: store.clip)
-    CATransaction.commit()
+    if clipChanged { updateLayerGeometry(for: store.clip) }
     currentPresentation = presentation
     retainStores(for: retainedClipIDs)
     updateTimerInterval(for: presentation.clipID)
-    updatePointer(at: NSEvent.mouseLocation)
+    updatePointer(at: lastPointerLocation)
   }
 
   private func store(for clipID: String) throws -> MappedRGBAClip {
@@ -360,16 +366,22 @@ final class PetWindowController {
   }
 
   private func installPointerMonitors() {
+    lastPointerLocation = NSEvent.mouseLocation
     let mask: NSEvent.EventTypeMask = [
       .mouseMoved, .leftMouseDown, .leftMouseDragged, .leftMouseUp,
     ]
     globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] _ in
-      Task { @MainActor [weak self] in self?.updatePointer(at: NSEvent.mouseLocation) }
+      Task { @MainActor [weak self] in self?.pointerMoved(to: NSEvent.mouseLocation) }
     }
     localMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
-      self?.updatePointer(at: NSEvent.mouseLocation)
+      self?.pointerMoved(to: NSEvent.mouseLocation)
       return event
     }
+  }
+
+  private func pointerMoved(to point: NSPoint) {
+    lastPointerLocation = point
+    updatePointer(at: point)
   }
 
   private func updatePointer(at point: NSPoint) {
@@ -377,7 +389,7 @@ final class PetWindowController {
       let presentation = currentPresentation,
       let store = stores[presentation.clipID]
     else {
-      if !dragging { panel.ignoresMouseEvents = true }
+      if !dragging { setIgnoresMouseEvents(true) }
       return
     }
     let canvas = package.manifest.stage.referenceCanvasPx
@@ -385,12 +397,18 @@ final class PetWindowController {
     let normalizedY = (point.y - panel.frame.minY) / panel.frame.height
     let canvasX = min(canvas[0] - 1, max(0, Int(floor(normalizedX * Double(canvas[0])))))
     let canvasY = min(canvas[1] - 1, max(0, Int(floor((1 - normalizedY) * Double(canvas[1])))))
-    panel.ignoresMouseEvents =
+    setIgnoresMouseEvents(
       store.alpha(
         frameIndex: presentation.frameIndex,
         canvasX: canvasX,
         canvasY: canvasY
-      ) <= 0.05
+      ) <= 0.05)
+  }
+
+  private func setIgnoresMouseEvents(_ value: Bool) {
+    guard ignoresMouseEvents != value else { return }
+    ignoresMouseEvents = value
+    panel.ignoresMouseEvents = value
   }
 
   private func beginDrag(at point: NSPoint) {
@@ -398,7 +416,7 @@ final class PetWindowController {
     didDrag = false
     dragStartMouse = point
     dragStartAnchor = anchor
-    panel.ignoresMouseEvents = false
+    setIgnoresMouseEvents(false)
   }
 
   private func continueDrag(to point: NSPoint) {
