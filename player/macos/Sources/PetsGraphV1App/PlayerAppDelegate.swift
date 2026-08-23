@@ -453,6 +453,14 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
   }
 
   private func persistState() {
+    for (id, controller) in controllers {
+      state.captureRuntimePet(
+        packageID: id,
+        visible: controller.petIsVisible,
+        anchorX: controller.anchor.x,
+        anchorY: controller.anchor.y
+      )
+    }
     do {
       try stateStore.save(state)
       settingsSaveAlertShown = false

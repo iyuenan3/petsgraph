@@ -54,4 +54,17 @@ public struct PlayerState: Codable, Equatable, Sendable {
       )
     )
   }
+
+  public mutating func captureRuntimePet(
+    packageID: String,
+    visible: Bool,
+    anchorX: Double,
+    anchorY: Double
+  ) {
+    var pet = pets[packageID] ?? PetPlayerState()
+    pet.visible = visible
+    pet.anchorX = anchorX.isFinite ? anchorX : nil
+    pet.anchorY = anchorY.isFinite ? anchorY : nil
+    pets[packageID] = pet
+  }
 }

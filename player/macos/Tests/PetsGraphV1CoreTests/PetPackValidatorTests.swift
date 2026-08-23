@@ -183,6 +183,26 @@ final class PetPackValidatorTests: XCTestCase {
     XCTAssertEqual(PlayerState(globalScale: 1.1).globalScale, 1)
   }
 
+  func testPlayerStateCapturesClampedRuntimePositionBeforeSaving() {
+    var state = PlayerState(
+      pets: [
+        "wubai": PetPlayerState(visible: false, anchorX: -10_000, anchorY: 10_000)
+      ]
+    )
+
+    state.captureRuntimePet(
+      packageID: "wubai",
+      visible: true,
+      anchorX: 86.75,
+      anchorY: -31.6875
+    )
+
+    XCTAssertEqual(
+      state.pets["wubai"],
+      PetPlayerState(visible: true, anchorX: 86.75, anchorY: -31.6875)
+    )
+  }
+
   func testLegacyMigrationKeepsOnlyPositionAndResetsVisibility() {
     let migrated = PlayerState.migratedLegacyPet(anchorX: 123, anchorY: 456)
 
