@@ -38,6 +38,7 @@
 - Review: build 13 为 `arm64` 零素材 App，主程序 1,216,288 bytes，SHA-256 为 `65fb9b16f90f90ea85e5efac83de00556a27a09b97fccb843e8787f64aabd479`；26 项 Swift 测试、严格格式、构建后与安装后签名均通过。安装态两个宠物窗口实际层级为 21，高于 Dock 的 20，低于系统主菜单的 24；远端 macOS 运行 `32634129068` 成功。真实 Dock 前方显示和拖动可达仍需用户确认。
 - Review: 完整机械复验再次通过 PetPack 33 项、Codex 宠物 3 项、Swift 26 项、MSTest 43 项、Swift 与 .NET 格式检查，以及 Windows 全解决方案 0 警告、0 错误构建。Python、Swift 与 C# 对五百候选共同给出 `14f719b...`、36 clip、12 node、26 edge，对飞流候选共同给出 `f0308cd...`、25 clip、9 node、16 edge；公开 Git 和 Player 仍不包含私有目录或真实宠物媒体。
 - Review: 当前屏幕 Dock 占用底部 89 点，两只宠物窗口底部已经进入该区域，实际层级仍为宠物 21、Dock 20、主菜单 24，直接证明 Dock 前方堆叠。build 13 运行约 14 分钟后，后 9 次 CPU 取样平均为 0.70%，物理占用为 54.3 MB、峰值 55.1 MB，只映射双宠各自当前循环。Computer Use 拖动仍返回 `AXError.notImplemented`，不能替代真实鼠标验收。
+- Review: 用户在 build 13 上使用真实鼠标确认宠物可以从 Dock 区域拖出，Dock 遮挡和拖出可达不再是当前人工门禁。上下左右四边贴靠与重启保持仍需单独确认。
 
 ## Unreleased · 2026-08-23
 
