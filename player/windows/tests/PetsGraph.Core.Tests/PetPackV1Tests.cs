@@ -703,6 +703,17 @@ public sealed class PetPackV1Tests
     }
 
     [TestMethod]
+    public void PlayerScaleOptionsUseExactStableLabels()
+    {
+        CollectionAssert.AreEqual(
+            new[] { "0.5", "0.75", "1.0", "1.25", "1.5", "1.75", "2.0" },
+            PlayerState.ScaleOptions.Select(option => option.Label).ToArray());
+        CollectionAssert.AreEqual(
+            PlayerState.AllowedScales,
+            PlayerState.ScaleOptions.Select(option => option.Value).ToArray());
+    }
+
+    [TestMethod]
     public void LegacyMigrationKeepsOnlyPositionAndResetsVisibility()
     {
         var migrated = PlayerState.MigratedLegacyPet(123, 456);

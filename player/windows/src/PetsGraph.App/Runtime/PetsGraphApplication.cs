@@ -105,12 +105,12 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
         menu.Items.Add(new Forms.ToolStripSeparator());
 
         var sizes = new Forms.ToolStripMenuItem("大小");
-        foreach (var value in PlayerState.AllowedScales)
+        foreach (var option in PlayerState.ScaleOptions)
         {
-            var item = new Forms.ToolStripMenuItem($"{value:0.##}×")
+            var item = new Forms.ToolStripMenuItem($"{option.Label}×")
             {
-                Checked = Math.Abs(state.GlobalScale - value) < 0.000001,
-                Tag = value,
+                Checked = Math.Abs(state.GlobalScale - option.Value) < 0.000001,
+                Tag = option.Value,
             };
             item.Click += (_, _) => SetGlobalScale((double)item.Tag);
             sizes.DropDownItems.Add(item);
