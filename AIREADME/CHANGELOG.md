@@ -470,3 +470,11 @@
 
 - Changed: 将严格签名和零素材检查通过的 `/private/tmp/PetsGraph-0.7.0-review3.app` 可恢复安装到 `/Applications/PetsGraph.app`，原构建 2 移入系统回收站保留。宠物库、cache、位置和设置均未删除。
 - Review: 安装后二进制版本为 `0.7.0-review`、构建号 3，主程序 SHA-256 为 `ce6717898384ff42c9ba40175ebb7640aa83ce2b1d8946cd67e59659985a7520`。严格签名、arm64、仅图标资源和基线、前向兼容、五百、飞流四包原生校验通过。Mac 仍锁屏，GUI 启动和真实宠物观看继续保持未通过。
+
+## Unreleased macOS review build 4 memory and desktop verification · 2026-08-23
+
+- Fixed: macOS 启动和包校验的流式 `FileHandle.read` 循环增加逐块 `autoreleasepool`，避免 AppKit 事件循环开始前的 Foundation 临时缓冲累计到完整媒体体积。对同一五百候选执行原生校验，最大常驻内存由 build 3 的 2,162,049,024 bytes 降至 build 4 的 19,333,120 bytes。
+- Added: macOS 与 Windows 各增加一项确定性独立随机时钟回归。Swift 22 项、MSTest 39 项、格式检查和远端运行 `32626076785`、`32626076781` 全部通过。
+- Changed: `/private/tmp/PetsGraph-0.7.0-review4.app` 已可恢复安装到 `/Applications/PetsGraph.app`，build 3 移入系统回收站。安装后二进制版本 `0.7.0-review`、构建号 4、arm64、1,209,088 bytes，SHA-256 为 `db70b62c0c6e4ba1d277126d6b54cb88541342d54582b6effbc06b90f293b326`，严格签名、零素材和四包原生校验通过。
+- Fixed: GUI 自动化遗留的 `Synthetic Cat` 合成夹具是桌面彩色色块闪烁的来源，不是空播放器背景。测试资料库已完整移入系统回收站，真正空库启动没有宠物窗口；随后只装载五百与飞流候选。
+- Review: build 4 双宠 GUI 运行 21 秒后的物理占用为 55.8 MB，稳定取样约 3.3% CPU，只有一个进程且没有当天崩溃报告。两只默认睡眠循环各 4 个正常速度样本都随呼吸变化，隐藏状态与统一倍率可跨重启恢复。状态栏菜单、透明命中拖动、卸载、完整动作链长时间观看和用户视觉批准仍是人工门禁；Windows x64 真实 GUI 按用户当前指示暂缓。

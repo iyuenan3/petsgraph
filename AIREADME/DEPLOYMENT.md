@@ -119,15 +119,17 @@ python3 player/macos/scripts/build-app.py \
   --version 0.7.0-dev
 ```
 
-当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。输出只能位于仓库或系统临时目录，人工安装候选优先放在 `/private/tmp`。Desktop 的 File Provider 可能在签名后异步重新加入 `com.apple.FinderInfo`，导致严格签名复验失败，所以不要把 Desktop 同步目录当作安装候选事实源。构建器在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 33 项公开 PetPack 回归、21 项 Swift 测试并上传保留 7 天的代码开发 App。
+当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。输出只能位于仓库或系统临时目录，人工安装候选优先放在 `/private/tmp`。Desktop 的 File Provider 可能在签名后异步重新加入 `com.apple.FinderInfo`，导致严格签名复验失败，所以不要把 Desktop 同步目录当作安装候选事实源。构建器在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 33 项公开 PetPack 回归、22 项 Swift 测试并上传保留 7 天的代码开发 App。
 
 本地已验证：
 
-- Swift 严格警告编译与 21 项测试通过，新增回归证明旧运行时只迁移位置和全局大小，不迁移旧显示状态，并覆盖首装、更新与进程中断回滚、事务卸载、损坏设置和行为预加载失败。
+- Swift 严格警告编译与 22 项测试通过，新增回归证明每只宠物按独立随机时钟推进，并继续覆盖旧运行时只迁移位置和全局大小、首装、更新与进程中断回滚、事务卸载、损坏设置和行为预加载失败。
 - 公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
 - App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
 - App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
-- 当前最终审查 App 从 `/private/tmp/PetsGraph-0.7.0-review3.app` 安装到 `/Applications/PetsGraph.app`，版本 `0.7.0-review`、构建号 3，主程序为 1,208,928 bytes，SHA-256 为 `ce6717898384ff42c9ba40175ebb7640aa83ce2b1d8946cd67e59659985a7520`。延迟 5 秒与安装后的严格签名复验通过，App 资源只有 `PetsGraph.icns`。安装后二进制通过基线、前向兼容、五百和飞流四包原生校验。Mac 锁屏仍阻断 GUI 启动，所以它不是 GUI 验收结论、冻结交付物或 Release 附件。
+- 当前最终审查 App 从 `/private/tmp/PetsGraph-0.7.0-review4.app` 安装到 `/Applications/PetsGraph.app`，版本 `0.7.0-review`、构建号 4，主程序为 1,209,088 bytes，SHA-256 为 `db70b62c0c6e4ba1d277126d6b54cb88541342d54582b6effbc06b90f293b326`。延迟 5 秒与安装后的严格签名复验通过，App 资源只有 `PetsGraph.icns`。安装后二进制通过基线、前向兼容、五百和飞流四包原生校验；构建 3 已可恢复移入系统回收站。
+- build 4 已在真实 macOS 桌面启动五百与飞流。对两只默认睡眠循环分别取得 4 个正常速度画面摘要，画面持续缓慢变化且锚点不动；通过设置状态重启验证了单只隐藏、双宠显示、1.0 与 2.0 全局倍率恢复。自动化测试留下的 `Synthetic Cat` 彩色夹具资料库已完整移入系统回收站，真正空库启动没有宠物窗口。
+- 同一五百候选的原生 `--validate-only` A/B 中，build 3 最大常驻内存为 2,162,049,024 bytes，build 4 为 19,333,120 bytes。双宠 GUI 的 `vmmap` 物理占用由修前 1.6 GB 降至 55.8 MB，稳定取样约 3.3% CPU，唯一当前进程没有崩溃报告。该结果只覆盖默认睡眠循环，不替代长时间过渡、菜单、透明命中、拖动、卸载和用户视觉批准。
 
 上述结果不替代真实 macOS 桌面上的菜单、拖动、透明命中、多宠并发、隐藏恢复、应用升级保留和正常速度视觉验收。
 
@@ -177,7 +179,7 @@ DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
 
 `build-portable.sh` 拒绝覆盖同名 ZIP，先用 C# 原生验证器检查公开合成 PetPack，再交叉发布 `win-x64` self-contained 应用，强制产物不含 `Pets/` 或 `.petpack`，最后执行 ZIP 解压测试与 SHA-256。当前本地机械证据：
 
-- 38 项 MSTest 通过，覆盖 store、deflate、未知可选能力与默认权重、严格 ZIP、重复 JSON key、路径越界、大小写冲突、符号链接、摘要不符、canonical copy、cache 重建、首装与更新回滚、进程中断恢复、事务卸载、不安全安装索引、损坏设置、独立行为、隐藏过渡、RGBA 到 PBGRA、长时间帧索引、全局大小、旧状态迁移和语义版本。
+- 39 项 MSTest 通过，覆盖 store、deflate、未知可选能力与默认权重、严格 ZIP、重复 JSON key、路径越界、大小写冲突、符号链接、摘要不符、canonical copy、cache 重建、首装与更新回滚、进程中断恢复、事务卸载、不安全安装索引、损坏设置、独立行为与独立随机时钟、隐藏过渡、RGBA 到 PBGRA、长时间帧索引、全局大小、旧状态迁移和语义版本。
 - WPF 与全解决方案 Release 构建为 0 警告、0 错误；`dotnet format` 空白校验通过。
 - C# 原生验证器通过公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选，五个包的 SHA-256 分别与参考验证器和私有转换记录一致。
 - 当前本地零素材 ZIP 为 75,267,412 bytes，SHA-256 为 `6d90aa7cada380a30d8a348cac1a5e3c6806ca67ca08be7a135b31da036abac8`。该 ZIP 可完整解压，主程序由 `file` 识别为 `PE32+ executable (GUI) x86-64`，内部没有 `Pets/` 或 `.petpack`。它只是当前机械证明，不是冻结交付物或 Release 附件。
@@ -242,7 +244,7 @@ python3 codexpets/tools/manage.py install feiliu-hatch-native-v1
 - 历史标签、Release、五百 PNG 基线和飞流制作事实源保留，不覆盖或删除。
 - 正式媒体不进入 Git 历史，只保留小型清单、构建器与验证逻辑。
 - 重复启动由每用户进程锁在加载大媒体前退出，避免出现两个 PetsGraph 进程。
-- App 只使用一个共享 24 Hz 渲染 Timer，每只宠物仍拥有独立行为会话和随机时钟。
+- 当前两个 Player 的 As-built 都由每个宠物窗口持有 60 Hz UI Timer，只在 clip 或帧实际变化时提交画面；每只宠物拥有独立行为会话和随机时钟。共享低开销 scheduler 仍是后续多宠优化目标，不能把历史 24 Hz 实现描述为当前事实。
 - 双宠长期 CPU 与内存继续收集真实数据。性能结论必须注明唯一 PID、测量工具、稳定睡眠或过渡场景，不能把旧 AppTranslocation 进程计入当前版本。
 - 下一版如改变素材、位置、体型、窗口命中、动作图或发布附件，必须重跑相应自动检查和真实桌面人工闸门。
 - Windows 历史候选 ZIP 已清理，不用旧哈希冒充最新产物。后续重建写入 `.local/dist/builds/`，必须使用新版本名并重新记录字节数和 SHA-256，已上传的正式附件不原位覆盖。
