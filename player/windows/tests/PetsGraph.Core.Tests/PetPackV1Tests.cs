@@ -9,6 +9,14 @@ namespace PetsGraph.Core.Tests;
 [TestClass]
 public sealed class PetPackV1Tests
 {
+    [TestMethod]
+    public void PlayerAboutInfoFormatsVersionAndSafeFallback()
+    {
+        Assert.AreEqual("版本 1.0.0", new PlayerAboutInfo(" 1.0.0 ").VersionLine);
+        Assert.AreEqual("开发版本", new PlayerAboutInfo(null).VersionLine);
+        Assert.AreEqual("开发版本", new PlayerAboutInfo("   ").VersionLine);
+    }
+
     private static string FixturePath => Path.Combine(AppContext.BaseDirectory, "synthetic-cat-v1.petpack");
     private static string ForwardFixturePath =>
         Path.Combine(AppContext.BaseDirectory, "synthetic-cat-forward-v1.petpack");

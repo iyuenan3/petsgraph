@@ -2,24 +2,24 @@
 
 <img src="assets/brand/petsgraph-logo.png" alt="PetsGraph 图标" width="128" height="128">
 
-PetsGraph 正在重构为面向宠物离世纪念场景的开源多宠播放器。主人不需要与宠物互动，只会在桌面固定位置看到熟悉的宠物按照自己的节奏睡觉、换姿、吃饭、舔毛或看向窗外。
+PetsGraph 是面向宠物离世纪念场景的开源多宠播放器。主人不需要与宠物互动，只会在桌面固定位置看到熟悉的宠物按照自己的节奏睡觉、换姿、吃饭、舔毛或看向窗外。
 
 核心目标不是动作数量，而是生命感：真实身份、自然承重、缓慢节奏、连续动作和没有卡帧、闪动或硬切的长期陪伴。
 
 ## 当前状态
 
-产品方向和本轮架构重构已经完成。PetPack 1.0 的公开 schema、标准库验证器、合成夹具和安全回归已经实现。五百与飞流已经从旧批准包确定性转换出私有候选 `.petpack`，媒体字节保持不变。Apple Silicon macOS 与 Windows x64 `0.7.0-dev` 均已实现原生 PetPack 校验、canonical 宠物库、被动行为会话、固定舞台、多宠窗口和目标菜单，并能构建零宠物素材应用。macOS build 16 已完成卸载、重新装载、显示、隐藏、目标状态灰显、Dock 区域拖出、上下左右四边贴靠、`0.5` 至 `2.0` 七档全局大小、重启保持、`1.25×` 与 `1.75×` 精确菜单标签、透明区域点击穿透、宠物点击无动作和正常速度视觉验收。双宠独立时钟、自主换姿、有界缓存和长期资源表现均有实际运行证据，内部资料库保存两份逐字节匹配原件的包。Windows x64 已完成同包机械一致性、44 项测试、零警告构建和零素材 ZIP，真实 GUI 按当前计划暂缓。五百与飞流仍保留为私有候选，不提前进入正式交付；下一代 Player 也尚未发布 `1.0.0`。
+`v1.0.0` 是新架构的首个正式 Player 版本。PetPack 1.0 的公开 schema、参考验证器、合成夹具和安全回归已经实现。Apple Silicon macOS 与 Windows x64 均支持原生 PetPack 校验、canonical 宠物库、被动行为会话、固定舞台、多宠窗口和目标菜单，两个发布包都不包含真实宠物素材。macOS 已完成卸载重装、显示隐藏、菜单灰显、Dock 区域拖出、四边贴靠、七档全局大小、重启保持、透明点击穿透、正常速度动作和双宠长期资源验收。Windows x64 已完成 45 项测试、零警告构建、AMD64 PE、零素材 ZIP 和 PetPack 原生校验；本轮没有新增真实 Windows GUI 人工复验，具体边界见发布说明。
 
-当前公开的 `v0.6.0` 仍是历史双宠架构：
+历史 `v0.6.0` 仍保留为旧双宠架构回滚版本：
 
 - Apple Silicon macOS 与 Windows 11 x64。
 - 安装包内嵌五百和飞流。
 - 使用旧 `.petsgraph-pet` schema `0.4.0`。
 - 仍包含点击坐立、指定睡姿和历史 root motion 能力。
 
-这些发布物继续可用并作为迁移基线，但不代表下一代产品仍保留上述交互。
+这些历史发布物继续可用并作为迁移基线，但不代表 `v1.0.0` 仍保留上述交互。
 
-[下载 Windows 11 x64 v0.6.0](https://github.com/iyuenan3/petsgraph/releases/download/v0.6.0/PetsGraph-v0.6.0-Windows-x64.zip) · [下载 Apple Silicon macOS v0.6.0](https://github.com/iyuenan3/petsgraph/releases/download/v0.6.0/PetsGraph-v0.6.0-macOS-arm64.dmg) · [查看历史发布说明](https://github.com/iyuenan3/petsgraph/releases/tag/v0.6.0)
+[下载 Windows x64 v1.0.0](https://github.com/iyuenan3/petsgraph/releases/download/v1.0.0/PetsGraph-v1.0.0-Windows-x64.zip) · [下载 Apple Silicon macOS v1.0.0](https://github.com/iyuenan3/petsgraph/releases/download/v1.0.0/PetsGraph-v1.0.0-macOS-arm64.dmg) · [查看 v1.0.0 发布说明](docs/releases/v1.0.0.md)
 
 ## 下一代产品结构
 
@@ -94,6 +94,7 @@ Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公
 大小
   0.5 至 2.0
 
+关于 PetsGraph
 退出 PetsGraph
 ```
 
@@ -101,23 +102,25 @@ Seedance、Seedream、GPT Image 制作工具、提示词、客户资料、未公
 
 下一代 macOS 开发版既可从状态栏选择“装载宠物包…”，也可在访达中直接双击 `.petpack`；两种入口使用同一套校验、原子装载和失败回滚逻辑。
 
-## 当前 v0.6.0 安装
+## v1.0.0 安装
 
 ### Windows 11 x64
 
-1. 下载并完整解压 `PetsGraph-v0.6.0-Windows-x64.zip`。
-2. 不要只把 `PetsGraph.exe` 拖出目录，旧版本需要同目录中的运行文件和 `Pets` 文件夹。
-3. 双击 `PetsGraph.exe`。当前版本没有代码签名，可能出现 SmartScreen 提示。
-4. SHA-256：`90578d6620ef9c221c173b173c24631d6e756b372b532030f8669994d22b0015`。
+1. 下载并完整解压 `PetsGraph-v1.0.0-Windows-x64.zip`。
+2. 不要只把 `PetsGraph.exe` 拖出目录，self-contained 运行文件必须保持在同一目录。
+3. 双击 `PetsGraph.exe`，然后从系统托盘装载 `.petpack`。当前版本没有代码签名，可能出现 SmartScreen 提示。
+4. 发布物不包含五百、飞流或其他宠物，宠物包需要单独获得并自行长期保存。
 
 下一代 Windows 开发版说明见 [`player/windows/README-Windows.md`](player/windows/README-Windows.md)。
 
 ### Apple Silicon macOS
 
-1. 下载并打开 `PetsGraph-v0.6.0-macOS-arm64.dmg`。
+1. 下载并打开 `PetsGraph-v1.0.0-macOS-arm64.dmg`。
 2. 把 `PetsGraph.app` 拖入“应用程序”。
 3. 当前版本使用 ad-hoc 签名、没有 Apple 公证。首次启动如被阻止，在 Finder 中右键选择“打开”，或在“系统设置 > 隐私与安全性”确认。
-4. SHA-256：`04c6f30e35d7dd8b5b096d0051aad628987d59b8245d84060cf704f02709b159`。
+4. 从状态栏菜单装载 `.petpack`，也可以在访达中直接双击 `.petpack`。
+
+两个附件的精确字节数和 SHA-256 记录在 [`release/manifests/v1.0.0.json`](release/manifests/v1.0.0.json)。
 
 ## 当前仓库结构与目标目录
 
@@ -153,8 +156,9 @@ Swift：
 ```bash
 bash player/macos/scripts/test.sh
 python3 player/macos/scripts/build-app.py \
-  --output .local/dist/builds/PetsGraph-0.7.0-dev.app \
-  --version 0.7.0-dev
+  --output .local/dist/builds/PetsGraph-1.0.0.app \
+  --version 1.0.0 \
+  --build-number 19
 ```
 
 Windows 核心与 WPF：
@@ -164,7 +168,7 @@ DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet test player/windows/
 DOTNET_CLI_HOME=/tmp/petsgraph-dotnet-home ~/.dotnet/dotnet build player/windows/PetsGraph.slnx -c Release
 ```
 
-Swift 与 Windows 命令分别验证两个 `0.7.0-dev` Player 的 PetPack 1.0 原生装载、canonical 库、行为状态机和零素材构建，但都不替代真实桌面人工观看。下一步验收路线见 [`AIREADME/ROADMAP.md`](AIREADME/ROADMAP.md)。
+Swift 与 Windows 命令分别验证两个 `1.0.0` Player 的 PetPack 1.0 原生装载、canonical 库、行为状态机和零素材构建。自动化与跨平台打包不替代真实桌面人工观看，平台验收边界见 [`docs/releases/v1.0.0.md`](docs/releases/v1.0.0.md)。
 
 2026-08-23 的逐项重构证据、开发产物摘要和人工门禁见 [`docs/audits/refactor-2026-08-23.md`](docs/audits/refactor-2026-08-23.md)。
 

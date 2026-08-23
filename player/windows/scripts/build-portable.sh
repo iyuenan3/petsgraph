@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-version="${PETSGRAPH_VERSION:-0.7.0-dev}"
+version="${PETSGRAPH_VERSION:-1.0.0}"
 default_zip="$repo_root/.local/dist/builds/PetsGraph-v${version}-Windows-x64.zip"
 output_zip="${PETSGRAPH_OUTPUT_ZIP:-$default_zip}"
 dotnet_bin="${DOTNET_BIN:-dotnet}"
@@ -34,6 +34,9 @@ DOTNET_CLI_HOME="${DOTNET_CLI_HOME:-/private/tmp/petsgraph-dotnet-home}" \
   -p:NuGetAudit=false \
   -p:RestoreLockedMode=true \
   -p:Version="$version" \
+  -p:FileVersion="$version.0" \
+  -p:AssemblyVersion="$version.0" \
+  -p:InformationalVersion="$version" \
   --output "$publish_dir"
 
 cp "$repo_root/player/windows/README-Windows.md" "$publish_dir/README-Windows.md"

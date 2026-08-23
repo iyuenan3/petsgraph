@@ -26,8 +26,8 @@ SIGNING_DETRITUS_XATTRS = {
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--version", default="0.7.0-dev")
-    parser.add_argument("--build-number", default="1")
+    parser.add_argument("--version", default="1.0.0")
+    parser.add_argument("--build-number", default="19")
     parser.add_argument("--app-name", default="PetsGraph")
     parser.add_argument("--bundle-identifier", default="com.maxwell.petsgraph")
     return parser.parse_args()

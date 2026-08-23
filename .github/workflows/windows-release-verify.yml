@@ -27,7 +27,7 @@ jobs:
         shell: pwsh
         run: |
           if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') {
-            throw "Expected a semantic version tag such as v0.6.0"
+            throw "Expected a semantic version tag such as v1.0.0"
           }
 
       - name: Check out the release contract
@@ -35,105 +35,93 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify tag and release manifest
+      - name: Check out immutable release source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          path: release-source
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: release-source/player/windows/global.json
+          cache: true
+          cache-dependency-path: release-source/player/windows/**/packages.lock.json
+
+      - name: Verify tag and zero-pet manifest
         shell: pwsh
         run: |
           $tagCommit = (git rev-list -n 1 $env:RELEASE_TAG).Trim()
           git merge-base --is-ancestor $tagCommit HEAD
           if ($LASTEXITCODE -ne 0) { throw "Tag is not an ancestor of the release contract" }
-
           $manifestPath = "release/manifests/$env:RELEASE_TAG.json"
-          if (-not (Test-Path $manifestPath)) { throw "Release manifest missing: $manifestPath" }
+          if (-not (Test-Path $manifestPath)) { throw "Release manifest missing" }
           $manifest = Get-Content -Raw $manifestPath | ConvertFrom-Json
-          $artifacts = @($manifest.artifacts)
-          $embeddedPets = @($manifest.embeddedPets)
-          $platforms = @($manifest.platforms | Where-Object { $_.id -eq "windows-11-x64" })
-          $zipArtifacts = @($artifacts | Where-Object { $_.platform -eq "windows-11-x64" -and $_.kind -eq "portable-zip" })
-
-          if ($manifest.tag -ne $env:RELEASE_TAG) { throw "Manifest tag mismatch" }
-          if ($manifest.schema -ne 2) { throw "Expected dual-platform manifest schema 2" }
+          $platforms = @($manifest.platforms | Where-Object { $_.id -eq "windows-x64" })
+          $zipArtifacts = @($manifest.artifacts | Where-Object { $_.platform -eq "windows-x64" -and $_.kind -eq "portable-zip" })
+          if ($manifest.schema -ne 3 -or $manifest.tag -ne $env:RELEASE_TAG -or $manifest.version -ne $env:RELEASE_TAG.Substring(1)) { throw "Manifest identity mismatch" }
           if ($manifest.sourceTagCommit -ne $tagCommit) { throw "Source tag commit mismatch" }
-          if ($platforms.Count -ne 1) { throw "Expected one windows-11-x64 platform" }
-          if ($platforms[0].runtime -ne "net10.0-windows") { throw "Expected net10.0-windows runtime" }
-          if ($platforms[0].distribution -ne "portable-zip") { throw "Expected portable-zip distribution" }
-          if ($platforms[0].signed -ne $false) { throw "Expected unsigned Windows release" }
-          if ($manifest.runtimeChainStatus -ne "runtime-chain-approved") { throw "Runtime chain is not approved" }
-          if ($manifest.installable -ne $true) { throw "Release is not installable" }
-          if ($embeddedPets.Count -ne 2) { throw "Expected exactly two embedded pets" }
-          if ($zipArtifacts.Count -ne 1) {
-            throw "Expected exactly one portable ZIP artifact"
-          }
-      - name: Download exact ZIP from public release
+          if ($manifest.player.zeroPet -ne $true -or $manifest.player.embeddedPetCount -ne 0) { throw "Expected zero-pet Player" }
+          if (@($manifest.player.petpackFormatVersions).Count -ne 1 -or $manifest.player.petpackFormatVersions[0] -ne "1.0.0") { throw "PetPack format mismatch" }
+          if ($platforms.Count -ne 1 -or $platforms[0].architecture -ne "x64" -or $platforms[0].minimumSystemVersion -ne "Windows 11") { throw "Windows platform mismatch" }
+          if ($platforms[0].runtime -ne "net10.0-windows" -or $platforms[0].distribution -ne "portable-zip" -or $platforms[0].signed -ne $false) { throw "Windows runtime mismatch" }
+          if ($zipArtifacts.Count -ne 1) { throw "Expected one Windows ZIP" }
+
+      - name: Run Windows release tests
+        shell: pwsh
+        working-directory: release-source
+        run: |
+          dotnet restore player/windows/PetsGraph.slnx --locked-mode
+          dotnet test player/windows/tests/PetsGraph.Core.Tests/PetsGraph.Core.Tests.csproj --configuration Release --no-restore
+          dotnet build player/windows/src/PetsGraph.App/PetsGraph.App.csproj --configuration Release --no-restore
+
+      - name: Confirm public release and download exact assets
         shell: pwsh
         run: |
           $manifest = Get-Content -Raw "release/manifests/$env:RELEASE_TAG.json" | ConvertFrom-Json
-          $asset = @($manifest.artifacts | Where-Object { $_.platform -eq "windows-11-x64" -and $_.kind -eq "portable-zip" })[0].file
           $isDraft = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isDraft --jq .isDraft
-          if ($LASTEXITCODE -ne 0 -or $isDraft -ne "false") { throw "Release must be public" }
-
-          $declaredAssets = @($manifest.artifacts.file | Sort-Object)
-          $actualAssets = @(gh release view $env:RELEASE_TAG `
-            --repo $env:GITHUB_REPOSITORY `
-            --json assets `
-            --jq '.assets[].name' | Sort-Object)
-          if ($LASTEXITCODE -ne 0) { throw "Failed to read public release assets" }
-          if (@(Compare-Object $declaredAssets $actualAssets).Count -ne 0) {
-            throw "Public release asset set does not match the manifest"
+          $isPrerelease = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isPrerelease --jq .isPrerelease
+          if ($isDraft -ne "false" -or $isPrerelease -ne "false") { throw "Release must be public and final" }
+          $declared = @($manifest.artifacts.file | Sort-Object)
+          $actual = @(gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json assets --jq '.assets[].name' | Sort-Object)
+          if (@(Compare-Object $declared $actual).Count -ne 0) { throw "Release asset set mismatch" }
+          New-Item -ItemType Directory -Path "$env:RUNNER_TEMP/release-download" | Out-Null
+          foreach ($artifact in $manifest.artifacts) {
+            gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --pattern $artifact.file --dir "$env:RUNNER_TEMP/release-download"
+            if ($LASTEXITCODE -ne 0) { throw "Failed to download $($artifact.file)" }
+            $path = Join-Path "$env:RUNNER_TEMP/release-download" $artifact.file
+            if ((Get-Item $path).Length -ne [int64]$artifact.bytes) { throw "Byte count mismatch for $($artifact.file)" }
+            if ((Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $artifact.sha256) { throw "SHA-256 mismatch for $($artifact.file)" }
           }
 
-          New-Item -ItemType Directory -Path "$env:RUNNER_TEMP/release-download" | Out-Null
-          gh release download $env:RELEASE_TAG `
-            --repo $env:GITHUB_REPOSITORY `
-            --pattern $asset `
-            --dir "$env:RUNNER_TEMP/release-download"
-          if ($LASTEXITCODE -ne 0) { throw "Failed to download $asset" }
-
-      - name: Verify ZIP, digest, x64 PE, packages, and runtime integrity
+      - name: Verify zero-pet Windows x64 runtime
         shell: pwsh
         run: |
           $manifest = Get-Content -Raw "release/manifests/$env:RELEASE_TAG.json" | ConvertFrom-Json
-          $artifact = @($manifest.artifacts | Where-Object { $_.platform -eq "windows-11-x64" -and $_.kind -eq "portable-zip" })[0]
+          $artifact = @($manifest.artifacts | Where-Object { $_.platform -eq "windows-x64" -and $_.kind -eq "portable-zip" })[0]
           $zip = Join-Path "$env:RUNNER_TEMP/release-download" $artifact.file
-          $actualBytes = (Get-Item $zip).Length
-          $actualHash = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actualBytes -ne [int64]$artifact.bytes) { throw "ZIP byte count mismatch" }
-          if ($actualHash -ne $artifact.sha256) { throw "ZIP SHA-256 mismatch" }
-
           $extract = Join-Path $env:RUNNER_TEMP "petsgraph-release-verify"
           Expand-Archive -Path $zip -DestinationPath $extract
           $root = Join-Path $extract "PetsGraph"
           $exe = Join-Path $root "PetsGraph.exe"
-          $versionFile = Join-Path $root "VERSION.txt"
           if (-not (Test-Path $exe)) { throw "PetsGraph.exe missing" }
-          if (-not (Test-Path $versionFile)) { throw "VERSION.txt missing" }
-          if ((Get-Content -Raw $versionFile).Trim() -ne $manifest.version) { throw "Version file mismatch" }
-
-          $packages = @(Get-ChildItem -Path (Join-Path $root "Pets") -Directory -Filter "*.petsgraph-pet")
-          if ($packages.Count -ne @($manifest.embeddedPets).Count) {
-            throw "Embedded package count does not match manifest"
-          }
-
+          if ((Get-Content -Raw (Join-Path $root "VERSION.txt")).Trim() -ne $manifest.version) { throw "VERSION.txt mismatch" }
+          if (Test-Path (Join-Path $root "Pets")) { throw "Zero-pet runtime contains Pets directory" }
+          if (Get-ChildItem -Path $root -Recurse -File -Filter "*.petpack") { throw "Zero-pet runtime contains PetPack media" }
           $stream = [System.IO.File]::OpenRead($exe)
           try {
             $reader = [System.IO.BinaryReader]::new($stream)
             $stream.Position = 0x3c
             $peOffset = $reader.ReadInt32()
             $stream.Position = $peOffset
-            if ($reader.ReadUInt32() -ne 0x00004550) { throw "Invalid PE signature" }
-            if ($reader.ReadUInt16() -ne 0x8664) { throw "Expected AMD64 PE machine" }
+            if ($reader.ReadUInt32() -ne 0x00004550 -or $reader.ReadUInt16() -ne 0x8664) { throw "Expected AMD64 PE" }
           }
-          finally {
-            $stream.Dispose()
-          }
-
-          $process = Start-Process $exe `
-            -ArgumentList "--validate-only", "--verify-integrity", "--pets-dir", ('"' + (Join-Path $root "Pets") + '"') `
-            -Wait `
-            -PassThru
-          if ($process.ExitCode -ne 0) {
-            throw "PetsGraph runtime validation failed with exit code $($process.ExitCode)"
-          }
-
-          "Windows ZIP SHA-256: $actualHash" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-          "Windows ZIP bytes: $actualBytes" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-          "Embedded pets: $($packages.Count)" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          finally { $stream.Dispose() }
+          $versionInfo = (Get-Item $exe).VersionInfo
+          if ($versionInfo.FileVersion -ne "$($manifest.version).0") { throw "File version mismatch: $($versionInfo.FileVersion)" }
+          $fixture = (Resolve-Path "release-source/petpack/fixtures/synthetic-cat-v1.petpack").Path
+          $process = Start-Process $exe -ArgumentList "--validate-only", ('"' + $fixture + '"') -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Native PetPack validation failed" }
+          "Windows ZIP SHA-256: $($artifact.sha256)" | Out-File $env:GITHUB_STEP_SUMMARY -Append
+          "Windows ZIP bytes: $($artifact.bytes)" | Out-File $env:GITHUB_STEP_SUMMARY -Append
+          "Embedded pets: 0" | Out-File $env:GITHUB_STEP_SUMMARY -Append

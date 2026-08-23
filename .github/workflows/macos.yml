@@ -41,20 +41,23 @@ jobs:
         shell: bash
         run: |
           python3 player/macos/scripts/build-app.py \
-            --output .local/dist/PetsGraph-0.7.0-dev.app \
-            --version 0.7.0-dev
-          test "$(lipo -archs .local/dist/PetsGraph-0.7.0-dev.app/Contents/MacOS/petsgraph)" = "arm64"
-          test ! -d .local/dist/PetsGraph-0.7.0-dev.app/Contents/Resources/Pets
-          test -z "$(find .local/dist/PetsGraph-0.7.0-dev.app -name '*.petpack' -print -quit)"
-          info_path=.local/dist/PetsGraph-0.7.0-dev.app/Contents/Info.plist
+            --output .local/dist/PetsGraph-1.0.0.app \
+            --version 1.0.0 \
+            --build-number 19
+          test "$(lipo -archs .local/dist/PetsGraph-1.0.0.app/Contents/MacOS/petsgraph)" = "arm64"
+          test ! -d .local/dist/PetsGraph-1.0.0.app/Contents/Resources/Pets
+          test -z "$(find .local/dist/PetsGraph-1.0.0.app -name '*.petpack' -print -quit)"
+          info_path=.local/dist/PetsGraph-1.0.0.app/Contents/Info.plist
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$info_path")" = "1.0.0"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$info_path")" = "19"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDocumentTypes:0:LSItemContentTypes:0' "$info_path")" = "com.maxwell.petsgraph.petpack"
           test "$(/usr/libexec/PlistBuddy -c 'Print :UTExportedTypeDeclarations:0:UTTypeTagSpecification:public.filename-extension:0' "$info_path")" = "petpack"
-          codesign --verify --deep --strict --verbose=2 .local/dist/PetsGraph-0.7.0-dev.app
+          codesign --verify --deep --strict --verbose=2 .local/dist/PetsGraph-1.0.0.app
 
       - name: Upload code-only app
         uses: actions/upload-artifact@v7
         with:
-          name: PetsGraph-0.7.0-dev-macOS-arm64
-          path: .local/dist/PetsGraph-0.7.0-dev.app
+          name: PetsGraph-1.0.0-macOS-arm64
+          path: .local/dist/PetsGraph-1.0.0.app
           if-no-files-found: error
           retention-days: 7

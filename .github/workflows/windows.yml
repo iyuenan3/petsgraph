@@ -51,12 +51,12 @@ jobs:
 
       - name: Publish portable x64 runtime ZIP
         shell: pwsh
-        run: player/windows/scripts/build-portable.ps1 -Version 0.7.0-dev -OutputDirectory $env:RUNNER_TEMP
+        run: player/windows/scripts/build-portable.ps1 -Version 1.0.0 -OutputDirectory $env:RUNNER_TEMP
 
       - name: Verify x64 PE and ZIP contents
         shell: pwsh
         run: |
-          $zip = Join-Path $env:RUNNER_TEMP "PetsGraph-v0.7.0-dev-Windows-x64.zip"
+          $zip = Join-Path $env:RUNNER_TEMP "PetsGraph-v1.0.0-Windows-x64.zip"
           $extract = Join-Path $env:RUNNER_TEMP "petsgraph-verify"
           Expand-Archive -Path $zip -DestinationPath $extract
           $exe = Join-Path $extract "PetsGraph/PetsGraph.exe"
@@ -79,11 +79,14 @@ jobs:
           if (Get-ChildItem -Path (Join-Path $extract "PetsGraph") -Recurse -File -Filter "*.petpack") {
             throw "Code-only CI artifact must not contain PetPack media"
           }
+          if ((Get-Content -Raw (Join-Path $extract "PetsGraph/VERSION.txt")).Trim() -ne "1.0.0") {
+            throw "VERSION.txt must contain 1.0.0"
+          }
 
       - name: Upload code-only runtime artifact
         uses: actions/upload-artifact@v7
         with:
-          name: PetsGraph-v0.7.0-dev-Windows-x64
-          path: ${{ runner.temp }}/PetsGraph-v0.7.0-dev-Windows-x64.zip
+          name: PetsGraph-v1.0.0-Windows-x64
+          path: ${{ runner.temp }}/PetsGraph-v1.0.0-Windows-x64.zip
           if-no-files-found: error
           retention-days: 7

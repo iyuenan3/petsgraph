@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = "0.7.0-dev",
+    [string]$Version = "1.0.0",
     [string]$OutputDirectory = ""
 )
 
@@ -32,6 +32,9 @@ try {
         -p:NuGetAudit=false `
         -p:RestoreLockedMode=true `
         -p:Version=$Version `
+        -p:FileVersion="$Version.0" `
+        -p:AssemblyVersion="$Version.0" `
+        -p:InformationalVersion=$Version `
         --output $PublishDirectory
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet publish failed with exit code $LASTEXITCODE"

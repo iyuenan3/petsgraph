@@ -117,9 +117,20 @@ internal sealed class PetsGraphApplication : System.Windows.Application, IDispos
         }
         menu.Items.Add(sizes);
         menu.Items.Add(new Forms.ToolStripSeparator());
+        var about = new Forms.ToolStripMenuItem("关于 PetsGraph");
+        about.Click += (_, _) => ShowAbout();
+        menu.Items.Add(about);
         var exit = new Forms.ToolStripMenuItem("退出 PetsGraph");
         exit.Click += (_, _) => Shutdown();
         menu.Items.Add(exit);
+    }
+
+    private static void ShowAbout()
+    {
+        var about = PlayerAboutInfo.FromAssembly(Assembly.GetExecutingAssembly());
+        Forms.MessageBox.Show(
+            $"{about.VersionLine}\n\n开放源代码的宠物播放器。宠物内容由独立的 .petpack 文件提供。",
+            "关于 PetsGraph", Forms.MessageBoxButtons.OK, Forms.MessageBoxIcon.Information);
     }
 
     private Forms.ToolStripMenuItem VisibilityMenu(string title, bool visible)
