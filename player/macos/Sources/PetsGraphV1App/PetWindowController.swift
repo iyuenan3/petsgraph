@@ -243,7 +243,8 @@ final class PetWindowController {
 
   private func startTimer() {
     guard timer == nil else { return }
-    let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+    let interval = tickInterval(for: currentPresentation?.clipID)
+    let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
       Task { @MainActor [weak self] in self?.tick() }
     }
     RunLoop.main.add(timer, forMode: .common)
@@ -296,6 +297,7 @@ final class PetWindowController {
     CATransaction.commit()
     currentPresentation = presentation
     retainStores(for: retainedClipIDs)
+    updateTimerInterval(for: presentation.clipID)
     updatePointer(at: NSEvent.mouseLocation)
   }
 
@@ -312,6 +314,21 @@ final class PetWindowController {
   private func retainStores(for clipIDs: Set<String>) {
     let obsolete = stores.keys.filter { !clipIDs.contains($0) }
     for clipID in obsolete { stores.removeValue(forKey: clipID) }
+  }
+
+  private func updateTimerInterval(for clipID: String) {
+    guard let timer else { return }
+    let interval = tickInterval(for: clipID)
+    guard abs(timer.timeInterval - interval) > 0.000_001 else { return }
+    stopTimer()
+    startTimer()
+  }
+
+  private func tickInterval(for clipID: String?) -> TimeInterval {
+    guard let clipID, let clip = package.clips[clipID] else { return 1.0 / 30.0 }
+    let frameDuration =
+      Double(clip.frameRate.denominator) / Double(clip.frameRate.numerator)
+    return max(1.0 / 60.0, frameDuration)
   }
 
   private func applyGeometry() {

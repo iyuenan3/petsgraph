@@ -212,6 +212,7 @@ internal sealed partial class PetWindow : Window, IDisposable
         renderedClipId = clip.Id;
         renderedFrameIndex = presentation.FrameIndex;
         renderer.RetainClips(retainedClipIds);
+        timer.Interval = TickInterval(clip);
     }
 
     private void ApplyGeometry()
@@ -351,6 +352,12 @@ internal sealed partial class PetWindow : Window, IDisposable
         var right = package.Clips.Values.Max(clip => clip.Geometry.CropPx[0] + clip.Geometry.CropPx[2]);
         var bottom = package.Clips.Values.Max(clip => clip.Geometry.CropPx[1] + clip.Geometry.CropPx[3]);
         return new(left, top, right - left, bottom - top);
+    }
+
+    private static TimeSpan TickInterval(PetClip clip)
+    {
+        var frameDuration = clip.FrameRate.Denominator / (double)clip.FrameRate.Numerator;
+        return TimeSpan.FromSeconds(Math.Max(1.0 / 60.0, frameDuration));
     }
 
     private static double UptimeSeconds() => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
