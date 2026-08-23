@@ -190,7 +190,7 @@ final class PetWindowController {
     panel.isOpaque = false
     panel.backgroundColor = .clear
     panel.hasShadow = false
-    panel.level = .floating
+    panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.dockWindow)) + 1)
     panel.hidesOnDeactivate = false
     panel.ignoresMouseEvents = true
     panel.collectionBehavior = [
