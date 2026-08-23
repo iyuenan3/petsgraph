@@ -119,15 +119,15 @@ python3 player/macos/scripts/build-app.py \
   --version 0.7.0-dev
 ```
 
-当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。输出只能位于仓库或系统临时目录，人工安装候选优先放在 `/private/tmp`。Desktop 的 File Provider 可能在签名后异步重新加入 `com.apple.FinderInfo`，导致严格签名复验失败，所以不要把 Desktop 同步目录当作安装候选事实源。构建器在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 33 项公开 PetPack 回归、27 项 Swift 测试并上传保留 7 天的代码开发 App。
+当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。输出只能位于仓库或系统临时目录，人工安装候选优先放在 `/private/tmp`。Desktop 的 File Provider 可能在签名后异步重新加入 `com.apple.FinderInfo`，导致严格签名复验失败，所以不要把 Desktop 同步目录当作安装候选事实源。构建器在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 33 项公开 PetPack 回归、30 项 Swift 测试并上传保留 7 天的代码开发 App。
 
 本地已验证：
 
-- Swift 严格警告编译与 26 项测试通过，新增回归使用飞流、五百两种舞台比例和带负坐标屏幕直接证明可见裁剪框能贴到上下左右四条边；其余回归继续覆盖双宠状态往返、卸载事务恢复、独立随机时钟、旧运行时只迁移位置和全局大小、首装、更新与进程中断回滚、损坏设置和行为预加载失败。
+- Swift 严格警告编译与 30 项测试通过，回归覆盖飞流、五百两种舞台比例的四边贴靠、屏幕坐标到顶部原点画布坐标的透明命中映射、七档精确菜单标签、双宠状态往返、卸载事务恢复、独立随机时钟、旧运行时只迁移位置和全局大小、首装、更新与进程中断回滚、损坏设置和行为预加载失败。
 - 公开 store 基线包、前向兼容包、临时 deflate 合成包、五百和飞流真实候选均由 Swift 原生加载器验证通过。
 - App 主可执行文件为 `arm64`，`codesign --verify --deep --strict` 通过。
 - App 不包含 `Resources/Pets`、`.petpack` 或真实宠物媒体。
-- 当前已安装 App 来自 `.local/dist/PetsGraph-0.7.0-review-build14.app`，版本 `0.7.0-review`、构建号 14，主程序为 1,216,928 bytes，SHA-256 为 `05ca70761304f65874cc5de5988b557f10e58ff56a4395c725ad91c145f2e342`。构建后与安装后的严格签名通过，主程序为 `arm64`，App 资源只有 `PetsGraph.icns`，没有 `.petpack`、`Resources/Pets` 或真实宠物素材。Info.plist 导出 `com.maxwell.petsgraph.petpack` 并把 `.petpack` 注册为可打开文档类型。
+- 当前已安装 App 来自 `.local/dist/PetsGraph-0.7.0-review-build16.app`，版本 `0.7.0-review`、构建号 16，主程序为 1,222,864 bytes，SHA-256 为 `45a1c4f0776c71b63d956ce2bda8c786d23f58cb308fb315cd501453524cdb4d`。构建后与安装后的严格签名通过，主程序为 `arm64`，App 资源只有 `PetsGraph.icns`，没有 `.petpack`、`Resources/Pets` 或真实宠物素材。Info.plist 导出 `com.maxwell.petsgraph.petpack` 并把 `.petpack` 注册为可打开文档类型。首次 GUI 启动仍待用户确认本地临时签名软件的系统提示。
 - build 6 完成构建但从未安装。build 7 完成安装和双宠稳定态 A/B 后由 build 8 取代，build 8 完成首次低 CPU 动作链后由增加四边公式回归的 build 9 取代，build 9 又由改善装载导航的 build 10 取代，build 10 再由增加系统文件关联的 build 11 取代，build 11 由修正菜单灰显的 build 12 取代，build 12 最后由修正 Dock 遮挡的 build 13 取代。build 5、build 7、build 8、build 9、build 10、build 11 与 build 12 均以带构建号和时间的名称可恢复保存在系统回收站。
 - build 4 已在真实 macOS 桌面启动五百与飞流。对两只默认睡眠循环分别取得 4 个正常速度画面摘要，画面持续缓慢变化且锚点不动；通过设置状态重启验证了单只隐藏、双宠显示、1.0 与 2.0 全局倍率恢复。自动化测试留下的 `Synthetic Cat` 彩色夹具资料库已完整移入系统回收站，真正空库启动没有宠物窗口。
 - 同一五百候选的原生 `--validate-only` A/B 中，build 3 最大常驻内存为 2,162,049,024 bytes，build 4 为 19,333,120 bytes。双宠 GUI 的 `vmmap` 物理占用由修前 1.6 GB 降至 55.8 MB，稳定取样约 3.3% CPU，唯一当前进程没有崩溃报告。该结果只覆盖默认睡眠循环，不替代长时间过渡、菜单、透明命中、拖动、卸载和用户视觉批准。
@@ -147,6 +147,8 @@ python3 player/macos/scripts/build-app.py \
 - `901b364` 与 build 14 修正 macOS 位置持久化。保存设置前会从全部实际窗口回收经过缩放或屏幕限位后的锚点和可见状态，避免旧锚点在重启或下一次缩放时重新生效。新增回归后 27 项 Swift 测试、严格格式、Release 构建、arm64、零素材和严格签名均通过；主程序为 1,216,928 bytes，SHA-256 为 `05ca70761304f65874cc5de5988b557f10e58ff56a4395c725ad91c145f2e342`。安装后首次启动恢复五百和飞流两个窗口，实际层级仍为 21。远端 macOS Apple Silicon 运行 `32636187517` 成功。build 13 保存在 `~/.Trash/PetsGraph-build13-20260823-191918.app`，可以恢复。
 - build 14 双宠稳定态十次 `top` 取样为 `0.0, 0.5, 0.9, 0.8, 0.8, 0.8, 0.8, 0.7, 0.7, 0.7`，排除首个样本后平均为 0.74%；`vmmap` 物理占用为 53.3 MB、峰值 56.0 MB。进程只映射飞流 `no-prop-prone-loop-v1` 与五百 `prone-left-long-loop-v1`，没有显示相对 build 13 的资源回退。
 - 用户在真实 macOS 桌面确认 build 14 的上下左右四边贴靠、`0.5` 至 `2.0` 七档全局大小和重启保持全部通过。四边限位、统一倍率与实际锚点持久化不再是当前人工门禁。
+- `d0cc03e` 与 build 15 把透明命中坐标和 alpha 阈值提取为可测试核心契约，29 项 Swift 测试、严格格式、arm64、零素材和严格签名通过。远端 macOS Apple Silicon 运行 `32637170614` 成功。
+- `5fdc03f` 与 build 16 把七个倍率标题固定为 `0.5×`、`0.75×`、`1.0×`、`1.25×`、`1.5×`、`1.75×`、`2.0×`，不再使用会把四分之一档位舍入的 `%.2g`。30 项 Swift 测试、严格格式、arm64、零素材、构建后和安装后严格签名均通过；远端 macOS Apple Silicon 运行 `32638115738` 成功。build 15 已可恢复地移入 `~/.Trash/PetsGraph-build15-20260823-200200.app`，build 16 的首次启动、实际菜单显示与透明区域穿透仍待 GUI 确认。
 
 上述结果不替代真实 macOS 桌面上的其余菜单、透明命中、宠物点击无动作、多宠并发、隐藏恢复、应用升级保留和正常速度视觉验收。
 
