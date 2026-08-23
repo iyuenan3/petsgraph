@@ -1,5 +1,15 @@
 import Foundation
 
+public struct PlayerScaleOption: Equatable, Sendable {
+  public let value: Double
+  public let label: String
+
+  public init(value: Double, label: String) {
+    self.value = value
+    self.label = label
+  }
+}
+
 public struct PetPlayerState: Codable, Equatable, Sendable {
   public var visible: Bool
   public var anchorX: Double?
@@ -19,7 +29,16 @@ public struct PetPlayerState: Codable, Equatable, Sendable {
 
 public struct PlayerState: Codable, Equatable, Sendable {
   public static let formatVersion = 1
-  public static let allowedScales = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+  public static let scaleOptions = [
+    PlayerScaleOption(value: 0.5, label: "0.5"),
+    PlayerScaleOption(value: 0.75, label: "0.75"),
+    PlayerScaleOption(value: 1.0, label: "1.0"),
+    PlayerScaleOption(value: 1.25, label: "1.25"),
+    PlayerScaleOption(value: 1.5, label: "1.5"),
+    PlayerScaleOption(value: 1.75, label: "1.75"),
+    PlayerScaleOption(value: 2.0, label: "2.0"),
+  ]
+  public static let allowedScales = scaleOptions.map(\.value)
 
   public var formatVersion: Int
   public var globalScale: Double

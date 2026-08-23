@@ -278,9 +278,10 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     let sizeRoot = NSMenuItem(title: "大小", action: nil, keyEquivalent: "")
     let sizes = NSMenu(title: "大小")
     sizes.autoenablesItems = false
-    for value in PlayerState.allowedScales {
+    for option in PlayerState.scaleOptions {
+      let value = option.value
       let item = NSMenuItem(
-        title: String(format: "%.2g×", value), action: #selector(selectScale(_:)), keyEquivalent: ""
+        title: "\(option.label)×", action: #selector(selectScale(_:)), keyEquivalent: ""
       )
       item.target = self
       item.representedObject = NSNumber(value: value)

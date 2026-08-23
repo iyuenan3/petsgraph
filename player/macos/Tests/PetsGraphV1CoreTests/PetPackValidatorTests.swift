@@ -233,6 +233,21 @@ final class PetPackValidatorTests: XCTestCase {
     XCTAssertEqual(PlayerState(globalScale: 1.1).globalScale, 1)
   }
 
+  func testPlayerScaleOptionsUseExactStableLabels() {
+    XCTAssertEqual(
+      PlayerState.scaleOptions,
+      [
+        PlayerScaleOption(value: 0.5, label: "0.5"),
+        PlayerScaleOption(value: 0.75, label: "0.75"),
+        PlayerScaleOption(value: 1.0, label: "1.0"),
+        PlayerScaleOption(value: 1.25, label: "1.25"),
+        PlayerScaleOption(value: 1.5, label: "1.5"),
+        PlayerScaleOption(value: 1.75, label: "1.75"),
+        PlayerScaleOption(value: 2.0, label: "2.0"),
+      ])
+    XCTAssertEqual(PlayerState.allowedScales, PlayerState.scaleOptions.map(\.value))
+  }
+
   func testPlayerStateCapturesClampedRuntimePositionBeforeSaving() {
     var state = PlayerState(
       pets: [
