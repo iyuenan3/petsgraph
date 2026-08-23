@@ -419,15 +419,16 @@ final class PetWindowController {
   }
 
   private func clampedAnchor(_ candidate: NSPoint) -> NSPoint {
-    let proposed = contentFrame(at: candidate)
+    let contentBounds = activeContentBoundsPx()
+    let proposed = contentFrame(at: candidate, contentBounds: contentBounds)
     let screen = NSScreen.screens.first(where: { $0.frame.intersects(proposed) }) ?? NSScreen.main
     guard let screenFrame = screen?.frame else { return candidate }
     let canvas = package.manifest.stage.referenceCanvasPx
     let pixelScale = panel.frame.height / Double(canvas[1])
-    let localMinX = contentEnvelopePx.minX * pixelScale
-    let localMaxX = contentEnvelopePx.maxX * pixelScale
-    let localMinY = (Double(canvas[1]) - contentEnvelopePx.maxY) * pixelScale
-    let localMaxY = (Double(canvas[1]) - contentEnvelopePx.minY) * pixelScale
+    let localMinX = contentBounds.minX * pixelScale
+    let localMaxX = contentBounds.maxX * pixelScale
+    let localMinY = (Double(canvas[1]) - contentBounds.maxY) * pixelScale
+    let localMaxY = (Double(canvas[1]) - contentBounds.minY) * pixelScale
     let minimumX = screenFrame.minX + panel.frame.width / 2 - localMinX
     let maximumX = screenFrame.maxX + panel.frame.width / 2 - localMaxX
     let minimumY = screenFrame.minY - localMinY
@@ -443,15 +444,26 @@ final class PetWindowController {
     return NSPoint(x: x, y: y)
   }
 
-  private func contentFrame(at candidate: NSPoint) -> NSRect {
+  private func contentFrame(at candidate: NSPoint, contentBounds: CGRect) -> NSRect {
     let canvas = package.manifest.stage.referenceCanvasPx
     let pixelScale = panel.frame.height / Double(canvas[1])
     return NSRect(
-      x: candidate.x - panel.frame.width / 2 + contentEnvelopePx.minX * pixelScale,
-      y: candidate.y + (Double(canvas[1]) - contentEnvelopePx.maxY) * pixelScale,
-      width: contentEnvelopePx.width * pixelScale,
-      height: contentEnvelopePx.height * pixelScale
+      x: candidate.x - panel.frame.width / 2 + contentBounds.minX * pixelScale,
+      y: candidate.y + (Double(canvas[1]) - contentBounds.maxY) * pixelScale,
+      width: contentBounds.width * pixelScale,
+      height: contentBounds.height * pixelScale
     )
+  }
+
+  private func activeContentBoundsPx() -> CGRect {
+    let clipID =
+      currentPresentation?.clipID
+      ?? package.graph.nodes.first {
+        $0.id == package.manifest.stage.defaultNode
+      }?.loopClip
+    guard let clipID, let clip = package.clips[clipID] else { return contentEnvelopePx }
+    let crop = clip.geometry.cropPx
+    return CGRect(x: crop[0], y: crop[1], width: crop[2], height: crop[3])
   }
 
   private static func contentEnvelope(for package: LoadedPetPack) -> CGRect {

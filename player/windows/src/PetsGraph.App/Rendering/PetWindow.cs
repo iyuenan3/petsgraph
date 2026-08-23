@@ -329,10 +329,11 @@ internal sealed partial class PetWindow : Window, IDisposable
         var right = left + SystemParameters.VirtualScreenWidth;
         var bottom = top + SystemParameters.VirtualScreenHeight;
         var pixelScale = PixelScale();
-        var localMinX = contentEnvelopePx.Left * pixelScale;
-        var localMaxX = contentEnvelopePx.Right * pixelScale;
-        var localMinY = contentEnvelopePx.Top * pixelScale;
-        var localMaxY = contentEnvelopePx.Bottom * pixelScale;
+        var contentBounds = ActiveContentBoundsPx();
+        var localMinX = contentBounds.Left * pixelScale;
+        var localMaxX = contentBounds.Right * pixelScale;
+        var localMinY = contentBounds.Top * pixelScale;
+        var localMaxY = contentBounds.Bottom * pixelScale;
         var minimumX = left + Width / 2 - localMinX;
         var maximumX = right + Width / 2 - localMaxX;
         var minimumY = top + Height - localMinY;
@@ -343,6 +344,16 @@ internal sealed partial class PetWindow : Window, IDisposable
         anchorY = minimumY > maximumY
             ? (top + bottom) / 2 + Height - (localMinY + localMaxY) / 2
             : Math.Clamp(anchorY, minimumY, maximumY);
+    }
+
+    private Rect ActiveContentBoundsPx()
+    {
+        if (renderedClipId is { } clipId && package.Clips.TryGetValue(clipId, out var clip))
+        {
+            var crop = clip.Geometry.CropPx;
+            return new(crop[0], crop[1], crop[2], crop[3]);
+        }
+        return contentEnvelopePx;
     }
 
     private static Rect ContentEnvelope(LoadedPetPack package)
