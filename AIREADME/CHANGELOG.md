@@ -22,6 +22,8 @@
 - Review: build 8 在 17 分 5 秒时让五百完成趴卧、侧蜷到侧伸展的自主动作链，过渡物理占用为 26.8 MB，进入新稳定循环后为 29.6 MB、约 0.9% CPU，峰值仍为 55.5 MB。
 - Review: build 9 为 `arm64` 零素材 App，主程序 1,213,984 bytes，SHA-256 为 `e7825902a0259b8da4a89f70b81d8a97085ddface6ceb3bf4e2f8ba3369135a1`。安装后十次 CPU 取样平均为 0.98%，物理占用为 55.7 MB、峰值 55.8 MB，画面摘要持续变化；`ded3df1` 的 macOS 运行 `32631375700` 成功。
 - Review: 当前 `main` 再次通过 PetPack 33 项、Codex 宠物 3 项、Swift 26 项和 MSTest 43 项。Python、Swift Build 9 与 C# 三个验证器对五百和飞流候选给出相同包摘要及 clip、node、edge 数；人工拖动入口修正为当前安装的 build 9，菜单、卸载与正常速度视觉结论仍不由自动化替代。
+- Changed: `76856e0` 为 macOS PetPack 装载窗口增加文件夹双击与 `⌘⇧G` 提示，首次进入下载目录，并在后续装载时恢复上次选择目录。
+- Review: 用户确认卸载成功，内部注册表为 0 个宠物，`Library`、`Cache` 与 `Staging` 均为空，原始五百和飞流候选仍在用户保存位置。build 10 为 `arm64` 零素材 App，主程序 1,214,752 bytes，SHA-256 为 `b4a65aa1abf0c383fa4a4436362999f647f71dd6824919be5ebc3165525008b1`；严格签名、格式检查与 26 项 Swift 测试通过。
 
 ## Unreleased · 2026-08-23
 
