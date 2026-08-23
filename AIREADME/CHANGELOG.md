@@ -7,6 +7,7 @@
 - Added: macOS 状态菜单在大小和退出之间增加“关于 PetsGraph”。关于窗口显示 App 图标、从当前 bundle 动态读取的版本号与构建号，以及 Player 与独立 `.petpack` 宠物内容的边界说明。
 - Added: Swift 新增 bundle 版本格式与缺失元数据安全回退测试，总数增至 33 项；正式 build 18 显示 `版本 0.7.0-review（构建 18）`，版本信息没有写死在菜单代码中。
 - Review: build 18 为 Apple Silicon 零素材 App，主程序 1,265,536 bytes，SHA-256 为 `43d7538a249058846ac8b9313e31b7c1815851b126073d5f6d68f8c3d446e677`。严格签名、合成包校验、零素材资源边界、安装替换和唯一进程启动通过，设置与双宠注册表摘要未变；build 17 已可恢复地移入系统回收站。状态栏菜单与关于窗口仍需用户实际点击确认。
+- Review: 远端 `main` 回读为 `8e99288`，macOS Apple Silicon 运行 `32646574447` 成功，完整执行 33 项 PetPack 回归、33 项 Swift 测试、零素材 arm64 App 构建、严格签名和代码产物上传。
 
 ## Unreleased macOS runtime efficiency · 2026-08-23
 

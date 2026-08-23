@@ -158,6 +158,7 @@ python3 player/macos/scripts/build-app.py \
 - build 17 从 `/Applications/PetsGraph.app` 启动为唯一 PID 18906，替换前后设置与注册表摘要不变。五百显示、飞流隐藏时，4 个间隔 1.5 秒的窗口摘要均不同；十次 CPU 样本排除首样本后平均 0.50%，上下文切换约每秒 56 次，物理占用 49.4 MB。当前只映射五百 `prone-left-long-loop-v1` 的 28.9 MB RGBA 和对应 236 个帧对象，飞流没有 RGBA 映射或帧对象。不同循环的物理占用不能直接作 A/B；双宠共享监听、全隐藏深度休眠、真实鼠标拖动和完整自主转场继续保留 build 17 后续观察。
 - 远端 `main` 已独立回读为 `8e6cd20751d74d9248c6b4b6fbc2508b651aabb5`。macOS Apple Silicon 运行 `32643135161` 在 1 分 4 秒内成功完成 PetPack 与 Swift 测试、零素材 arm64 App 构建、严格签名和代码产物上传。
 - `57ce0b0` 与 build 18 在大小和退出之间增加“关于 PetsGraph”。关于窗口从 App bundle 读取版本与构建号，正式安装显示 `版本 0.7.0-review（构建 18）`，并说明 Player 与独立 `.petpack` 内容边界。33 项 Swift 测试、严格格式、arm64 Release 构建、合成包校验、零素材边界和构建后与安装后严格签名通过；唯一 PID 26443 启动，替换前后设置与注册表摘要一致。Computer Use 已确认实际宠物窗口启动，状态栏菜单与关于窗口仍需用户实际点击确认。
+- 远端 `main` 已独立回读为 `8e99288f16d5ea3e42a5eadbcaa4712ec977a7b0`。macOS Apple Silicon 运行 `32646574447` 在 1 分 8 秒内成功完成 PetPack 与 Swift 测试、零素材 arm64 App 构建、严格签名和代码产物上传。
 
 上述 macOS 实际菜单、透明命中、宠物点击无动作和正常速度视觉门禁已经由用户结论关闭。Windows 真实 GUI 与正式发布仍按后续里程碑处理。
 
