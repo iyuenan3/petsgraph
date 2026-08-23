@@ -39,6 +39,8 @@
 - Review: 完整机械复验再次通过 PetPack 33 项、Codex 宠物 3 项、Swift 26 项、MSTest 43 项、Swift 与 .NET 格式检查，以及 Windows 全解决方案 0 警告、0 错误构建。Python、Swift 与 C# 对五百候选共同给出 `14f719b...`、36 clip、12 node、26 edge，对飞流候选共同给出 `f0308cd...`、25 clip、9 node、16 edge；公开 Git 和 Player 仍不包含私有目录或真实宠物媒体。
 - Review: 当前屏幕 Dock 占用底部 89 点，两只宠物窗口底部已经进入该区域，实际层级仍为宠物 21、Dock 20、主菜单 24，直接证明 Dock 前方堆叠。build 13 运行约 14 分钟后，后 9 次 CPU 取样平均为 0.70%，物理占用为 54.3 MB、峰值 55.1 MB，只映射双宠各自当前循环。Computer Use 拖动仍返回 `AXError.notImplemented`，不能替代真实鼠标验收。
 - Review: 用户在 build 13 上使用真实鼠标确认宠物可以从 Dock 区域拖出，Dock 遮挡和拖出可达不再是当前人工门禁。上下左右四边贴靠与重启保持仍需单独确认。
+- Fixed: `901b364` 让 macOS 每次保存设置前从全部实际宠物窗口回收可见状态和锚点，缩放限位、启动限位或屏幕变化产生的实际位置不再被旧锚点覆盖。新增回归后 27 项 Swift 测试与严格格式通过。
+- Review: 零素材 arm64 build 14 主程序为 1,216,928 bytes，SHA-256 为 `05ca70761304f65874cc5de5988b557f10e58ff56a4395c725ad91c145f2e342`，构建后和安装后严格签名通过。build 13 已可恢复地移入 `~/.Trash/PetsGraph-build13-20260823-191918.app`；build 14 首次启动恢复五百与飞流两个窗口，窗口服务器回读层级仍为 21。当前构建的四边、缩放后重启和正常速度视觉仍需人工确认。
 
 ## Unreleased · 2026-08-23
 

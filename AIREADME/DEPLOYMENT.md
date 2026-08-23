@@ -119,7 +119,7 @@ python3 player/macos/scripts/build-app.py \
   --version 0.7.0-dev
 ```
 
-当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。输出只能位于仓库或系统临时目录，人工安装候选优先放在 `/private/tmp`。Desktop 的 File Provider 可能在签名后异步重新加入 `com.apple.FinderInfo`，导致严格签名复验失败，所以不要把 Desktop 同步目录当作安装候选事实源。构建器在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 33 项公开 PetPack 回归、26 项 Swift 测试并上传保留 7 天的代码开发 App。
+当前 main 的构建器只产生 Apple Silicon、ad-hoc 签名、零宠物素材 App。输出只能位于仓库或系统临时目录，人工安装候选优先放在 `/private/tmp`。Desktop 的 File Provider 可能在签名后异步重新加入 `com.apple.FinderInfo`，导致严格签名复验失败，所以不要把 Desktop 同步目录当作安装候选事实源。构建器在打包前调用原生 `--validate-only` 读取公开合成 PetPack，并在打包后复验架构、签名、包身份和零素材边界。GitHub 的 `.github/workflows/macos.yml` 运行 33 项公开 PetPack 回归、27 项 Swift 测试并上传保留 7 天的代码开发 App。
 
 本地已验证：
 
@@ -144,6 +144,7 @@ python3 player/macos/scripts/build-app.py \
 - build 12 双宠无装载弹窗稳定运行后，`top` 首个初始化样本为 0.0%，后 9 次 CPU 平均为 0.99%；`vmmap` 物理占用为 53.6 MB、峰值 54.0 MB。进程只映射飞流 `no-prop-prone-loop-v1` 与五百 `prone-left-long-loop-v1`，启动后没有新的崩溃报告。该状态是当前日常双宠资源基线，但仍不能替代正常速度视觉批准。
 - `c9e9790` 与 build 13 将宠物面板从普通浮动层级 3 改为 Dock 层级加 1。安装态两个宠物窗口的实际层级均为 21，高于 Dock 的 20，低于系统主菜单的 24；内部资料库升级后仍为五百与飞流两个包。当前屏幕为 2056×1329，Dock 占用底部 89 点；五百窗口底部换算为 -26，飞流为 -32，均已进入 Dock 占用区，窗口服务器仍把两者排在 Dock 前方。26 项 Swift 测试、严格格式、构建后与安装后签名、零素材检查均通过，远端 macOS 运行 `32634129068` 成功。Computer Use 拖动继续返回 `AXError.notImplemented`，但用户已经用真实鼠标确认可以从 Dock 区域拖出。
 - build 13 运行约 14 分钟后的十次 `top` 取样首个样本为 0.0%，后 9 次 CPU 平均为 0.70%，内存列稳定为 54 MB；`vmmap` 物理占用为 54.3 MB、峰值 55.1 MB。进程仍只映射飞流 `no-prop-prone-loop-v1` 与五百 `prone-left-long-loop-v1`，Dock 层级修复没有造成可见资源回退。
+- `901b364` 与 build 14 修正 macOS 位置持久化。保存设置前会从全部实际窗口回收经过缩放或屏幕限位后的锚点和可见状态，避免旧锚点在重启或下一次缩放时重新生效。新增回归后 27 项 Swift 测试、严格格式、Release 构建、arm64、零素材和严格签名均通过；主程序为 1,216,928 bytes，SHA-256 为 `05ca70761304f65874cc5de5988b557f10e58ff56a4395c725ad91c145f2e342`。安装后首次启动恢复五百和飞流两个窗口，实际层级仍为 21。build 13 保存在 `~/.Trash/PetsGraph-build13-20260823-191918.app`，可以恢复。
 
 上述结果不替代真实 macOS 桌面上的菜单、拖动、透明命中、多宠并发、隐藏恢复、应用升级保留和正常速度视觉验收。
 
