@@ -94,6 +94,19 @@ public sealed class RgbaFrameRenderer : IDisposable
     public double Alpha(string clipId, int frameIndex, int canvasX, int canvasY) =>
         Store(clipId).Alpha(frameIndex, canvasX, canvasY);
 
+    public int CachedClipCount => stores.Count;
+
+    public void RetainClips(IEnumerable<string> clipIds)
+    {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        var retained = new HashSet<string>(clipIds, StringComparer.Ordinal);
+        foreach (var clipId in stores.Keys.Where(clipId => !retained.Contains(clipId)).ToArray())
+        {
+            stores.Remove(clipId, out var obsolete);
+            obsolete?.Dispose();
+        }
+    }
+
     public void Dispose()
     {
         if (disposed)

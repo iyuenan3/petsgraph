@@ -678,6 +678,22 @@ public sealed class PetPackV1Tests
     }
 
     [TestMethod]
+    public void RendererReleasesClipsOutsideCurrentPreloadPlan()
+    {
+        using var package = LoadedFixture();
+        using var renderer = new RgbaFrameRenderer(package.Value);
+        renderer.Preload("rest-primary-loop");
+        renderer.Preload("rest-primary-to-rest-secondary");
+
+        renderer.RetainClips(["rest-primary-to-rest-secondary"]);
+
+        Assert.AreEqual(1, renderer.CachedClipCount);
+        var layout = renderer.FrameLayout("rest-primary-loop");
+        Assert.AreEqual(2, renderer.CachedClipCount);
+        Assert.AreEqual(2, layout.Width);
+    }
+
+    [TestMethod]
     public void PlayerStateUsesOneBoundedGlobalScale()
     {
         Assert.AreEqual(0.5, PlayerState.NormalizeScale(0.5));

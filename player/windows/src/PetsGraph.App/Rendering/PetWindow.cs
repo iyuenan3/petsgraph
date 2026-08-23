@@ -170,6 +170,9 @@ internal sealed partial class PetWindow : Window, IDisposable
     private void Render(double now)
     {
         var presentation = session.Update(now);
+        var retainedClipIds = presentation.PreloadClipIds
+            .Append(presentation.ClipId)
+            .ToHashSet(StringComparer.Ordinal);
         try
         {
             foreach (var clipId in presentation.PreloadClipIds)
@@ -180,11 +183,13 @@ internal sealed partial class PetWindow : Window, IDisposable
         catch (Exception exception) when (!presentation.IsTransition &&
             exception is PetPackException or IOException or UnauthorizedAccessException)
         {
+            renderer.RetainClips([presentation.ClipId]);
             session.CancelPlannedTransition(now);
             return;
         }
         if (renderedClipId == presentation.ClipId && renderedFrameIndex == presentation.FrameIndex)
         {
+            renderer.RetainClips(retainedClipIds);
             return;
         }
         var clip = package.Clips[presentation.ClipId];
@@ -204,6 +209,7 @@ internal sealed partial class PetWindow : Window, IDisposable
         System.Windows.Controls.Canvas.SetTop(image, clip.Geometry.CropPx[1] * pixelScale);
         renderedClipId = clip.Id;
         renderedFrameIndex = presentation.FrameIndex;
+        renderer.RetainClips(retainedClipIds);
     }
 
     private void ApplyGeometry()

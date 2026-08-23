@@ -265,12 +265,14 @@ final class PetWindowController {
 
   private func render(at now: TimeInterval) throws {
     let presentation = try session.update(at: now)
+    let retainedClipIDs = Set(presentation.preloadClipIDs + [presentation.clipID])
     do {
       for clipID in presentation.preloadClipIDs {
         _ = try store(for: clipID).image(frameIndex: 0)
       }
     } catch {
       if !presentation.isTransition {
+        retainStores(for: [presentation.clipID])
         try session.cancelPlannedTransition(at: now)
         return
       }
@@ -279,7 +281,10 @@ final class PetWindowController {
     guard
       currentPresentation?.clipID != presentation.clipID
         || currentPresentation?.frameIndex != presentation.frameIndex
-    else { return }
+    else {
+      retainStores(for: retainedClipIDs)
+      return
+    }
     let store = try store(for: presentation.clipID)
     let image = try store.image(frameIndex: presentation.frameIndex)
     CATransaction.begin()
@@ -288,6 +293,7 @@ final class PetWindowController {
     updateLayerGeometry(for: store.clip)
     CATransaction.commit()
     currentPresentation = presentation
+    retainStores(for: retainedClipIDs)
     updatePointer(at: NSEvent.mouseLocation)
   }
 
@@ -299,6 +305,11 @@ final class PetWindowController {
     let result = try MappedRGBAClip(package: package, clip: clip)
     stores[clipID] = result
     return result
+  }
+
+  private func retainStores(for clipIDs: Set<String>) {
+    let obsolete = stores.keys.filter { !clipIDs.contains($0) }
+    for clipID in obsolete { stores.removeValue(forKey: clipID) }
   }
 
   private func applyGeometry() {
