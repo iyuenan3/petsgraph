@@ -45,7 +45,7 @@ cmp petpack/fixtures/synthetic-cat-forward-v1.petpack \
 | 五百 | `petpacks/personal/wubai/candidates/wubai-quiet-companion-1.0.0.petpack` | 36 | 12 | 26 | 1,068,381,496 | `14f719b67da95a4cf089500aedc7c67fb6c74c3a63a273052190856f99b3e0ef` |
 | 飞流 | `petpacks/personal/feiliu/candidates/feiliu-quiet-companion-1.0.0.petpack` | 25 | 9 | 16 | 596,024,359 | `f0308cd322fbbd1ef1259e64ca3f93a8f7da58b202aa441baef5a26fe61aef25` |
 
-转换前完整回读旧 integrity，转换后公开验证器通过，旧媒体到新媒体的字节数与 SHA-256 不匹配数均为 0。两个候选分别重复构建一次，前后包级 SHA-256 不变。五百排除 2 个 interaction 节点、2 个网关停留循环及 15 个其他交互 clip，保留两条场景过渡的像素，但不携带其旧窗口 root motion；飞流排除 2 个 interaction 节点及 6 个交互 clip。候选状态均为 `mechanically-validated-awaiting-player-runtime-review`，尚未进入 `approved/` 或 `delivery/`，不能作为 Player 或真实桌面验收通过。
+转换前完整回读旧 integrity，转换后公开验证器通过，旧媒体到新媒体的字节数与 SHA-256 不匹配数均为 0。两个候选分别重复构建一次，前后包级 SHA-256 不变。五百排除 2 个 interaction 节点、2 个网关停留循环及 15 个其他交互 clip，保留两条场景过渡的像素，但不携带其旧窗口 root motion；飞流排除 2 个 interaction 节点及 6 个交互 clip。Apple Silicon macOS build 16 的真实桌面验收已经用户通过；Windows GUI 按当前要求暂缓。两个包仍位于 `candidates/`，尚未进入 `approved/` 或 `delivery/`，不能当作正式交付物。
 
 ## macOS v0.6.0 发布基线
 
@@ -149,11 +149,12 @@ python3 player/macos/scripts/build-app.py \
 - 用户在真实 macOS 桌面确认 build 14 的上下左右四边贴靠、`0.5` 至 `2.0` 七档全局大小和重启保持全部通过。四边限位、统一倍率与实际锚点持久化不再是当前人工门禁。
 - `d0cc03e` 与 build 15 把透明命中坐标和 alpha 阈值提取为可测试核心契约，29 项 Swift 测试、严格格式、arm64、零素材和严格签名通过。远端 macOS Apple Silicon 运行 `32637170614` 成功。
 - `5fdc03f` 与 build 16 把七个倍率标题固定为 `0.5×`、`0.75×`、`1.0×`、`1.25×`、`1.5×`、`1.75×`、`2.0×`，不再使用会把四分之一档位舍入的 `%.2g`。30 项 Swift 测试、严格格式、arm64、零素材、构建后和安装后严格签名均通过；远端 macOS Apple Silicon 运行 `32638115738` 成功。build 15 已可恢复地移入 `~/.Trash/PetsGraph-build15-20260823-200200.app`。
-- build 16 已在用户明确允许后首次真实启动。唯一 PID 97269 从 App Translocation 中运行的主程序 SHA-256 仍为 `45a1c4f0776c71b63d956ce2bda8c786d23f58cb308fb315cd501453524cdb4d`，严格签名通过，并加载五百与飞流各自 canonical cache。五百按 2.5 秒间隔取得的 4 个窗口图像 SHA-256 均不同。十次 CPU 取样排除首样本后平均约为 0.79%，内存列稳定为 52 MB；探测前后设置文件摘要完全一致，没有误改倍率、可见状态或锚点。Computer Use 无法向透明、非激活的 `NSPanel` 注入点击，因此实际菜单标签、透明穿透和宠物点击无动作仍需用户人工确认。
+- build 16 已在用户明确允许后首次真实启动。唯一 PID 97269 从 App Translocation 中运行的主程序 SHA-256 仍为 `45a1c4f0776c71b63d956ce2bda8c786d23f58cb308fb315cd501453524cdb4d`，严格签名通过，并加载五百与飞流各自 canonical cache。五百按 2.5 秒间隔取得的 4 个窗口图像 SHA-256 均不同。十次 CPU 取样排除首样本后平均约为 0.79%，内存列稳定为 52 MB；探测前后设置文件摘要完全一致，没有误改倍率、可见状态或锚点。Computer Use 无法向透明、非激活的 `NSPanel` 注入点击，因此这些项目继续交给用户用真实鼠标确认。
 - build 16 运行 18 分 34 秒后，飞流从 `no-prop-prone-loop-v1` 自主切换并稳定进入 `no-prop-tight-curled-loop-v1`，五百仍保持自己的 `prone-left-long-loop-v1`。回读只剩这两个当前稳定循环的 RGBA 映射，旧飞流循环和过渡媒体已经淘汰，证明双宠独立时钟、自主换姿和有界缓存同时工作。切换后的十次 CPU 取样排除首样本后平均约为 1.38%，内存列稳定为 51 MB。该采样紧随动作切换，不作为长期稳定态基线，也不替代用户对完整过渡的正常速度观看。
 - 2026-08-23 20:49（Asia/Shanghai）再次运行当前 macOS 测试入口，30 项 Swift 测试全部通过。直接覆盖隐藏期间完成当前过渡后暂停、删除 cache 后从 canonical 归档重建、同长度媒体损坏后重建、更新失败回滚、双宠状态往返、透明像素穿透计算和七档精确倍率标签。build 11 至 build 16 的实际应用替换持续保留双宠 canonical 资料库，因此隐藏过渡、cache 重建和应用升级保留不再列为当前人工门禁。
+- 用户于 2026-08-23 20:54（Asia/Shanghai）确认 build 16 的 `1.25×` 与 `1.75×` 实际菜单、透明区域点击穿透、宠物点击无动作和正常速度视觉表现四项全部通过。收尾复验再次通过 PetPack 33 项、Codex 宠物 3 项、Swift 30 项、MSTest 44 项、Windows 零警告构建和 Python、Swift、C# 对五百飞流同包的一致性读取。
 
-上述结果不替代真实 macOS 桌面上的实际菜单、透明命中、宠物点击无动作和正常速度视觉验收。
+上述 macOS 实际菜单、透明命中、宠物点击无动作和正常速度视觉门禁已经由用户结论关闭。Windows 真实 GUI 与正式发布仍按后续里程碑处理。
 
 ## macOS `v0.6.0` 历史构建基线
 
@@ -211,7 +212,7 @@ DOTNET_CLI_HOME=/private/tmp/petsgraph-dotnet-home \
 
 当前开发 ZIP 没有代码签名，可能触发 SmartScreen。正式 `1.0.0` 之前还必须在真实 Windows x64 机器运行 PowerShell 打包入口和 GUI 验收，冻结人类看过的候选，再决定是否增加代码签名或安装器。
 
-本轮 12 项重构要求、清理恢复点、双平台产物摘要和逐项人工门禁统一记录在 `docs/audits/refactor-2026-08-23.md`。该记录明确保持 Goal 未完成，不得用自动化测试替代真实桌面批准。
+本轮 12 项重构要求、清理恢复点、双平台产物摘要和逐项人工验收统一记录在 `docs/audits/refactor-2026-08-23.md`。该记录确认本轮 Goal 在约定范围内完成，并保留用户真实桌面批准与 Windows GUI 暂缓边界，不能用自动化测试改写两者。
 
 首次把重构提交推送到远端后，macOS Apple Silicon 工作流在 `a7c2cb5` 通过。PetPack contract 的 Windows job 暴露 Python `ZipInfo.filename` 会把原始反斜线规范化，Windows x64 job 另暴露 .NET `ZipArchive` 在 Windows 上不会自动把 Unix 权限位标记为 Unix 创建主机。`1937a03` 改为验证 `orig_filename` 并让测试写入真实原始路径，`f6b855f` 让 C# 恶意 symlink 测试包在所有平台固定中央目录创建主机。修复后远端 `main` 回读为 `97485a0c5ccc557748773738dac5e009cf221753`，PetPack contract 运行 `32596460282`、macOS 运行 `32596460260`、Windows 运行 `32596460309` 均通过。远端上传的 macOS 与 Windows 代码开发产物分别为 1,806,750 和 77,508,772 bytes，保留 7 天。完整步骤回读见 `docs/audits/refactor-2026-08-23.md`。
 

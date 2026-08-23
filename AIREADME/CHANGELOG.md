@@ -54,6 +54,7 @@
 - Review: Computer Use 无法向透明、非激活的宠物 `NSPanel` 注入鼠标事件，因此自动化不替代实际菜单、透明穿透和宠物点击无动作验收。上述项目与用户正常速度视觉结论继续保留人工门禁。
 - Review: build 16 运行 18 分 34 秒后，飞流从 `no-prop-prone-loop-v1` 自主切换并稳定进入 `no-prop-tight-curled-loop-v1`，五百仍保持自己的 `prone-left-long-loop-v1`。进程只保留两只当前稳定循环的 RGBA 映射，证明独立时钟与有界缓存继续生效。切换后 CPU 取样排除首样本平均约为 1.38%，内存列稳定为 51 MB；该机械证据不替代用户对完整过渡的正常速度观看。
 - Review: 当前 macOS 30 项 Swift 测试再次通过，直接覆盖隐藏过渡、cache 删除与损坏重建、更新失败回滚、透明像素命中和精确倍率标签；build 11 至 build 16 的实际应用替换持续保留双宠 canonical 资料库。当前人工门禁收敛为 build 16 实际菜单、透明穿透、宠物点击无动作和正常速度视觉结论。
+- Review: 用户确认 build 16 的 `1.25×` 与 `1.75×` 实际菜单、透明区域点击穿透、宠物点击无动作和正常速度视觉表现四项全部通过。收尾复验再次通过 PetPack 33 项、Codex 宠物 3 项、Swift 30 项、MSTest 44 项、Windows 零警告构建和 Python、Swift、C# 同包一致性，本轮重构 Goal 在约定范围内完成。Windows 真实 GUI、候选正式批准与 `1.0.0` 发布继续作为后续里程碑。
 
 ## Unreleased · 2026-08-23
 
