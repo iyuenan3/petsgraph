@@ -702,6 +702,38 @@ public sealed class PetPackV1Tests
     }
 
     [TestMethod]
+    public void StateStoreRoundTripsTwoPetsAndPrunesUninstalledState()
+    {
+        using var workspace = new TestWorkspace();
+        var root = workspace.CreateDirectory("settings-root");
+        var primary = new PetPackValidator().ValidateAndExtract(
+            FixturePath, workspace.CreateDirectory("primary-runtime")).Package;
+        var secondary = new PetPackValidator().ValidateAndExtract(
+            ForwardFixturePath, workspace.CreateDirectory("secondary-runtime")).Package;
+        var store = new PlayerStateStore(root);
+        var state = new PlayerState { GlobalScale = 1.75 };
+        state.Pets.Add(primary.Manifest.Package.Id,
+            new() { Visible = false, AnchorX = 123.5, AnchorY = 456.25 });
+        state.Pets.Add(secondary.Manifest.Package.Id,
+            new() { Visible = true, AnchorX = -80, AnchorY = 900 });
+        state.Pets.Add("uninstalled-pet",
+            new() { Visible = false, AnchorX = 1, AnchorY = 2 });
+
+        store.Save(state);
+        var restored = store.Load([primary, secondary]);
+
+        Assert.IsNull(store.LoadWarning);
+        Assert.AreEqual(1.75, restored.GlobalScale);
+        CollectionAssert.AreEquivalent(
+            new[] { primary.Manifest.Package.Id, secondary.Manifest.Package.Id },
+            restored.Pets.Keys.ToArray());
+        Assert.AreEqual(new PetPlayerState { Visible = false, AnchorX = 123.5, AnchorY = 456.25 },
+            restored.Pets[primary.Manifest.Package.Id]);
+        Assert.AreEqual(new PetPlayerState { Visible = true, AnchorX = -80, AnchorY = 900 },
+            restored.Pets[secondary.Manifest.Package.Id]);
+    }
+
+    [TestMethod]
     public void SemanticVersionOrderingFollowsPrereleaseRules()
     {
         Assert.IsTrue(SemanticVersion.Parse("1.0.0-alpha.1") < SemanticVersion.Parse("1.0.0"));

@@ -126,6 +126,56 @@ final class PetPackValidatorTests: XCTestCase {
     }
   }
 
+  func testStateStoreRoundTripsTwoPetsAndPrunesUninstalledState() throws {
+    let root = FileManager.default.temporaryDirectory
+      .appendingPathComponent("petsgraph-settings-\(UUID().uuidString)", isDirectory: true)
+    let primaryRuntime = root.appendingPathComponent("primary", isDirectory: true)
+    let secondaryRuntime = root.appendingPathComponent("secondary", isDirectory: true)
+    try FileManager.default.createDirectory(at: primaryRuntime, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: secondaryRuntime, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let repository = repositoryRoot()
+    let validator = PetPackValidator()
+    let primary = try validator.validateAndExtract(
+      sourceURL: repository.appendingPathComponent("petpack/fixtures/synthetic-cat-v1.petpack"),
+      to: primaryRuntime
+    ).package
+    let secondary = try validator.validateAndExtract(
+      sourceURL: repository.appendingPathComponent(
+        "petpack/fixtures/synthetic-cat-forward-v1.petpack"),
+      to: secondaryRuntime
+    ).package
+    let suite = "petsgraph-tests-\(UUID().uuidString)"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let store = PlayerStateStore(rootURL: root, defaults: defaults)
+    let state = PlayerState(
+      globalScale: 1.75,
+      pets: [
+        primary.manifest.package.id: PetPlayerState(
+          visible: false, anchorX: 123.5, anchorY: 456.25),
+        secondary.manifest.package.id: PetPlayerState(
+          visible: true, anchorX: -80, anchorY: 900),
+        "uninstalled-pet": PetPlayerState(visible: false, anchorX: 1, anchorY: 2),
+      ]
+    )
+
+    try store.save(state)
+    let restored = store.load(for: [primary, secondary])
+
+    XCTAssertNil(store.loadWarning)
+    XCTAssertEqual(restored.globalScale, 1.75)
+    XCTAssertEqual(
+      restored.pets,
+      [
+        primary.manifest.package.id: PetPlayerState(
+          visible: false, anchorX: 123.5, anchorY: 456.25),
+        secondary.manifest.package.id: PetPlayerState(
+          visible: true, anchorX: -80, anchorY: 900),
+      ]
+    )
+  }
+
   func testCanonicalLibraryImportsIdempotentlyAndOwnsItsCopy() throws {
     let root = FileManager.default.temporaryDirectory
       .appendingPathComponent("petsgraph-library-\(UUID().uuidString)", isDirectory: true)
